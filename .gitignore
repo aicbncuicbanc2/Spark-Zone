@@ -1,0 +1,12 @@
+# Node
+node_modules/
+.expo/
+
+# Python
+__pycache__/
+*.pyc
+venv/
+
+# Environment variables (never commit API keys)
+.env
+.env.local
