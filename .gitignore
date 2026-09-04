@@ -10,3 +10,17 @@ venv/
 # Environment variables (never commit API keys)
 .env
 .env.local
+# Python tooling
+.pytest_cache/
+.ruff_cache/
+.venv/
+*.egg-info/
+
+# Service account keys — never commit these
+*service-account*.json
+firebase-adminsdk*.json
+gcp-credentials*.json
+
+# PaddleOCR downloads models on first run
+.paddleocr/
+inference/

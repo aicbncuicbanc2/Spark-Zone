@@ -1,0 +1,9 @@
+# Heavy OCR / vision dependencies. Installed in the Docker image only.
+# These add ~1-1.5 GB; keep them out of local dev unless you are working on OCR.
+paddlepaddle>=2.6.0
+paddleocr>=2.9.0
+google-cloud-vision>=3.8.0
+opencv-python-headless>=4.10.0
+pillow>=10.4.0
+pyzbar>=0.1.9          # needs the libzbar0 system package (see Dockerfile)
+numpy>=1.26.0,<2.0.0   # paddle is not yet reliable on numpy 2.x
