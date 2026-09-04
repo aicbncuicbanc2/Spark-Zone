@@ -8,6 +8,7 @@ Every failure the frontend sees looks like:
 Your teammate can branch on `error.code` and never has to parse prose.
 """
 
+import json
 from typing import Any
 
 from fastapi import FastAPI, Request
@@ -81,6 +82,35 @@ def _envelope(request: Request, code: str, message: str, details: dict[str, Any]
     }
 
 
+def _jsonable_errors(raw: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Make pydantic's error list safe to serialise.
+
+    When a custom @field_validator or @model_validator raises ValueError,
+    pydantic v2 puts the *exception object itself* into `ctx['error']`, and
+    `input` can be any object at all. Serialising those raises TypeError inside
+    the handler, which turns every such validation failure into an opaque 500.
+    """
+    cleaned: list[dict[str, Any]] = []
+    for error in raw:
+        item = dict(error)
+        item.pop("url", None)  # link to pydantic docs; noise for our clients
+
+        if isinstance(item.get("ctx"), dict):
+            item["ctx"] = {k: str(v) for k, v in item["ctx"].items()}
+
+        if "input" in item:
+            try:
+                json.dumps(item["input"])
+            except (TypeError, ValueError):
+                item["input"] = str(item["input"])
+
+        if "loc" in item:
+            item["loc"] = [str(part) for part in item["loc"]]
+
+        cleaned.append(item)
+    return cleaned
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(AppError)
     async def _app_error(request: Request, exc: AppError) -> JSONResponse:
@@ -97,7 +127,7 @@ def register_exception_handlers(app: FastAPI) -> None:
                 request,
                 "VALIDATION_ERROR",
                 "One or more fields failed validation.",
-                {"fields": exc.errors()},
+                {"fields": _jsonable_errors(exc.errors())},
             ),
         )
 

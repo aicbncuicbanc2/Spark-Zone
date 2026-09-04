@@ -3,7 +3,7 @@
 **Status legend:** ✅ live · 🟡 in progress · ⬜ planned
 
 Base URL (local): `http://localhost:8080`
-Base URL (deployed): _TBD — Cloud Run URL goes here on Day 2_
+Base URL (deployed): _pending — Cloud Run deploy is blocked on gcloud auth_
 
 Interactive docs: `GET /docs` (Swagger UI, generated from the live server)
 
@@ -60,7 +60,7 @@ Useful for confirming a deploy is actually wired up.
 
 ---
 
-## ⬜ Items — the pantry (Day 3–4)
+## ✅ Items — the pantry
 
 ### `GET /v1/items`
 | Query param | Type | Notes |
@@ -91,9 +91,7 @@ Useful for confirming a deploy is actually wired up.
       "created_at": "2026-09-04T10:00:00Z"
     }
   ],
-  "total": 23,
-  "limit": 50,
-  "offset": 0
+  "page": { "total": 23, "limit": 50, "offset": 0 }
 }
 ```
 
@@ -131,17 +129,21 @@ user edited the OCR result** — it is how we measure OCR accuracy for the demo.
 `PATCH` accepts any subset of the create fields. Setting `opened_at` recalculates
 `effective_expiry_date` and reschedules that item's reminders.
 
-### `GET /v1/dashboard`
+### ✅ `GET /v1/dashboard`
 One call for the home screen — counts plus the urgent tail. Use this instead of
 fetching all items and bucketing on the client.
 
 ```json
 {
-  "counts": { "expired": 2, "critical": 1, "soon": 3, "upcoming": 5, "ok": 12, "total_active": 21 },
-  "expiring_soon": [ { "...item objects, soonest first, max 10..." } ],
-  "generated_at": "2026-09-04T10:00:00Z"
+  "counts": { "expired": 2, "critical": 1, "soon": 3, "upcoming": 5, "ok": 12, "total_active": 23 },
+  "expiring_soon": [ { "...item objects, soonest first, default 10 (?expiring_limit=)..." } ],
+  "generated_at": "2026-09-04T10:00:00Z",
+  "timezone": "Asia/Kuala_Lumpur"
 }
 ```
+
+The five buckets always sum to `total_active`, so you can render a stacked bar
+straight from `counts` without reconciling anything.
 
 ---
 
@@ -197,7 +199,7 @@ token is safe (idempotent).
 ### `GET /v1/reminders`
 Upcoming schedule, so the app can show "we'll remind you on Friday".
 
-### `PATCH /v1/me/preferences`
+### ✅ `GET /v1/me` and `PATCH /v1/me/preferences`
 ```json
 { "timezone": "Asia/Kuala_Lumpur", "reminder_lead_days": [7, 3, 1],
   "quiet_hours_start": "22:00", "quiet_hours_end": "08:00", "push_enabled": true }
@@ -216,7 +218,8 @@ Upcoming schedule, so the app can show "we'll remind you on Friday".
 - `GET /v1/items/{id}/guidance` — usage tip or disposal steps, chosen by category
   and whether the item has expired. Returns `severity` (`info` \| `caution` \|
   `hazard`) — **render `hazard` prominently**, it covers medicine and aerosols.
-- `GET /v1/categories` — populate pickers. Includes `label_ms` and `label_zh`.
+- ✅ `GET /v1/categories` — populate pickers. Includes `label_ms` and `label_zh`, plus
+  `default_pao_months` to prefill period-after-opening.
 - `GET /v1/products/lookup?barcode=` — identity lookup.
 - `GET /v1/stats` — items saved vs. wasted, for the impact screen.
 

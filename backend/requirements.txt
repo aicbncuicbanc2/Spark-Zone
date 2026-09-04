@@ -15,5 +15,8 @@ cloudinary>=1.41.0
 firebase-admin>=6.6.0
 
 # Utilities
+# tzdata ships the IANA database. Windows has none at all, and slim Linux
+# images often omit it - without this, ZoneInfo('Asia/Kuala_Lumpur') raises.
+tzdata>=2024.1
 python-dateutil>=2.9.0
 tenacity>=9.0.0
