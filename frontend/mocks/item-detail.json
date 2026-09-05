@@ -1,0 +1,23 @@
+{
+  "id": "138c1a54-e8b9-44a2-90ed-f30f8bb411a2",
+  "name": "Anessa Perfect UV Sunscreen",
+  "brand": "Shiseido",
+  "category_id": "skincare",
+  "expiry_date": "2028-01-01",
+  "opened_at": "2026-02-26",
+  "pao_months": 6,
+  "effective_expiry_date": "2026-08-26",
+  "days_remaining": -10,
+  "urgency": "expired",
+  "quantity": 1.0,
+  "unit": "bottle",
+  "storage_location": "Bathroom shelf",
+  "notes": "[demo seed] printed expiry 2028 but opened 6 months ago",
+  "scan_id": null,
+  "product_id": null,
+  "date_source": "ocr",
+  "status": "active",
+  "resolved_at": null,
+  "created_at": "2026-09-04T18:27:12.633367Z",
+  "updated_at": "2026-09-04T18:27:12.633367Z"
+}
