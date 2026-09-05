@@ -82,22 +82,45 @@ repository, which is public.
 
 ---
 
+## Getting the repository
+
+It is public, so no access setup is needed:
+
+```bash
+git clone https://github.com/aicbncuicbanc2/Spark-Zone.git
+cd Spark-Zone
+```
+
+If you already have it, `git pull` instead.
+
 ## Backend base URL
 
-Nothing is deployed yet. Until it is, run it locally:
+Nothing is deployed yet, so the backend runs on the **backend developer's
+machine**. Ask them for their LAN IP and use `http://<that-ip>:8080`.
 
-```powershell
+Not `localhost` — on a phone that means the phone itself. Both devices must be
+on the same wifi, and their laptop has to be awake. A Cloud Run URL will replace
+this, so keep the base URL in **one config constant**; swapping it is then a
+one-line change.
+
+### Running the backend yourself (optional, macOS)
+
+Only needed if you want to work while they are offline. Requires their `.env`
+values, which are deliberately not in the repository:
+
+```bash
 cd backend
-.\venv\Scripts\Activate.ps1
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements-dev.txt
+cp .env.example .env          # then fill in the Supabase values from them
 uvicorn app.main:app --host 0.0.0.0 --port 8080
 ```
 
-Then point the app at `http://<the backend machine's LAN IP>:8080` — not
-`localhost`, which on a phone means the phone itself. Both devices must be on the
-same wifi. A Cloud Run URL will replace this; keep the base URL in one config
-constant so swapping it is a one-line change.
+Skip `requirements-ml.txt` unless you need the camera endpoint working locally —
+it pulls roughly 1.5 GB of OCR dependencies.
 
-Interactive API docs: `http://localhost:8080/docs`
+Interactive API docs, once running: `http://localhost:8080/docs`
 
 ---
 
