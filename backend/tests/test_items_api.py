@@ -335,3 +335,79 @@ def test_bad_timezone_is_rejected(client: TestClient, auth_a: dict[str, str]) ->
         "/v1/me/preferences", headers=auth_a, json={"timezone": "Asia/KL"}
     )
     assert resp.status_code == 422
+
+
+# --- image_url ----------------------------------------------------------------
+
+
+def test_manual_item_has_no_image(client: TestClient, auth_a: dict[str, str]) -> None:
+    """A manually entered item was never scanned, so it has no photo."""
+    created = client.post(
+        "/v1/items",
+        headers=auth_a,
+        json={"name": "pytest manual probe", "expiry_date": "2027-12-22"},
+    ).json()
+    try:
+        assert "image_url" in created, "the field must be present even when null"
+        assert created["image_url"] is None
+    finally:
+        client.request("DELETE", f"/v1/items/{created['id']}", headers=auth_a)
+
+
+def test_image_url_is_consistent_across_create_get_and_list(
+    client: TestClient, auth_a: dict[str, str]
+) -> None:
+    """Regression: an insert does not return PostgREST embeds.
+
+    Without a re-read after insert, creating an item from a scan returned
+    image_url null and the photo only appeared on a later fetch.
+    """
+    import io
+
+    from PIL import Image
+
+    buffer = io.BytesIO()
+    Image.new("RGB", (400, 300), (250, 250, 250)).save(buffer, format="JPEG")
+    scan = client.post(
+        "/v1/scans", headers=auth_a, files={"image": ("p.jpg", buffer.getvalue(), "image/jpeg")}
+    ).json()
+
+    created = client.post(
+        "/v1/items",
+        headers=auth_a,
+        json={
+            "name": "pytest image probe",
+            "expiry_date": "2027-12-22",
+            "scan_id": scan["scan_id"],
+            "date_source": "ocr",
+        },
+    ).json()
+    try:
+        if scan.get("image_url") is None:
+            pytest.skip("Cloudinary not configured, so there is no image to embed")
+
+        fetched = client.get(f"/v1/items/{created['id']}", headers=auth_a).json()
+        listed = next(
+            row
+            for row in client.get("/v1/items?limit=200", headers=auth_a).json()["items"]
+            if row["id"] == created["id"]
+        )
+        patched = client.patch(
+            f"/v1/items/{created['id']}", headers=auth_a, json={"name": "renamed"}
+        ).json()
+
+        assert created["image_url"] == scan["image_url"]
+        assert fetched["image_url"] == scan["image_url"]
+        assert listed["image_url"] == scan["image_url"]
+        assert patched["image_url"] == scan["image_url"]
+    finally:
+        client.request("DELETE", f"/v1/items/{created['id']}", headers=auth_a)
+        client.request("DELETE", f"/v1/scans/{scan['scan_id']}", headers=auth_a)
+
+
+def test_embedded_scan_key_is_not_leaked(
+    client: TestClient, auth_a: dict[str, str], item: dict
+) -> None:
+    """PostgREST returns a nested `scans` object; the client must never see it."""
+    for row in client.get("/v1/items?limit=5", headers=auth_a).json()["items"]:
+        assert "scans" not in row

@@ -62,6 +62,9 @@ class ItemCreate(ItemBase):
     scan_id: str | None = None
     product_id: str | None = None
     date_source: DateSource = DateSource.USER
+    # No image_url here on purpose: the photo belongs to the scan, and items
+    # read it back through scan_id. Accepting one on create would let a client
+    # attach an arbitrary URL, and items has no such column anyway.
 
 
 class ItemUpdate(BaseModel):
@@ -110,6 +113,8 @@ class ItemOut(BaseModel):
 
     scan_id: str | None = None
     product_id: str | None = None
+    #: Photo of the label this item came from, or null for a manual entry.
+    image_url: str | None = None
     date_source: DateSource
     status: ItemStatus
     resolved_at: datetime | None = None

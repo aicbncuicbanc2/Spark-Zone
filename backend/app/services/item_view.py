@@ -22,6 +22,13 @@ def as_date(value: Any) -> date:
 def to_item_out(row: dict[str, Any], today: date) -> ItemOut:
     effective = as_date(row["effective_expiry_date"])
     days, urgency = describe(effective, today)
+
+    # PostgREST returns the embedded scan as a nested object (or null for a
+    # manual entry). Flatten it so the client sees a plain image_url.
+    row = dict(row)
+    scan = row.pop("scans", None)
+    row.setdefault("image_url", (scan or {}).get("image_url") if scan else None)
+
     return ItemOut(**row, days_remaining=days, urgency=urgency)
 
 

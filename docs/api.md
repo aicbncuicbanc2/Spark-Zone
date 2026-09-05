@@ -79,21 +79,37 @@ Useful for confirming a deploy is actually wired up.
       "name": "Anessa Perfect UV Sunscreen",
       "brand": "Shiseido",
       "category_id": "skincare",
-      "expiry_date": "2027-03-01",
+
+      "expiry_date": "2028-01-01",
       "opened_at": "2026-06-15",
-      "pao_months": 12,
-      "effective_expiry_date": "2027-03-01",
-      "days_remaining": 178,
-      "urgency": "ok",
-      "status": "active",
+      "pao_months": 6,
+      "effective_expiry_date": "2026-12-15",
+      "days_remaining": -12,
+      "urgency": "expired",
+
+      "quantity": 1,
+      "unit": "bottle",
+      "storage_location": "Bathroom shelf",
+      "notes": null,
+
+      "scan_id": "uuid or null",
+      "product_id": "uuid or null",
+      "image_url": "https://res.cloudinary.com/... or null",
       "date_source": "ocr",
-      "image_url": "https://res.cloudinary.com/...",
-      "created_at": "2026-09-04T10:00:00Z"
+
+      "status": "active",
+      "resolved_at": null,
+      "created_at": "2026-09-04T10:00:00Z",
+      "updated_at": "2026-09-04T10:00:00Z"
     }
   ],
   "page": { "total": 23, "limit": 50, "offset": 0 }
 }
 ```
+
+`image_url` is the photo of the label the item was scanned from, resolved
+through `scan_id`. It is `null` for a manually entered item, and `null` if the
+scan's image was never stored. Deleting the scan clears it; the item survives.
 
 `urgency` is computed server-side from `effective_expiry_date` so the app never
 recalculates it: `expired` (< 0 days) · `critical` (0–1) · `soon` (2–3) ·

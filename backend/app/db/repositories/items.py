@@ -18,6 +18,11 @@ from supabase import Client
 
 TABLE = "items"
 
+#: Items carry the photo of the label they came from. PostgREST embeds it via
+#: the items.scan_id foreign key; RLS still applies to the embedded scan, so a
+#: user can only ever pull back their own image.
+SELECT_WITH_IMAGE = "*, scans(image_url)"
+
 _SORT_COLUMNS: dict[ItemSort, tuple[str, bool]] = {
     # (column, descending)
     ItemSort.EXPIRY: ("effective_expiry_date", False),
@@ -66,7 +71,7 @@ def list_items(
     limit: int = 50,
     offset: int = 0,
 ) -> tuple[list[dict[str, Any]], int]:
-    query = client.table(TABLE).select("*", count="exact").eq("user_id", user_id)
+    query = client.table(TABLE).select(SELECT_WITH_IMAGE, count="exact").eq("user_id", user_id)
 
     if status:
         query = query.eq("status", status)
@@ -92,7 +97,7 @@ def list_items(
 def get_item(client: Client, user_id: str, item_id: str) -> dict[str, Any]:
     try:
         result = (
-            client.table(TABLE).select("*").eq("id", item_id).eq("user_id", user_id).execute()
+            client.table(TABLE).select(SELECT_WITH_IMAGE).eq("id", item_id).eq("user_id", user_id).execute()
         )
     except APIError as exc:
         raise _translate(exc) from exc
@@ -113,7 +118,11 @@ def create_item(client: Client, user_id: str, payload: dict[str, Any]) -> dict[s
 
     if not result.data:
         raise BadRequestError("Item could not be created.", code="ITEM_NOT_CREATED")
-    return result.data[0]
+
+    # An insert does not return embedded resources, so re-read to pick up the
+    # scan's image_url. Without this, creating an item from a scan returns
+    # image_url null and it only appears on the next fetch.
+    return get_item(client, user_id, result.data[0]["id"])
 
 
 def update_item(
@@ -135,7 +144,9 @@ def update_item(
 
     if not result.data:
         raise NotFoundError("Item not found.", code="ITEM_NOT_FOUND")
-    return result.data[0]
+
+    # Same as create: re-read so the embedded image_url comes back.
+    return get_item(client, user_id, result.data[0]["id"])
 
 
 def delete_item(client: Client, user_id: str, item_id: str) -> None:
@@ -162,7 +173,7 @@ def active_items_for_dashboard(
     try:
         result = (
             client.table(TABLE)
-            .select("*")
+            .select(SELECT_WITH_IMAGE)
             .eq("user_id", user_id)
             .eq("status", "active")
             .order("effective_expiry_date", desc=False)
