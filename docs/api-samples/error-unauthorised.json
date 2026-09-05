@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "AUTH_MISSING",
+    "message": "Authorization header is missing.",
+    "details": {}
+  },
+  "request_id": "28504721907e4a99"
+}

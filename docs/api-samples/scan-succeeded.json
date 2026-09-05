@@ -1,0 +1,36 @@
+{
+  "scan_id": "5750bc5a-b9a2-4a57-90e3-75110b414929",
+  "status": "succeeded",
+  "image_url": "https://res.cloudinary.com/bwzrkg90/image/upload/v1788615282/expiry-guardian/11111111-1111-4111-8111-111111111111/vanozk3eavszvmziqrjq.jpg",
+  "extracted_expiry_date": "2027-12-22",
+  "date_confidence": 0.9,
+  "date_type": "expiry",
+  "detected_barcode": null,
+  "engine_used": "paddleocr",
+  "engines_attempted": [
+    {
+      "error": null,
+      "engine": "paddleocr",
+      "succeeded": true,
+      "date_found": true,
+      "duration_ms": 15964,
+      "ocr_confidence": 0.997
+    }
+  ],
+  "raw_text": "Malaysia\n(DAY/MONTH/YEAR) / (HARI/BULAN/T BEST BEFORE / BAIK SEBELUM /\nPRD DATE:23/06/2026 EXP DATE:22/12/2027\n42601965-2306AP6B\n18:22",
+  "ocr_confidence": 0.997,
+  "needs_review": false,
+  "review_reason": null,
+  "alternatives": [],
+  "suggested_item": {
+    "name": null,
+    "brand": null,
+    "category_id": null,
+    "expiry_date": "2027-12-22",
+    "pao_months": null
+  },
+  "error_code": null,
+  "error_detail": null,
+  "processing_ms": 22186,
+  "created_at": "2026-09-05T13:35:02.144341Z"
+}

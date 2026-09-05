@@ -1,0 +1,17 @@
+{
+  "category_id": "medicine",
+  "condition": "after_expiry",
+  "locale": "en",
+  "title": "Do not use - return to a pharmacy for safe disposal",
+  "body": "Expired medicine can be less effective or unsafe. Do not flush it down the toilet or pour it down the sink: the active compounds pass through water treatment and end up in waterways. Do not put loose tablets in household rubbish where children or animals can reach them.",
+  "steps": [
+    "Keep the medicine in its original labelled packaging.",
+    "Take it to a pharmacy that accepts unused medicines for disposal - many hospital and community pharmacies do.",
+    "If no take-back point is reachable, ask a pharmacist how to dispose of it in your area.",
+    "Never flush medicine or pour it down the drain.",
+    "Scratch out personal details on the label before discarding the box."
+  ],
+  "severity": "hazard",
+  "source_url": null,
+  "is_fallback": false
+}

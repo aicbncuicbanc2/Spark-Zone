@@ -1,0 +1,26 @@
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "One or more fields failed validation.",
+    "details": {
+      "fields": [
+        {
+          "type": "value_error",
+          "loc": [
+            "body"
+          ],
+          "msg": "Value error, opened_at is required when pao_months is set",
+          "input": {
+            "name": "x",
+            "expiry_date": "2027-01-01",
+            "pao_months": 6
+          },
+          "ctx": {
+            "error": "opened_at is required when pao_months is set"
+          }
+        }
+      ]
+    }
+  },
+  "request_id": "832515e853514de5"
+}

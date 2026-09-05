@@ -1,0 +1,15 @@
+{
+  "category_id": "food",
+  "condition": "before_expiry",
+  "locale": "en",
+  "title": "Plan a meal around it",
+  "body": "Use-by dates are a safety limit; best-before dates are a quality guideline. Food past its best-before date is often still perfectly good, but food past its use-by date is not.",
+  "steps": [
+    "Cook the item that expires soonest first.",
+    "Freeze what you cannot use in time - most items freeze well before the date, not after.",
+    "Share unopened surplus rather than letting it lapse."
+  ],
+  "severity": "info",
+  "source_url": null,
+  "is_fallback": false
+}

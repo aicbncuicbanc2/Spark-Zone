@@ -176,6 +176,15 @@ Never commit `.env`, API keys, or the test account password.
 
 ---
 
+## Build without the backend running
+
+`docs/api-samples/` holds **real captured responses** for every endpoint. Use
+them as mock data and you can build every screen before the backend is
+reachable — the shapes are exactly what the API returns.
+
+Read `docs/api-samples/README.md` first; it points out the four things most
+likely to trip you up.
+
 ## Suggested build order
 
 1. **Login** — Supabase email/password, session persistence, sign out

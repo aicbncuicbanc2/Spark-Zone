@@ -1,0 +1,16 @@
+{
+  "category_id": "medicine",
+  "condition": "after_expiry",
+  "locale": "ms",
+  "title": "Jangan guna - pulangkan ke farmasi untuk pelupusan selamat",
+  "body": "Ubat yang telah tamat tempoh mungkin kurang berkesan atau tidak selamat. Jangan buang ubat ke dalam tandas atau sinki, kerana bahan aktifnya boleh mencemari sumber air. Jangan biarkan ubat terdedah di dalam sampah rumah.",
+  "steps": [
+    "Simpan ubat di dalam bungkusan asal yang berlabel.",
+    "Bawa ke farmasi yang menerima ubat tidak terpakai untuk pelupusan.",
+    "Jika tiada, tanya ahli farmasi cara pelupusan yang betul di kawasan anda.",
+    "Jangan sekali-kali buang ubat ke dalam tandas atau sinki."
+  ],
+  "severity": "hazard",
+  "source_url": null,
+  "is_fallback": false
+}

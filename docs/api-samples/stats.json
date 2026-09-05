@@ -1,0 +1,25 @@
+{
+  "total_tracked": 14,
+  "active": 12,
+  "used_in_time": 1,
+  "thrown_away": 1,
+  "save_rate": 0.5,
+  "expiring_this_week": 5,
+  "expired_and_unresolved": 4,
+  "by_category": {
+    "food": 6,
+    "medicine": 3,
+    "skincare": 1,
+    "cosmetic": 1,
+    "supplement": 1,
+    "household": 1,
+    "aerosol": 1
+  },
+  "ocr": {
+    "accepted_from_ocr": 13,
+    "corrected_by_user": 0,
+    "entered_manually": 1,
+    "acceptance_rate": 1.0
+  },
+  "generated_at": "2026-09-05T13:34:16.555666Z"
+}
