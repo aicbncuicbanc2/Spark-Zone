@@ -18,7 +18,7 @@ LABELS_DIR = Path(__file__).parent / "fixtures" / "labels"
 MANIFEST = LABELS_DIR / "manifest.csv"
 
 VALID_DATE_TYPES = {"expiry", "best_before", "use_by", "manufacture", "pao"}
-VALID_LANGUAGES = {"en", "ms", "zh", "mixed"}
+VALID_LANGUAGES = {"en", "ms", "zh", "ko", "ja", "mixed"}
 VALID_CATEGORIES = {
     "medicine",
     "supplement",

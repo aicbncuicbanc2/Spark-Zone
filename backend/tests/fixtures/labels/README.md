@@ -28,11 +28,23 @@ and the parser is the hardest and highest-risk part of the backend.
 
 ### Ambiguous or partial dates
 
-Where only month and year are printed (`EXP 03/25`), the convention is **the last
-day of that month** — `2025-03-31`. That is the safe reading for an expiry date.
+**Month-only expiry** (`EXP 03/25`) resolves to the **last day** of that month —
+`2025-03-31`. That is the safe reading: the product is good through the month.
 
-For a `manufacture` date with a printed shelf life, put the *derived* expiry in
-`expected_date` and explain the arithmetic in `notes`.
+**Month-only manufacture** (`MFG 05/26`) resolves to the **first day** —
+`2026-05-01`. Opposite convention on purpose: any expiry later derived from it
+then lands earlier, which errs toward warning the user sooner.
+
+**Manufacture with a printed shelf life** — put the *derived* expiry in
+`expected_date` and show the arithmetic in `notes`.
+
+**Manufacture with no expiry anywhere** — set `date_type` to `manufacture` and
+put the manufacture date in `expected_date`. The parser must classify it
+correctly and must NOT return it as an expiry; see `label5.jpg`.
+
+**Six digits, no separators** (`210827`) are genuinely ambiguous: DDMMYY and
+YYMMDD are both plausible and both in real use. Do not guess — check the
+product, and record which convention it turned out to be in `notes`.
 
 If a date is genuinely ambiguous (`03/04/25` with no way to tell day from month),
 still add it — set `difficulty` to `hard` and say so in `notes`. Those cases are
