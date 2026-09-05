@@ -224,6 +224,27 @@ _STRICT_GAP = re.compile(r"[\s:.\-/#]*")
 _LOOSE_GAP = re.compile(r"[\s:.\-/#]*[A-Z0-9]{0,3}[\s:.\-/#]*")
 
 
+def _label_after(
+    text: str, position: int, window: int = 16
+) -> tuple[DateType, int, bool] | None:
+    """A keyword that follows the date rather than preceding it.
+
+    OCR does not guarantee reading order. On a real fixture PaddleOCR returned
+    ['LOT.5F0301', '2028.06.02', 'EXP'] - the EXP label came after the date it
+    labels. Sorting blocks by position fixes most of this, but a label printed
+    to the right of its date still lands after it.
+    """
+    suffix = text[position : position + window]
+    for word, kind in KEYWORDS:
+        index = suffix.find(word)
+        if index == -1:
+            continue
+        between = suffix[:index]
+        if _STRICT_GAP.fullmatch(between) or _LOOSE_GAP.fullmatch(between):
+            return (kind, index, False)
+    return None
+
+
 def _label_before(
     text: str, position: int, window: int = 28
 ) -> tuple[DateType, int, bool] | None:
@@ -276,6 +297,8 @@ def _extract(text: str) -> list[DateCandidate]:
         if value is None or overlaps(start, end):
             return
         label = _label_before(text, start)
+        if label is None:
+            label = _label_after(text, end)
         kind = label[0] if label else DateType.UNKNOWN
         if label is None:
             confidence = base_confidence
