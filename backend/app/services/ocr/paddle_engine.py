@@ -30,22 +30,42 @@ _IS_WINDOWS = os.name == "nt"
 if _IS_WINDOWS:
     os.environ.setdefault("FLAGS_use_mkldnn", "0")
 
-_engine: Any | None = None
-_load_failed = False
+# Two tiers, measured on the real label fixtures:
+#
+#   mobile detection + server recognition   4/5 correct,  3.5 s/scan
+#   server detection + server recognition   5/5 correct, 14.2 s/scan
+#
+# Detection is what costs the time. So the fast tier runs first and the accurate
+# one is used only when it finds nothing — most scans finish in a few seconds,
+# and the awkward ones still get read correctly.
+FAST = "fast"
+ACCURATE = "accurate"
+
+_VARIANT_KWARGS: dict[str, dict[str, Any]] = {
+    FAST: {"text_detection_model_name": "PP-OCRv5_mobile_det"},
+    ACCURATE: {},
+}
+
+_engines: dict[str, Any] = {}
+_load_failed: set[str] = set()
 
 
-def _load() -> Any | None:
-    """Build the PaddleOCR instance once, on first use."""
-    global _engine, _load_failed
+def _load(variant: str = FAST) -> Any | None:
+    """Build a PaddleOCR instance once per variant, on first use.
 
-    if _engine is not None or _load_failed:
-        return _engine
+    Lazily, and separately: the accurate models are only pulled into memory when
+    the fast tier actually fails, which keeps the common path light.
+    """
+    if variant in _engines:
+        return _engines[variant]
+    if variant in _load_failed:
+        return None
 
     try:
         from paddleocr import PaddleOCR
 
         started = time.perf_counter()
-        _engine = PaddleOCR(
+        engine = PaddleOCR(
             lang="en",
             enable_mkldnn=not _IS_WINDOWS,
             # Each of these loads another model and adds seconds per scan. The
@@ -53,16 +73,21 @@ def _load() -> Any | None:
             use_doc_orientation_classify=False,
             use_doc_unwarping=False,
             use_textline_orientation=False,
+            **_VARIANT_KWARGS[variant],
         )
+        _engines[variant] = engine
         logger.info(
             "paddleocr_loaded",
-            extra={"seconds": round(time.perf_counter() - started, 1)},
+            extra={"variant": variant, "seconds": round(time.perf_counter() - started, 1)},
         )
     except Exception as exc:  # noqa: BLE001 - absence must degrade, not crash
-        _load_failed = True
-        logger.warning("paddleocr_unavailable", extra={"reason": str(exc)})
+        _load_failed.add(variant)
+        logger.warning(
+            "paddleocr_unavailable", extra={"variant": variant, "reason": str(exc)}
+        )
+        return None
 
-    return _engine
+    return _engines[variant]
 
 
 def _to_blocks(prediction: dict[str, Any]) -> list[TextBlock]:
@@ -91,19 +116,24 @@ def _to_blocks(prediction: dict[str, Any]) -> list[TextBlock]:
 
 
 class PaddleEngine:
+    """One tier of PaddleOCR. `pipeline.py` chains fast then accurate."""
+
     name = OcrEngine.PADDLEOCR
 
+    def __init__(self, variant: str = FAST) -> None:
+        self.variant = variant
+
     def is_available(self) -> bool:
-        return _load() is not None
+        return _load(self.variant) is not None
 
     def read(self, image: bytes) -> OcrResult:
         started = time.perf_counter()
 
-        engine = _load()
+        engine = _load(self.variant)
         if engine is None:
             return OcrResult(
                 engine=self.name,
-                error="PaddleOCR is not installed or failed to load.",
+                error=f"PaddleOCR ({self.variant}) is not installed or failed to load.",
                 duration_ms=int((time.perf_counter() - started) * 1000),
             )
 

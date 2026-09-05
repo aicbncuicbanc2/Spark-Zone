@@ -18,7 +18,7 @@ from datetime import date
 from app.config import get_settings
 from app.services.date_parser import ParseResult, parse
 from app.services.ocr.base import OcrBackend, OcrEngine, OcrResult
-from app.services.ocr.paddle_engine import PaddleEngine
+from app.services.ocr.paddle_engine import ACCURATE, FAST, PaddleEngine
 from app.services.ocr.vision_engine import VisionEngine
 
 logger = logging.getLogger(__name__)
@@ -32,10 +32,13 @@ class Attempt:
     date_found: bool
     duration_ms: int
     error: str | None = None
+    #: Which PaddleOCR tier ran, "fast" or "accurate". None for Vision.
+    variant: str | None = None
 
     def as_dict(self) -> dict:
         return {
             "engine": self.engine.value,
+            "variant": self.variant,
             "succeeded": self.succeeded,
             "ocr_confidence": round(self.ocr_confidence, 3),
             "date_found": self.date_found,
@@ -64,14 +67,17 @@ class PipelineResult:
 
 
 def _engines() -> list[OcrBackend]:
+    """The escalation chain, cheapest first.
+
+    Measured on the real label fixtures: the fast tier reads 4 of 5 in about
+    3.5 seconds, the accurate tier reads 5 of 5 in about 14. Running fast first
+    means the common scan finishes quickly and only the awkward ones pay for
+    the heavier detector.
+    """
     settings = get_settings()
-    primary: OcrBackend
-    secondary: OcrBackend
     if settings.ocr_primary_engine == "google_vision":
-        primary, secondary = VisionEngine(), PaddleEngine()
-    else:
-        primary, secondary = PaddleEngine(), VisionEngine()
-    return [primary, secondary]
+        return [VisionEngine(), PaddleEngine(FAST), PaddleEngine(ACCURATE)]
+    return [PaddleEngine(FAST), PaddleEngine(ACCURATE), VisionEngine()]
 
 
 def _good_enough(ocr: OcrResult, parsed: ParseResult, threshold: float) -> bool:
@@ -110,6 +116,7 @@ def run(image: bytes, *, today: date | None = None, force: OcrEngine | None = No
             result.attempts.append(
                 Attempt(
                     engine=engine.name,
+                    variant=getattr(engine, "variant", None),
                     succeeded=False,
                     ocr_confidence=0.0,
                     date_found=False,
@@ -125,6 +132,7 @@ def run(image: bytes, *, today: date | None = None, force: OcrEngine | None = No
         result.attempts.append(
             Attempt(
                 engine=engine.name,
+                variant=getattr(engine, "variant", None),
                 succeeded=ocr.succeeded,
                 ocr_confidence=ocr.confidence,
                 date_found=parsed.best is not None,
