@@ -95,13 +95,32 @@ If you already have it, `git pull` instead.
 
 ## Backend base URL
 
-Nothing is deployed yet, so the backend runs on the **backend developer's
-machine**. Ask them for their LAN IP and use `http://<that-ip>:8080`.
+The API runs on the backend developer's machine and is exposed publicly through
+a Cloudflare tunnel, so you can reach it from anywhere — no shared wifi needed.
 
-Not `localhost` — on a phone that means the phone itself. Both devices must be
-on the same wifi, and their laptop has to be awake. A Cloud Run URL will replace
-this, so keep the base URL in **one config constant**; swapping it is then a
-one-line change.
+Ask them for the current URL. It looks like:
+
+```
+https://<random-words>.trycloudflare.com
+```
+
+Check it before debugging anything else:
+
+```bash
+curl https://<their-url>/health
+```
+
+**Two things to plan around:**
+
+- **The URL changes every time they restart the server.** Keep it in *one*
+  config constant so swapping it is a one-line edit, and expect to be sent a
+  new one occasionally.
+- **It is only up while their laptop is awake** with the server running. If
+  `/health` does not answer, that is why — it is not your code.
+
+Because of both, build against `docs/api-samples/` (see below) and treat the
+live backend as something you point at when you need it, not something you
+depend on minute to minute.
 
 ### Running the backend yourself (optional, macOS)
 
