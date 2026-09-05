@@ -8,10 +8,13 @@ from fastapi import APIRouter
 from app.api.v1.routes import (
     categories,
     dashboard,
+    devices,
     guidance,
+    internal,
     items,
     me,
     products,
+    reminders,
     scans,
     stats,
 )
@@ -26,6 +29,8 @@ api_router.include_router(me.router, prefix="/me", tags=["me"])
 api_router.include_router(categories.router, prefix="/categories", tags=["reference"])
 api_router.include_router(guidance.router, prefix="/guidance", tags=["guidance"])
 api_router.include_router(stats.router, prefix="/stats", tags=["stats"])
+api_router.include_router(devices.router, prefix="/devices", tags=["devices"])
+api_router.include_router(reminders.router, prefix="/reminders", tags=["reminders"])
+api_router.include_router(internal.router, prefix="/internal", tags=["internal"])
 
 # --- Still to come -----------------------------------------------------------
-# Day 10-11: devices, reminders, internal (FCM + sweep worker)

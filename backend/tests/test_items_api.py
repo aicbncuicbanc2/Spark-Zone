@@ -79,13 +79,23 @@ def sweep_probe_items(client: TestClient, auth_a: dict[str, str]):
 
 
 @pytest.fixture(scope="module")
-def auth_a() -> dict[str, str]:
-    return {"Authorization": f"Bearer {_token(TEST_USER_A)}"}
+def auth_a(auth_headers_a: dict[str, str]) -> dict[str, str]:
+    """Delegates to the session-scoped token in conftest.
+
+    Signing in per module meant several password grants per run, which
+    Supabase rate-limits; the suite then failed intermittently.
+    """
+    return auth_headers_a
 
 
 @pytest.fixture(scope="module")
-def auth_b() -> dict[str, str]:
-    return {"Authorization": f"Bearer {_token(TEST_USER_B)}"}
+def auth_b(auth_headers_b: dict[str, str]) -> dict[str, str]:
+    """Delegates to the session-scoped token in conftest.
+
+    Signing in per module meant several password grants per run, which
+    Supabase rate-limits; the suite then failed intermittently.
+    """
+    return auth_headers_b
 
 
 @pytest.fixture(scope="module")

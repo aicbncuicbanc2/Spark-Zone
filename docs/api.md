@@ -217,14 +217,23 @@ it survive.
 
 ---
 
-## ⬜ Reminders & devices (Day 10–11)
+## ✅ Reminders & devices
 
 ### `POST /v1/devices`
 Register the Expo push token so reminders can reach the phone.
 
 ```json
-{ "fcm_token": "...", "platform": "android", "device_name": "Pixel 7", "app_version": "1.0.0" }
+{ "fcm_token": "ExponentPushToken[...]", "platform": "android",
+  "device_name": "Pixel 7", "app_version": "1.0.0" }
 ```
+
+> **Send an Expo push token, not a raw FCM token.** Use
+> `Notifications.getExpoPushTokenAsync()`. The field is named `fcm_token` for
+> historical reasons, but a raw FCM token is rejected with a 422 explaining why —
+> stored silently it would fail on every send and just look like "push is broken".
+
+`DELETE /v1/devices?token=...` on sign-out, so the next person using that phone
+gets nothing.
 
 Call this after every login and whenever the token refreshes. Re-posting the same
 token is safe (idempotent).

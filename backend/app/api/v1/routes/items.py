@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, time, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Query, Response, status
 
 from app.db.repositories import items as items_repo
 from app.db.repositories import profiles as profiles_repo
+from app.db.repositories import reminders as reminders_repo
 from app.deps import CurrentUserDep, UserDbDep
 from app.schemas.common import Page
 from app.schemas.item import (
@@ -19,10 +20,61 @@ from app.schemas.item import (
     ItemStatus,
     ItemUpdate,
 )
-from app.services.item_view import to_item_list, to_item_out
+from app.services.item_view import as_date, to_item_list, to_item_out
 from app.services.priority import today_for_user
+from app.services.reminders import plan
 
 router = APIRouter()
+
+
+def _reschedule(db, user_id: str, row: dict) -> None:
+    """Rebuild an item's pending reminders after it changes.
+
+    Called on create and on every update, because editing an expiry date or
+    marking something as opened moves effective_expiry_date and therefore every
+    reminder hanging off it. Resolved items have theirs cancelled instead.
+
+    Best-effort by design: a scheduling failure is logged, never surfaced. The
+    user's edit has already succeeded and should not be rolled back because a
+    notification could not be planned.
+    """
+    if row.get("status") != "active":
+        reminders_repo.cancel_for_item(row["id"])
+        return
+
+    try:
+        profile = profiles_repo.get_profile(db, user_id)
+    except Exception:  # noqa: BLE001 - fall back to sensible defaults
+        profile = {}
+
+    planned = plan(
+        effective_expiry=as_date(row["effective_expiry_date"]),
+        timezone_name=profile.get("timezone") or "Asia/Kuala_Lumpur",
+        lead_days=profile.get("reminder_lead_days") or [7, 3, 1],
+        quiet_start=_as_time(profile.get("quiet_hours_start"), 22),
+        quiet_end=_as_time(profile.get("quiet_hours_end"), 8),
+    )
+    reminders_repo.replace_for_item(
+        user_id,
+        row["id"],
+        [
+            {"kind": p.kind, "scheduled_for": p.scheduled_for.isoformat(), "status": "pending"}
+            for p in planned
+        ],
+    )
+
+
+def _as_time(value, fallback_hour: int) -> time:
+    if isinstance(value, time):
+        return value
+    if isinstance(value, str):
+        try:
+            return time.fromisoformat(value)
+        except ValueError:
+            pass
+    return time(fallback_hour, 0)
+
+
 
 
 @router.get("", response_model=ItemListResponse, summary="List pantry items")
@@ -72,6 +124,7 @@ async def create_item(payload: ItemCreate, user: CurrentUserDep, db: UserDbDep) 
     how we measure real-world OCR accuracy.
     """
     row = items_repo.create_item(db, user.id, payload.model_dump(mode="json"))
+    _reschedule(db, user.id, row)
     today = today_for_user(profiles_repo.get_timezone(db, user.id))
     return to_item_out(row, today)
 
@@ -102,6 +155,7 @@ async def update_item(
         changes.setdefault("resolved_at", None)
 
     row = items_repo.update_item(db, user.id, item_id, changes)
+    _reschedule(db, user.id, row)
     today = today_for_user(profiles_repo.get_timezone(db, user.id))
     return to_item_out(row, today)
 
@@ -113,6 +167,7 @@ async def update_item(
 )
 async def delete_item(item_id: str, user: CurrentUserDep, db: UserDbDep) -> Response:
     """Hard delete. Prefer /consume or /discard — those keep the item for stats."""
+    reminders_repo.cancel_for_item(item_id)
     items_repo.delete_item(db, user.id, item_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -127,6 +182,7 @@ async def _resolve(item_id: str, user_id: str, db, new_status: ItemStatus) -> It
             "resolved_at": datetime.now(timezone.utc).isoformat(),
         },
     )
+    reminders_repo.cancel_for_item(item_id)
     return to_item_out(row, today_for_user(profiles_repo.get_timezone(db, user_id)))
 
 

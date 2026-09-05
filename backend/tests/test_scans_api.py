@@ -11,7 +11,6 @@ import io
 import os
 from datetime import date
 
-import httpx
 import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
@@ -46,17 +45,13 @@ def client() -> TestClient:
 
 
 @pytest.fixture(scope="module")
-def auth() -> dict[str, str]:
-    resp = httpx.post(
-        f"{settings.supabase_url}/auth/v1/token?grant_type=password",
-        headers={"apikey": settings.supabase_anon_key},
-        json={"email": TEST_USER_A, "password": TEST_PASSWORD},
-        timeout=20,
-    )
-    body = resp.json()
-    if "access_token" not in body:
-        pytest.skip(f"dev account unavailable: {body.get('error_code')}")
-    return {"Authorization": f"Bearer {body['access_token']}"}
+def auth(auth_headers_a: dict[str, str]) -> dict[str, str]:
+    """Delegates to the session-scoped token in conftest.
+
+    Signing in per module meant several password grants per run, which
+    Supabase rate-limits; the suite then failed intermittently.
+    """
+    return auth_headers_a
 
 
 def _stub(monkeypatch, *, value: date | None, date_type=DateType.EXPIRY, needs_review=False,
