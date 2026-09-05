@@ -3,15 +3,15 @@
   "condition": "after_expiry",
   "locale": "en",
   "title": "Do not use - return to a pharmacy for safe disposal",
-  "body": "Expired medicine can be less effective or unsafe. Do not flush it down the toilet or pour it down the sink: the active compounds pass through water treatment and end up in waterways. Do not put loose tablets in household rubbish where children or animals can reach them.",
+  "body": "Expired medicine can be less effective or unsafe. Do not flush it down the toilet or pour it down the sink: sewage treatment cannot remove the active compounds, so they end up in rivers and the drinking water supply. Malaysia's Ministry of Health runs a Return Your Medicines Programme — you can hand unused or expired medicines in at the pharmacy counter, or drop them in a medicine return box, at any MOH hospital or klinik kesihatan.",
   "steps": [
     "Keep the medicine in its original labelled packaging.",
-    "Take it to a pharmacy that accepts unused medicines for disposal - many hospital and community pharmacies do.",
-    "If no take-back point is reachable, ask a pharmacist how to dispose of it in your area.",
+    "Take it to the pharmacy counter or medicine return box at any MOH hospital or klinik kesihatan.",
+    "Returned medicines are incinerated, which is the environmentally sound disposal route.",
     "Never flush medicine or pour it down the drain.",
     "Scratch out personal details on the label before discarding the box."
   ],
   "severity": "hazard",
-  "source_url": null,
+  "source_url": "https://pharmacy.moh.gov.my/en/content/return-your-medicines-program.html",
   "is_fallback": false
 }

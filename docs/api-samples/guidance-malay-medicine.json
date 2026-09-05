@@ -3,14 +3,14 @@
   "condition": "after_expiry",
   "locale": "ms",
   "title": "Jangan guna - pulangkan ke farmasi untuk pelupusan selamat",
-  "body": "Ubat yang telah tamat tempoh mungkin kurang berkesan atau tidak selamat. Jangan buang ubat ke dalam tandas atau sinki, kerana bahan aktifnya boleh mencemari sumber air. Jangan biarkan ubat terdedah di dalam sampah rumah.",
+  "body": "Ubat yang telah tamat tempoh mungkin kurang berkesan atau tidak selamat. Jangan buang ubat ke dalam tandas atau sinki, kerana bahan aktifnya tidak dapat ditapis oleh loji rawatan kumbahan dan akan mencemari sumber air. Kementerian Kesihatan Malaysia menjalankan Program Pulangan Ubat — anda boleh memulangkan ubat yang tidak digunakan di kaunter farmasi atau peti pulangan ubat di mana-mana hospital atau klinik kesihatan KKM.",
   "steps": [
     "Simpan ubat di dalam bungkusan asal yang berlabel.",
-    "Bawa ke farmasi yang menerima ubat tidak terpakai untuk pelupusan.",
-    "Jika tiada, tanya ahli farmasi cara pelupusan yang betul di kawasan anda.",
+    "Bawa ke kaunter farmasi atau peti pulangan ubat di hospital atau klinik kesihatan KKM.",
+    "Ubat yang dipulangkan akan dilupuskan melalui pembakaran secara selamat.",
     "Jangan sekali-kali buang ubat ke dalam tandas atau sinki."
   ],
   "severity": "hazard",
-  "source_url": null,
+  "source_url": "https://pharmacy.moh.gov.my/en/content/return-your-medicines-program.html",
   "is_fallback": false
 }
