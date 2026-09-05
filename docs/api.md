@@ -147,7 +147,7 @@ straight from `counts` without reconciling anything.
 
 ---
 
-## ⬜ Scans — OCR (Day 5–9)
+## ✅ Scans — OCR
 
 ### `POST /v1/scans`
 `multipart/form-data`, field name `image`. Max 8 MB, JPEG or PNG.
@@ -171,9 +171,26 @@ does not break.
 }
 ```
 
-`status` values: `succeeded` · `needs_review` (we read something but confidence is
-low — **prefill the form and make the user confirm**) · `failed` (`error_code`
-explains why; offer manual entry).
+`status` values:
+
+| status | meaning | what the app should do |
+|---|---|---|
+| `succeeded` | confident expiry date | prefill the form, still let the user edit |
+| `needs_review` | read something, but confirm it | **prefill and require confirmation** — `review_reason` says why |
+| `failed` | OCR could not read the image | offer manual entry |
+
+`needs_review` fires for two real situations: an ambiguous date (six digits with
+no separator can be DDMMYY *or* YYMMDD), and a pack that only prints a
+manufacture date. In the second case `extracted_expiry_date` is `null` even
+though a date was found — reporting a manufacture date as an expiry would tell
+the user their item expired months ago.
+
+When there is a genuine choice, `alternatives[]` carries the other readings with
+their confidence and an explanation, so the app can offer options instead of a
+guess.
+
+`DELETE /v1/scans/{id}` removes a scan and its stored image. Items created from
+it survive.
 
 > Always let the user correct the date before it becomes an item. OCR will be
 > wrong sometimes, and an app that can't be corrected dies on the one bottle a
