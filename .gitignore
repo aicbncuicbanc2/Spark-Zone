@@ -24,3 +24,6 @@ gcp-credentials*.json
 # PaddleOCR downloads models on first run
 .paddleocr/
 inference/
+
+# Cloudflare quick-tunnel URL, regenerated on every run
+backend/scripts/PUBLIC_URL.txt
