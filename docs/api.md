@@ -235,9 +235,11 @@ Upcoming schedule, so the app can show "we'll remind you on Friday".
 - `GET /v1/items/{id}/guidance` — usage tip or disposal steps, chosen by category
   and whether the item has expired. Returns `severity` (`info` \| `caution` \|
   `hazard`) — **render `hazard` prominently**, it covers medicine and aerosols.
+- ✅ `GET /v1/products/lookup?barcode=` — identity only; 404 `PRODUCT_NOT_FOUND` when
+  unknown, which is normal for cosmetics and medicine. Returns `country` from the
+  GS1 prefix and `cached` so you can tell a fresh lookup from a cached one.
 - ✅ `GET /v1/categories` — populate pickers. Includes `label_ms` and `label_zh`, plus
   `default_pao_months` to prefill period-after-opening.
-- `GET /v1/products/lookup?barcode=` — identity lookup.
 - `GET /v1/stats` — items saved vs. wasted, for the impact screen.
 
 ---

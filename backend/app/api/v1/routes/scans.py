@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from datetime import datetime, timezone
@@ -13,6 +14,7 @@ from starlette.concurrency import run_in_threadpool
 
 from app.config import get_settings
 from app.core.errors import BadRequestError, PayloadTooLargeError
+from app.db.repositories import products as products_repo
 from app.db.repositories import profiles as profiles_repo
 from app.db.repositories import scans as scans_repo
 from app.deps import CurrentUserDep, UserDbDep
@@ -23,6 +25,7 @@ from app.schemas.scan import (
     ScanStatus,
     SuggestedItem,
 )
+from app.services import barcode as barcode_service
 from app.services import storage
 from app.services.ocr import pipeline
 from app.services.ocr.base import OcrEngine
@@ -55,7 +58,46 @@ async def _read_upload(image: UploadFile) -> bytes:
     return data
 
 
-def _to_response(row: dict, result: pipeline.PipelineResult | None) -> ScanOut:
+async def _resolve_product(db, image: bytes) -> tuple[str | None, dict | None]:
+    """Decode a barcode and identify the product.
+
+    A barcode gives identity, never an expiry date - retail EAN-13 encodes a
+    product identifier and nothing else. Runs alongside OCR rather than after
+    it, since an Open Food Facts lookup costs about a second.
+    """
+    found = await run_in_threadpool(barcode_service.best_product_code, image)
+    if found is None:
+        return None, None
+
+    code = found.value
+
+    cached = await run_in_threadpool(products_repo.get_by_barcode, db, code)
+    if cached:
+        return code, cached
+
+    info = await barcode_service.lookup_open_food_facts(code)
+    if info is None:
+        # Still report the barcode; the user can name the product themselves.
+        return code, None
+
+    stored = await run_in_threadpool(
+        products_repo.upsert,
+        {
+            "barcode": info.barcode,
+            "name": info.name,
+            "brand": info.brand,
+            "category_id": info.category_id,
+            "image_url": info.image_url,
+            "source": info.source,
+            "raw": info.raw,
+        },
+    )
+    return code, stored
+
+
+def _to_response(
+    row: dict, result: pipeline.PipelineResult | None, product: dict | None = None
+) -> ScanOut:
     """Shape a stored scan row, plus its in-memory result, for the app."""
     alternatives: list[DateCandidateOut] = []
     review_reason: str | None = None
@@ -81,7 +123,13 @@ def _to_response(row: dict, result: pipeline.PipelineResult | None) -> ScanOut:
                 for c in sorted(parsed.candidates, key=lambda c: -c.confidence)[:4]
             ]
 
-    suggested = SuggestedItem(expiry_date=row.get("extracted_expiry_date"))
+    product = product or {}
+    suggested = SuggestedItem(
+        name=product.get("name"),
+        brand=product.get("brand"),
+        category_id=product.get("category_id"),
+        expiry_date=row.get("extracted_expiry_date"),
+    )
 
     return ScanOut(
         scan_id=row["id"],
@@ -140,8 +188,12 @@ async def create_scan(
 
     today = today_for_user(profiles_repo.get_timezone(db, user.id))
     # OCR is CPU-bound and takes seconds. Run it off the event loop, or a
-    # single scan freezes every other request for its whole duration.
-    result = await run_in_threadpool(pipeline.run, data, today=today)
+    # single scan freezes every other request for its whole duration. The
+    # barcode path is independent, so it runs alongside rather than after.
+    result, (detected_barcode, product) = await asyncio.gather(
+        run_in_threadpool(pipeline.run, data, today=today),
+        _resolve_product(db, data),
+    )
 
     parsed = result.parsed
     ocr_failed = result.ocr is None or not result.ocr.succeeded
@@ -159,6 +211,8 @@ async def create_scan(
         {
             "image_url": stored.url,
             "image_public_id": stored.public_id,
+            "detected_barcode": detected_barcode,
+            "product_id": (product or {}).get("id"),
             "status": scan_status.value,
             "engine_used": result.engine_used.value if result.engine_used else None,
             "engines_attempted": [a.as_dict() for a in result.attempts],
@@ -187,7 +241,7 @@ async def create_scan(
             "ms": row.get("processing_ms"),
         },
     )
-    return _to_response(row, result)
+    return _to_response(row, result, product)
 
 
 @router.get("/{scan_id}", response_model=ScanOut, summary="Fetch a scan result")

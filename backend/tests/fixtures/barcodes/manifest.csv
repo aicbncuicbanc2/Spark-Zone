@@ -1,2 +1,8 @@
 filename,barcode_digits,product_name,brand,category,notes
-barcodeandlabel.jpg,9555723801829,Hair Wax,Bad Lab,cosmetic,"Barcode AND date in one frame - the realistic scan case. Prints MFG:01.2024/003 directly below the bars, no expiry. 9555 prefix = GS1 Malaysia. Slight curve on a tin lid."
+barcode1.jpg,110308,,,food,"NOT a retail barcode. Decodes as CODE128 '110308' - an internal or batch code. Must be rejected: it fails the EAN checksum, and six digits like that would otherwise parse as a date."
+barcode2.jpeg,4005808301843,,Nivea,skincare,"EAN13, GS1 prefix 400-440 = Germany. Not in Open Food Facts - a normal miss for cosmetics."
+barcode3.jpeg,3607349937812,Classic Blue,David Beckham,aerosol,"EAN13, prefix 360-379 = France. Open Food Facts hit; auto-categorised as aerosol."
+barcode4.jpg,8850029038117,,,food,"EAN13, prefix 885 = Thailand. Not in Open Food Facts."
+barcode5.jpeg,9555022304434,Monster,Mamee,food,"EAN13, prefix 955 = Malaysia. Open Food Facts hit, but no category returned."
+barcode6.jpg,9556183960880,Captain Instant Rolled Oats,Captain,food,"TWO codes in one photo: a QRCODE pointing at mycaptainoats.com AND this EAN13. The decoder must prefer the retail symbology over the QR."
+barcodeandlabel.jpg,9555723801829,bad lab,,cosmetic,"Barcode AND date in one frame - the realistic scan. Prints MFG:01.2024/003 below the bars and no expiry, so the scan returns identity plus needs_review. Prefix 9555 = Malaysia."
