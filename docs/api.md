@@ -230,17 +230,24 @@ Upcoming schedule, so the app can show "we'll remind you on Friday".
 
 ---
 
-## ⬜ Guidance, products, stats (Day 12–13)
+## ✅ Guidance and stats
 
-- `GET /v1/items/{id}/guidance` — usage tip or disposal steps, chosen by category
-  and whether the item has expired. Returns `severity` (`info` \| `caution` \|
+- ✅ `GET /v1/guidance/items/{item_id}` — usage advice while in date, disposal
+  steps once expired. The switch is made on `effective_expiry_date`, so an
+  opened cosmetic past its period-after-opening gets disposal advice even when
+  the printed date is years away. Returns `severity` (`info` | `caution` |
   `hazard`) — **render `hazard` prominently**, it covers medicine and aerosols.
+  `locale` follows the user's profile; pass `?locale=ms` to override. Falls back
+  to English, then to generic advice, so it never 404s.
+- ✅ `GET /v1/guidance?category=medicine&expired=true` — same, without an item.
 - ✅ `GET /v1/products/lookup?barcode=` — identity only; 404 `PRODUCT_NOT_FOUND` when
   unknown, which is normal for cosmetics and medicine. Returns `country` from the
   GS1 prefix and `cached` so you can tell a fresh lookup from a cached one.
 - ✅ `GET /v1/categories` — populate pickers. Includes `label_ms` and `label_zh`, plus
   `default_pao_months` to prefill period-after-opening.
-- `GET /v1/stats` — items saved vs. wasted, for the impact screen.
+- ✅ `GET /v1/stats` — the impact screen. `used_in_time` vs `thrown_away` and a
+  `save_rate`, plus `by_category` counts and an `ocr` block reporting how often
+  the extracted date was accepted without correction.
 
 ---
 

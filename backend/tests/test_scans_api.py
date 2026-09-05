@@ -211,6 +211,11 @@ def test_scan_still_works_when_cloudinary_is_unconfigured(
     """Losing the photo must not cost the user the date."""
     _stub(monkeypatch, value=date(2027, 12, 22))
     monkeypatch.setattr(storage, "is_configured", lambda: False)
+    monkeypatch.setattr(
+        storage,
+        "upload_scan_image",
+        lambda *a, **k: storage.StoredImage(None, None, error="Cloudinary is not configured."),
+    )
 
     resp = client.post("/v1/scans", headers=auth, files={"image": ("l.jpg", _jpeg(), "image/jpeg")})
     body = resp.json()
@@ -261,6 +266,11 @@ def test_missing_scan_is_404(client: TestClient, auth: dict[str, str]) -> None:
 def test_retry_without_a_stored_image_is_rejected(client, auth, monkeypatch, _cleanup) -> None:
     _stub(monkeypatch, value=date(2027, 12, 22))
     monkeypatch.setattr(storage, "is_configured", lambda: False)
+    monkeypatch.setattr(
+        storage,
+        "upload_scan_image",
+        lambda *a, **k: storage.StoredImage(None, None, error="Cloudinary is not configured."),
+    )
     created = client.post(
         "/v1/scans", headers=auth, files={"image": ("l.jpg", _jpeg(), "image/jpeg")}
     ).json()
