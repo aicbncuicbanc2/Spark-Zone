@@ -83,7 +83,7 @@ export const mockStore = {
       id: `mock-${Date.now()}`,
       name: input.name,
       brand: input.brand ?? null,
-      category_id: input.category_id ?? categories[0].id,
+      category_id: input.category_id ?? null,
       expiry_date: input.expiry_date,
       opened_at: input.opened_at ?? null,
       pao_months: input.pao_months ?? null,
@@ -101,6 +101,7 @@ export const mockStore = {
       resolved_at: null,
       created_at: now,
       updated_at: now,
+      image_url: null,
     };
     items = [item, ...items];
     return item;

@@ -1,8 +1,10 @@
 /**
- * The single place the backend base URL lives. LAN IP now, Cloud Run URL
- * later — only this constant changes.
+ * The single place the backend base URL lives. A Cloudflare tunnel URL for
+ * now — it changes whenever the backend dev restarts their server, so this
+ * comes from .env, not a hardcoded default. Cloud Run URL later — only
+ * .env changes, this constant doesn't.
  */
-export const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://192.168.0.162:8080';
+export const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? '';
 
 /**
  * While true, lib/dataSource.ts serves the captured responses in mocks/

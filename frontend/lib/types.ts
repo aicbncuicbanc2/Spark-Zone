@@ -1,10 +1,12 @@
-// Shapes here match the REAL captured responses in docs/api-samples/, which
-// carry more fields than api.md's trimmed examples show (e.g. quantity, unit,
+// Shapes here match the REAL captured responses in docs/api-samples/ (and
+// live backend calls made against the real API on 2026-09-06), which carry
+// more fields than api.md's trimmed examples show (quantity, unit,
 // storage_location, notes, scan_id, product_id, resolved_at, updated_at all
-// appear on every item but aren't in api.md's sample). image_url, conversely,
-// is documented as always present but is absent (not null — omitted) on every
-// seeded item, since none came from a scan. Typed as optional here; flagged
-// to the team as a doc gap, not worked around.
+// appear on every item but aren't in api.md's sample). image_url was
+// previously undocumented-as-optional; the backend fix in commit 16524e5
+// makes it always present but nullable, confirmed live. category_id is also
+// nullable — POST /v1/items with no category_id returns one with
+// category_id: null, confirmed against the live backend.
 
 export type Urgency = 'expired' | 'critical' | 'soon' | 'upcoming' | 'ok';
 export type ItemStatus = 'active' | 'consumed' | 'discarded' | 'expired';
@@ -14,7 +16,7 @@ export interface Item {
   id: string;
   name: string;
   brand: string | null;
-  category_id: string;
+  category_id: string | null;
   expiry_date: string;
   opened_at: string | null;
   pao_months: number | null;
@@ -32,7 +34,7 @@ export interface Item {
   resolved_at: string | null;
   created_at: string;
   updated_at: string;
-  image_url?: string;
+  image_url: string | null;
 }
 
 export interface ItemsListResponse {
