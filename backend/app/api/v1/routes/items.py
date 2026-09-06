@@ -27,12 +27,16 @@ from app.services.reminders import plan
 router = APIRouter()
 
 
-def _reschedule(db, user_id: str, row: dict) -> None:
+def _reschedule(user_id: str, row: dict, profile: dict) -> None:
     """Rebuild an item's pending reminders after it changes.
 
     Called on create and on every update, because editing an expiry date or
     marking something as opened moves effective_expiry_date and therefore every
     reminder hanging off it. Resolved items have theirs cancelled instead.
+
+    Takes an already-fetched profile rather than loading its own: the caller
+    needs that same row anyway (for the response timezone), and fetching it
+    twice for one request was two round trips to the same table for no reason.
 
     Best-effort by design: a scheduling failure is logged, never surfaced. The
     user's edit has already succeeded and should not be rolled back because a
@@ -41,11 +45,6 @@ def _reschedule(db, user_id: str, row: dict) -> None:
     if row.get("status") != "active":
         reminders_repo.cancel_for_item(row["id"])
         return
-
-    try:
-        profile = profiles_repo.get_profile(db, user_id)
-    except Exception:  # noqa: BLE001 - fall back to sensible defaults
-        profile = {}
 
     planned = plan(
         effective_expiry=as_date(row["effective_expiry_date"]),
@@ -62,6 +61,18 @@ def _reschedule(db, user_id: str, row: dict) -> None:
             for p in planned
         ],
     )
+
+
+def _profile_or_default(db, user_id: str) -> dict:
+    """The full profile, or {} if it cannot be loaded.
+
+    A missing profile should never block an item write - _reschedule and
+    today_for_user both already fall back to sane defaults for an empty dict.
+    """
+    try:
+        return profiles_repo.get_profile(db, user_id)
+    except Exception:  # noqa: BLE001
+        return {}
 
 
 def _as_time(value, fallback_hour: int) -> time:
@@ -124,9 +135,9 @@ async def create_item(payload: ItemCreate, user: CurrentUserDep, db: UserDbDep) 
     how we measure real-world OCR accuracy.
     """
     row = items_repo.create_item(db, user.id, payload.model_dump(mode="json"))
-    _reschedule(db, user.id, row)
-    today = today_for_user(profiles_repo.get_timezone(db, user.id))
-    return to_item_out(row, today)
+    profile = _profile_or_default(db, user.id)
+    _reschedule(user.id, row, profile)
+    return to_item_out(row, today_for_user(profile.get("timezone")))
 
 
 @router.get("/{item_id}", response_model=ItemOut, summary="Get one item")
@@ -155,9 +166,9 @@ async def update_item(
         changes.setdefault("resolved_at", None)
 
     row = items_repo.update_item(db, user.id, item_id, changes)
-    _reschedule(db, user.id, row)
-    today = today_for_user(profiles_repo.get_timezone(db, user.id))
-    return to_item_out(row, today)
+    profile = _profile_or_default(db, user.id)
+    _reschedule(user.id, row, profile)
+    return to_item_out(row, today_for_user(profile.get("timezone")))
 
 
 @router.delete(

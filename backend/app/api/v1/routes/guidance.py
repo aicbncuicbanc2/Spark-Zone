@@ -64,14 +64,17 @@ async def guidance_for_item(
     printed date is years away.
     """
     item = items_repo.get_item(db, user.id, item_id)
-    profile_locale = locale
-    if profile_locale is None:
-        try:
-            profile_locale = profiles_repo.get_profile(db, user.id).get("locale")
-        except Exception:  # noqa: BLE001 - locale is a preference, not a blocker
-            profile_locale = guidance_service.DEFAULT_LOCALE
 
-    today = today_for_user(profiles_repo.get_timezone(db, user.id))
+    # One profile fetch, not two: get_profile() already carries both locale
+    # and timezone, so a separate get_timezone() call was a second round trip
+    # for a field already in hand from the first.
+    try:
+        profile = profiles_repo.get_profile(db, user.id)
+    except Exception:  # noqa: BLE001 - preferences are not a hard requirement
+        profile = {}
+
+    profile_locale = locale or profile.get("locale") or guidance_service.DEFAULT_LOCALE
+    today = today_for_user(profile.get("timezone"))
     condition = guidance_service.condition_for(
         as_date(item["effective_expiry_date"]), today
     )
