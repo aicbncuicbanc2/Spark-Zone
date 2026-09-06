@@ -141,29 +141,53 @@ ROWS = _rows()
 
 
 @pytest.fixture(scope="module")
-def engine():
+def paddle_available():
     from app.services.ocr.paddle_engine import PaddleEngine
 
-    instance = PaddleEngine()
-    if not instance.is_available():
+    if not PaddleEngine().is_available():
         pytest.skip("PaddleOCR failed to load on this machine")
-    return instance
+
+
+def _known_gap(row: dict[str, str]) -> str:
+    return (row.get("known_ocr_gap") or "").strip()
 
 
 @pytest.mark.slow
 @pytest.mark.skipif(not ROWS, reason="no label fixtures recorded")
 @pytest.mark.parametrize("row", ROWS, ids=[r["filename"] for r in ROWS])
-def test_real_photo_to_correct_date(engine, row: dict[str, str]) -> None:
-    """Photograph in, correct date out. The whole pipeline, no mocks."""
+def test_real_photo_to_correct_date(paddle_available, row: dict[str, str]) -> None:
+    """Photograph in, correct date out - through the real production pipeline:
+    fast PaddleOCR, escalating to the accurate tier and then Vision exactly as
+    /v1/scans does. A single-tier engine would understate what the fallback
+    chain actually recovers.
+    """
+    from app.services.ocr import pipeline
+
+    gap = _known_gap(row)
+
     image = (LABELS / row["filename"]).read_bytes()
-    result = engine.read(image)
+    result = pipeline.run(image, today=TODAY)
 
-    assert result.succeeded, f"{row['filename']}: OCR failed - {result.error}"
+    if gap:
+        # Documented, not hidden: this exact real-world case is known to beat
+        # the current OCR layer. xfail (not skip) so the moment OCR improves
+        # enough to read it, the suite says so instead of staying silently
+        # green forever.
+        if result.parsed and result.parsed.best and result.parsed.best.value == date.fromisoformat(row["expected_date"]):
+            pytest.fail(
+                f"{row['filename']}: expected to still fail ({gap}), but OCR read it "
+                f"correctly now - update known_ocr_gap in manifest.csv"
+            )
+        pytest.xfail(f"{row['filename']}: known OCR limitation - {gap}")
 
-    parsed = parse(result.text, today=TODAY)
+    assert result.ocr is not None and result.ocr.succeeded, (
+        f"{row['filename']}: OCR failed - {result.ocr.error if result.ocr else 'no engine ran'}"
+    )
+
+    parsed = result.parsed
     expected = date.fromisoformat(row["expected_date"])
 
-    assert parsed.best is not None, (
+    assert parsed is not None and parsed.best is not None, (
         f"{row['filename']}: no date found in OCR text {result.text!r}"
     )
     assert parsed.best.value == expected, (

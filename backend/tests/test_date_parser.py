@@ -220,8 +220,16 @@ def test_real_label_text_parses_to_the_recorded_date(row: dict[str, str]) -> Non
         assert result.expiry_date is None, (
             f"{row['filename']}: a manufacture date must never be reported as expiry"
         )
-    else:
+    elif result.best.is_expiry_like:
         assert result.expiry_date == expected
+    else:
+        # A bare date with no nearby keyword (EXP, BEST BEFORE, ...) is read
+        # correctly but deliberately not confirmed as an expiry - it must ask
+        # the user rather than silently promote an unlabelled number.
+        assert result.expiry_date is None
+        assert result.needs_review, (
+            f"{row['filename']}: an unlabelled date must be flagged for review"
+        )
 
 
 @pytest.mark.skipif(not ROWS, reason="no label fixtures recorded yet")

@@ -37,7 +37,10 @@ def _rows() -> list[dict[str, str]]:
     if not MANIFEST.exists():
         return []
     with MANIFEST.open(newline="", encoding="utf-8") as fh:
-        return [r for r in csv.DictReader(fh) if any(v.strip() for v in r.values())]
+        rows = [r for r in csv.DictReader(fh) if any(v.strip() for v in r.values())]
+    for row in rows:
+        row.setdefault("known_ocr_gap", "")
+    return rows
 
 
 rows = _rows()

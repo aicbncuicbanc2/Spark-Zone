@@ -27,6 +27,7 @@ FIELDS = [
     "category",
     "difficulty",
     "notes",
+    "known_ocr_gap",
 ]
 
 DATE_TYPES = ["expiry", "best_before", "use_by", "manufacture", "pao"]
@@ -140,6 +141,11 @@ def main() -> int:
                     ),
                     "notes": ask_text(
                         "Anything odd? (curved, embossed, faded, two dates) - Enter to skip",
+                        required=False,
+                    ),
+                    "known_ocr_gap": ask_text(
+                        "Does real OCR currently fail to read this? If so, describe how "
+                        "(e.g. 'misses the month digit') - Enter if OCR reads it fine",
                         required=False,
                     ),
                 }

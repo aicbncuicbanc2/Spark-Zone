@@ -24,6 +24,7 @@ and the parser is the hardest and highest-risk part of the backend.
 | `language` | `en` \| `ms` \| `zh` \| `mixed` |
 | `category` | one of the seeded ids: `medicine`, `supplement`, `skincare`, `cosmetic`, `food`, `aerosol`, `household` |
 | `difficulty` | `easy` \| `medium` \| `hard` — your honest read |
+| `known_ocr_gap` | leave blank if OCR reads it correctly. If real PaddleOCR currently cannot read this photo, say how (e.g. "misses the embossed month"). The suite then xfails it — documented and visible, not hidden — instead of either lying about accuracy or leaving a permanently red test. |
 | `notes` | anything odd: curved surface, embossed, faded, glare, two dates on the pack |
 
 ### Ambiguous or partial dates
