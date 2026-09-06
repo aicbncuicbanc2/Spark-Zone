@@ -1,6 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { createItem, getCategories, getDashboard, getItem, getItems, patchItem } from './dataSource';
+import {
+  consumeItem,
+  createItem,
+  discardItem,
+  getCategories,
+  getDashboard,
+  getItem,
+  getItems,
+  patchItem,
+} from './dataSource';
 import type { CreateItemInput, PatchItemInput } from './types';
 import type { ItemsQuery } from './dataSource';
 
@@ -42,6 +51,28 @@ export function usePatchItem(id: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (patch: PatchItemInput) => patchItem(id, patch),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['items'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard });
+    },
+  });
+}
+
+export function useConsumeItem(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => consumeItem(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['items'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard });
+    },
+  });
+}
+
+export function useDiscardItem(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => discardItem(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['items'] });
       queryClient.invalidateQueries({ queryKey: queryKeys.dashboard });

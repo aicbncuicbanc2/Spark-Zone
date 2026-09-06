@@ -6,6 +6,8 @@ import type {
   Category,
   CreateItemInput,
   DashboardResponse,
+  Device,
+  DeviceInput,
   Item,
   MePreferences,
   PatchItemInput,
@@ -18,6 +20,7 @@ import type {
 let items: Item[] = structuredClone((itemsListJson as { items: Item[] }).items);
 const categories = categoriesJson as Category[];
 const me = meJson as MePreferences;
+let devices: Device[] = [];
 
 function computeEffective(item: Pick<Item, 'expiry_date' | 'opened_at' | 'pao_months'>): string {
   if (!item.opened_at || item.pao_months == null) return item.expiry_date;
@@ -122,5 +125,33 @@ export const mockStore = {
     merged.days_remaining = days;
     items = items.map((item) => (item.id === id ? merged : item));
     return merged;
+  },
+
+  resolveItem(id: string, status: 'consumed' | 'discarded'): Item {
+    const existing = items.find((item) => item.id === id);
+    if (!existing) throw new Error(`Mock item ${id} not found`);
+    const resolved: Item = { ...existing, status, resolved_at: new Date().toISOString() };
+    items = items.map((item) => (item.id === id ? resolved : item));
+    return resolved;
+  },
+
+  registerDevice(input: DeviceInput): Device {
+    const now = new Date().toISOString();
+    const existing = devices.find((d) => d.fcm_token === input.fcm_token);
+    const device: Device = {
+      id: existing?.id ?? `mock-device-${Date.now()}`,
+      fcm_token: input.fcm_token,
+      platform: input.platform,
+      device_name: input.device_name ?? null,
+      app_version: input.app_version ?? null,
+      last_seen_at: now,
+      created_at: existing?.created_at ?? now,
+    };
+    devices = [...devices.filter((d) => d.fcm_token !== input.fcm_token), device];
+    return device;
+  },
+
+  unregisterDevice(token: string): void {
+    devices = devices.filter((d) => d.fcm_token !== token);
   },
 };

@@ -1,8 +1,8 @@
-import { useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { UrgencyBadge, urgencyLabel } from '../../../components/UrgencyBadge';
-import { useCategories, useItem, usePatchItem } from '../../../lib/queries';
+import { useCategories, useConsumeItem, useDiscardItem, useItem, usePatchItem } from '../../../lib/queries';
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
@@ -14,10 +14,13 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 export default function ItemDetailScreen() {
+  const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: item, isLoading, error } = useItem(id);
   const { data: categories } = useCategories();
   const patchMutation = usePatchItem(id);
+  const consumeMutation = useConsumeItem(id);
+  const discardMutation = useDiscardItem(id);
 
   if (isLoading) {
     return (
@@ -92,6 +95,42 @@ export default function ItemDetailScreen() {
           <Text style={styles.notes}>{item.notes}</Text>
         </View>
       )}
+
+      {item.status === 'active' ? (
+        <View style={styles.actionRow}>
+          <Pressable
+            style={[styles.actionButton, styles.consumeButton]}
+            disabled={consumeMutation.isPending || discardMutation.isPending}
+            onPress={() => consumeMutation.mutate(undefined, { onSuccess: () => router.back() })}
+          >
+            <Text style={styles.actionButtonText}>
+              {consumeMutation.isPending ? 'Marking used…' : 'Used it'}
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[styles.actionButton, styles.discardButton]}
+            disabled={consumeMutation.isPending || discardMutation.isPending}
+            onPress={() =>
+              Alert.alert('Bin this item?', `"${item.name}" will be marked as discarded.`, [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Bin it',
+                  style: 'destructive',
+                  onPress: () => discardMutation.mutate(undefined, { onSuccess: () => router.back() }),
+                },
+              ])
+            }
+          >
+            <Text style={styles.actionButtonText}>
+              {discardMutation.isPending ? 'Binning…' : 'Binned it'}
+            </Text>
+          </Pressable>
+        </View>
+      ) : (
+        <Text style={styles.resolvedNotice}>
+          Marked {item.status} {item.resolved_at ? `on ${item.resolved_at.slice(0, 10)}` : ''}
+        </Text>
+      )}
     </ScrollView>
   );
 }
@@ -164,5 +203,30 @@ const styles = StyleSheet.create({
   notes: {
     fontStyle: 'italic',
     color: '#555',
+  },
+  actionRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  actionButton: {
+    flex: 1,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  consumeButton: {
+    backgroundColor: '#1e8449',
+  },
+  discardButton: {
+    backgroundColor: '#c0392b',
+  },
+  actionButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  resolvedNotice: {
+    textAlign: 'center',
+    color: '#888',
+    fontSize: 13,
   },
 });

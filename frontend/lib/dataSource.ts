@@ -5,6 +5,8 @@ import type {
   Category,
   CreateItemInput,
   DashboardResponse,
+  Device,
+  DeviceInput,
   Item,
   ItemsListResponse,
   MePreferences,
@@ -94,4 +96,37 @@ export async function patchItem(id: string, patch: PatchItemInput): Promise<Item
     return mockStore.patchItem(id, patch);
   }
   return apiRequest<Item>(`/v1/items/${id}`, { method: 'PATCH', body: patch });
+}
+
+export async function consumeItem(id: string): Promise<Item> {
+  if (USE_MOCKS) {
+    await mockDelay();
+    return mockStore.resolveItem(id, 'consumed');
+  }
+  return apiRequest<Item>(`/v1/items/${id}/consume`, { method: 'POST' });
+}
+
+export async function discardItem(id: string): Promise<Item> {
+  if (USE_MOCKS) {
+    await mockDelay();
+    return mockStore.resolveItem(id, 'discarded');
+  }
+  return apiRequest<Item>(`/v1/items/${id}/discard`, { method: 'POST' });
+}
+
+export async function registerDevice(input: DeviceInput): Promise<Device> {
+  if (USE_MOCKS) {
+    await mockDelay();
+    return mockStore.registerDevice(input);
+  }
+  return apiRequest<Device>('/v1/devices', { method: 'POST', body: input });
+}
+
+export async function unregisterDevice(token: string): Promise<void> {
+  if (USE_MOCKS) {
+    await mockDelay();
+    mockStore.unregisterDevice(token);
+    return;
+  }
+  await apiRequest<void>('/v1/devices', { method: 'DELETE', query: { token } });
 }

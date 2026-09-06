@@ -79,6 +79,30 @@ export interface MePreferences {
   updated_at: string;
 }
 
+export type DevicePlatform = 'ios' | 'android' | 'web';
+
+/**
+ * POST /v1/devices body (backend/app/api/v1/routes/devices.py). The field is
+ * named fcm_token for historical reasons but must be an Expo push token
+ * (`ExponentPushToken[...]`) — the backend rejects a raw FCM token with 422.
+ */
+export interface DeviceInput {
+  fcm_token: string;
+  platform: DevicePlatform;
+  device_name?: string | null;
+  app_version?: string | null;
+}
+
+export interface Device {
+  id: string;
+  fcm_token: string;
+  platform: DevicePlatform;
+  device_name: string | null;
+  app_version: string | null;
+  last_seen_at: string;
+  created_at: string;
+}
+
 /** POST /v1/items body. Only name + expiry_date are required per api.md. */
 export interface CreateItemInput {
   name: string;
