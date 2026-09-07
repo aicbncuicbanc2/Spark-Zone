@@ -81,8 +81,8 @@ export function useDiscardItem(id: string) {
   });
 }
 
-export function useCreateScan() {
+export function useCreateScan(onPoll?: (elapsedMs: number) => void) {
   return useMutation({
-    mutationFn: ({ uri }: { uri: string }) => createScan(uri),
+    mutationFn: ({ uri }: { uri: string }) => createScan(uri, onPoll),
   });
 }

@@ -33,15 +33,26 @@ async function pickImage(source: 'camera' | 'library') {
   return result.assets[0];
 }
 
+function readingStatusText(elapsedMs: number): string {
+  if (elapsedMs > 20_000) return "Still going — OCR can take up to a minute on a slow scan…";
+  if (elapsedMs > 5_000) return 'Still reading — hang tight…';
+  return 'Reading the label…';
+}
+
 export default function ScanScreen() {
   const router = useRouter();
   const [previewUri, setPreviewUri] = useState<string | null>(null);
-  const scanMutation = useCreateScan();
+  const [elapsedMs, setElapsedMs] = useState(0);
+  // POST /v1/scans returns instantly; the actual OCR result comes from
+  // polling GET /v1/scans/{id} underneath useCreateScan. This callback just
+  // drives the "still working" message so a 40s scan doesn't look hung.
+  const scanMutation = useCreateScan(setElapsedMs);
 
   async function handlePick(source: 'camera' | 'library') {
     const asset = await pickImage(source);
     if (!asset) return;
     setPreviewUri(asset.uri);
+    setElapsedMs(0);
 
     scanMutation.mutate(
       { uri: asset.uri },
@@ -79,7 +90,10 @@ export default function ScanScreen() {
         },
         onError: (error) => {
           setPreviewUri(null);
-          Alert.alert('Scan failed', (error as Error).message);
+          Alert.alert('Scan failed', (error as Error).message, [
+            { text: 'Try again', style: 'cancel' },
+            { text: 'Add manually', onPress: () => router.push('/add') },
+          ]);
         },
       }
     );
@@ -92,7 +106,7 @@ export default function ScanScreen() {
       {scanMutation.isPending ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" />
-          <Text style={styles.statusText}>Reading the label…</Text>
+          <Text style={styles.statusText}>{readingStatusText(elapsedMs)}</Text>
         </View>
       ) : (
         <View style={styles.center}>
@@ -154,6 +168,7 @@ const styles = StyleSheet.create({
   statusText: {
     color: '#777',
     marginTop: 8,
+    textAlign: 'center',
   },
   button: {
     backgroundColor: '#2e7d32',

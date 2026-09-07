@@ -134,8 +134,38 @@ export async function unregisterDevice(token: string): Promise<void> {
   await apiRequest<void>('/v1/devices', { method: 'DELETE', query: { token } });
 }
 
-/** POST /v1/scans. `imageUri` is a local file:// URI from expo-image-picker. */
-export async function createScan(imageUri: string): Promise<ScanResponse> {
+const POLL_INTERVAL_MS = 1500;
+const POLL_TIMEOUT_MS = 60_000;
+const STILL_PROCESSING: ScanResponse['status'][] = ['pending', 'processing'];
+
+/**
+ * POST /v1/scans now returns instantly (202) with status: "processing" —
+ * the backend used to hold the connection open for the whole OCR run, which
+ * real devices (and the tunnel) would cancel mid-request on a slow scan.
+ * This polls GET /v1/scans/{id} until a terminal status, per api.md, and
+ * resolves with that final result — same contract callers see as before,
+ * the polling is just an implementation detail.
+ */
+async function pollScan(scanId: string, onPoll?: (elapsedMs: number) => void): Promise<ScanResponse> {
+  const startedAt = Date.now();
+  while (true) {
+    const result = await apiRequest<ScanResponse>(`/v1/scans/${scanId}`);
+    if (!STILL_PROCESSING.includes(result.status)) return result;
+
+    const elapsedMs = Date.now() - startedAt;
+    if (elapsedMs > POLL_TIMEOUT_MS) {
+      throw new Error('Scan is taking longer than expected. Try again, or add the item manually.');
+    }
+    onPoll?.(elapsedMs);
+    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+  }
+}
+
+/** `imageUri` is a local file:// URI from expo-image-picker. */
+export async function createScan(
+  imageUri: string,
+  onPoll?: (elapsedMs: number) => void
+): Promise<ScanResponse> {
   if (USE_MOCKS) {
     await mockDelay();
     return mockStore.createScan();
@@ -146,5 +176,7 @@ export async function createScan(imageUri: string): Promise<ScanResponse> {
   const file = new File(imageUri);
   const formData = new FormData();
   formData.append('image', file);
-  return apiRequest<ScanResponse>('/v1/scans', { method: 'POST', formData });
+  const initial = await apiRequest<ScanResponse>('/v1/scans', { method: 'POST', formData });
+  if (!STILL_PROCESSING.includes(initial.status)) return initial;
+  return pollScan(initial.scan_id, onPoll);
 }
