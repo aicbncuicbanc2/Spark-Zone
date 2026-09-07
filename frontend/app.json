@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "frontend",
+    "name": "Thyme",
     "slug": "frontend",
     "version": "1.0.0",
     "scheme": "expiryguardian",
@@ -30,8 +30,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Let Expiry Guardian access your photos so you can add a label photo.",
-          "cameraPermission": "Let Expiry Guardian use your camera to photograph a product label."
+          "photosPermission": "Let Thyme access your photos so you can add a label photo.",
+          "cameraPermission": "Let Thyme use your camera to photograph a product label."
         }
       ]
     ],
