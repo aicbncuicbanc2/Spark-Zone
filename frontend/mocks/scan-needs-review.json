@@ -1,0 +1,36 @@
+{
+  "scan_id": "73f8d500-d884-4e56-9666-31e6ecb78666",
+  "status": "needs_review",
+  "image_url": "https://res.cloudinary.com/bwzrkg90/image/upload/v1788615304/expiry-guardian/11111111-1111-4111-8111-111111111111/ww7t0dppemkyhmicqemr.jpg",
+  "extracted_expiry_date": null,
+  "date_confidence": 0.75,
+  "date_type": "manufacture",
+  "detected_barcode": null,
+  "engine_used": "paddleocr",
+  "engines_attempted": [
+    {
+      "error": null,
+      "engine": "paddleocr",
+      "succeeded": true,
+      "date_found": true,
+      "duration_ms": 12336,
+      "ocr_confidence": 1.0
+    }
+  ],
+  "raw_text": "MFG 05/26 10:39 041",
+  "ocr_confidence": 1.0,
+  "needs_review": true,
+  "review_reason": "Only a manufacture date was found, not an expiry date. Please enter the expiry date.",
+  "alternatives": [],
+  "suggested_item": {
+    "name": null,
+    "brand": null,
+    "category_id": null,
+    "expiry_date": null,
+    "pao_months": null
+  },
+  "error_code": null,
+  "error_detail": null,
+  "processing_ms": 13952,
+  "created_at": "2026-09-05T13:35:17.930356Z"
+}

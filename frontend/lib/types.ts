@@ -103,6 +103,53 @@ export interface Device {
   created_at: string;
 }
 
+export type ScanStatus = 'pending' | 'processing' | 'succeeded' | 'needs_review' | 'failed';
+
+/**
+ * POST /v1/scans response (backend/app/schemas/scan.py — read directly, since
+ * api.md's example shows a top-level `product` object that doesn't exist in
+ * the real schema, and omits several fields the backend actually returns:
+ * date_type, engines_attempted, ocr_confidence, needs_review, alternatives,
+ * error_code/detail, processing_ms, created_at).
+ */
+export interface DateCandidate {
+  value: string;
+  date_type: string;
+  confidence: number;
+  raw: string;
+  notes: string[];
+}
+
+export interface SuggestedItem {
+  name: string | null;
+  brand: string | null;
+  category_id: string | null;
+  expiry_date: string | null;
+  pao_months: number | null;
+}
+
+export interface ScanResponse {
+  scan_id: string;
+  status: ScanStatus;
+  image_url: string | null;
+  extracted_expiry_date: string | null;
+  date_confidence: number | null;
+  date_type: string | null;
+  detected_barcode: string | null;
+  engine_used: string | null;
+  engines_attempted: Record<string, unknown>[];
+  raw_text: string | null;
+  ocr_confidence: number | null;
+  needs_review: boolean;
+  review_reason: string | null;
+  alternatives: DateCandidate[];
+  suggested_item: SuggestedItem | null;
+  error_code: string | null;
+  error_detail: string | null;
+  processing_ms: number | null;
+  created_at: string | null;
+}
+
 /** POST /v1/items body. Only name + expiry_date are required per api.md. */
 export interface CreateItemInput {
   name: string;

@@ -11,6 +11,7 @@ import type {
   ItemsListResponse,
   MePreferences,
   PatchItemInput,
+  ScanResponse,
 } from './types';
 
 // Every function here has one job: return the same shape whether it's
@@ -129,4 +130,20 @@ export async function unregisterDevice(token: string): Promise<void> {
     return;
   }
   await apiRequest<void>('/v1/devices', { method: 'DELETE', query: { token } });
+}
+
+/** POST /v1/scans. `imageUri` is a local file:// URI from expo-image-picker. */
+export async function createScan(imageUri: string, mimeType?: string): Promise<ScanResponse> {
+  if (USE_MOCKS) {
+    await mockDelay();
+    return mockStore.createScan();
+  }
+  const formData = new FormData();
+  const filename = imageUri.split('/').pop() ?? 'label.jpg';
+  formData.append('image', {
+    uri: imageUri,
+    name: filename,
+    type: mimeType ?? 'image/jpeg',
+  } as unknown as Blob);
+  return apiRequest<ScanResponse>('/v1/scans', { method: 'POST', formData });
 }

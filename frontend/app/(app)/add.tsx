@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -14,15 +14,34 @@ import { useCategories, useCreateItem } from '../../lib/queries';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+type ScanParams = {
+  scan_id?: string;
+  name?: string;
+  brand?: string;
+  category_id?: string;
+  expiry_date?: string;
+  needs_review?: string;
+  review_reason?: string;
+  alternatives?: string;
+};
+
 export default function AddItemScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<ScanParams>();
   const { data: categories } = useCategories();
   const createMutation = useCreateItem();
 
-  const [name, setName] = useState('');
-  const [brand, setBrand] = useState('');
-  const [categoryId, setCategoryId] = useState<string | undefined>(undefined);
-  const [expiryDate, setExpiryDate] = useState('');
+  const scanId = params.scan_id || null;
+  // The value OCR suggested, so we can tell on submit whether the user kept
+  // it (date_source: "ocr") or corrected it (date_source: "user") — that's
+  // how the team measures OCR accuracy.
+  const [ocrExpiryDate] = useState(params.expiry_date ?? '');
+  const alternativeDates: string[] = params.alternatives ? JSON.parse(params.alternatives) : [];
+
+  const [name, setName] = useState(params.name ?? '');
+  const [brand, setBrand] = useState(params.brand ?? '');
+  const [categoryId, setCategoryId] = useState<string | undefined>(params.category_id || undefined);
+  const [expiryDate, setExpiryDate] = useState(params.expiry_date ?? '');
   const [quantity, setQuantity] = useState('1');
   const [unit, setUnit] = useState('');
   const [storageLocation, setStorageLocation] = useState('');
@@ -36,17 +55,20 @@ export default function AddItemScreen() {
     if (!name.trim()) return setFormError('Name is required.');
     if (!DATE_RE.test(expiryDate)) return setFormError('Expiry date must be YYYY-MM-DD.');
 
+    const dateWasEdited = expiryDate !== ocrExpiryDate;
+
     createMutation.mutate(
       {
         name: name.trim(),
         brand: brand.trim() || null,
         category_id: categoryId ?? null,
         expiry_date: expiryDate,
+        scan_id: scanId,
         quantity: Number(quantity) || 1,
         unit: unit.trim() || null,
         storage_location: storageLocation.trim() || null,
         notes: notes.trim() || null,
-        date_source: 'user',
+        date_source: scanId && !dateWasEdited ? 'ocr' : 'user',
       },
       {
         onSuccess: () => router.back(),
@@ -57,6 +79,15 @@ export default function AddItemScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      {params.needs_review === '1' && (
+        <View style={styles.reviewBanner}>
+          <Text style={styles.reviewBannerTitle}>Confirm this date</Text>
+          <Text style={styles.reviewBannerText}>
+            {params.review_reason || 'The scan could not confidently read an expiry date.'}
+          </Text>
+        </View>
+      )}
+
       <Text style={styles.label}>Name *</Text>
       <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Panadol Extra" />
 
@@ -86,6 +117,16 @@ export default function AddItemScreen() {
         placeholder="2026-12-31"
         keyboardType="numbers-and-punctuation"
       />
+      {alternativeDates.length > 0 && (
+        <View style={styles.altRow}>
+          <Text style={styles.altLabel}>Other readings:</Text>
+          {alternativeDates.map((date) => (
+            <Pressable key={date} style={styles.altChip} onPress={() => setExpiryDate(date)}>
+              <Text style={styles.altChipText}>{date}</Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
 
       <View style={styles.inlineRow}>
         <View style={styles.inlineField}>
@@ -130,6 +171,21 @@ const styles = StyleSheet.create({
   content: {
     padding: 16,
     paddingBottom: 40,
+  },
+  reviewBanner: {
+    backgroundColor: '#fef5e7',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
+    gap: 4,
+  },
+  reviewBannerTitle: {
+    fontWeight: '700',
+    color: '#9a7d0a',
+  },
+  reviewBannerText: {
+    fontSize: 13,
+    color: '#7a6108',
   },
   label: {
     fontSize: 13,
@@ -178,6 +234,28 @@ const styles = StyleSheet.create({
   chipTextActive: {
     color: '#fff',
     fontWeight: '600',
+  },
+  altRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 6,
+  },
+  altLabel: {
+    fontSize: 12,
+    color: '#888',
+  },
+  altChip: {
+    borderWidth: 1,
+    borderColor: '#2e7d32',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  altChipText: {
+    fontSize: 12,
+    color: '#2e7d32',
   },
   error: {
     color: '#c0392b',

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   consumeItem,
   createItem,
+  createScan,
   discardItem,
   getCategories,
   getDashboard,
@@ -77,5 +78,11 @@ export function useDiscardItem(id: string) {
       queryClient.invalidateQueries({ queryKey: ['items'] });
       queryClient.invalidateQueries({ queryKey: queryKeys.dashboard });
     },
+  });
+}
+
+export function useCreateScan() {
+  return useMutation({
+    mutationFn: ({ uri, mimeType }: { uri: string; mimeType?: string }) => createScan(uri, mimeType),
   });
 }

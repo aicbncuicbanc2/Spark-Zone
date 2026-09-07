@@ -2,6 +2,8 @@ import categoriesJson from '../mocks/categories.json';
 import dashboardJson from '../mocks/dashboard.json';
 import itemsListJson from '../mocks/items-list.json';
 import meJson from '../mocks/me.json';
+import scanNeedsReviewJson from '../mocks/scan-needs-review.json';
+import scanSucceededJson from '../mocks/scan-succeeded.json';
 import type {
   Category,
   CreateItemInput,
@@ -11,6 +13,7 @@ import type {
   Item,
   MePreferences,
   PatchItemInput,
+  ScanResponse,
 } from './types';
 
 // In-memory copy seeded from the real captured responses, so add/edit
@@ -21,6 +24,7 @@ let items: Item[] = structuredClone((itemsListJson as { items: Item[] }).items);
 const categories = categoriesJson as Category[];
 const me = meJson as MePreferences;
 let devices: Device[] = [];
+let scanCount = 0;
 
 function computeEffective(item: Pick<Item, 'expiry_date' | 'opened_at' | 'pao_months'>): string {
   if (!item.opened_at || item.pao_months == null) return item.expiry_date;
@@ -153,5 +157,13 @@ export const mockStore = {
 
   unregisterDevice(token: string): void {
     devices = devices.filter((d) => d.fcm_token !== token);
+  },
+
+  createScan(): ScanResponse {
+    // Alternates so both the happy path and the needs_review path (a
+    // manufacture-date-only pack) get exercised without any setup.
+    scanCount += 1;
+    const sample = scanCount % 2 === 1 ? scanSucceededJson : scanNeedsReviewJson;
+    return { ...(sample as ScanResponse), scan_id: `mock-scan-${Date.now()}` };
   },
 };
