@@ -44,7 +44,7 @@ export default function ScanScreen() {
     setPreviewUri(asset.uri);
 
     scanMutation.mutate(
-      { uri: asset.uri, mimeType: asset.mimeType },
+      { uri: asset.uri },
       {
         onSuccess: (scan) => {
           setPreviewUri(null);

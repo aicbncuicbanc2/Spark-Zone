@@ -1,3 +1,5 @@
+import { fetch as expoFetch } from 'expo/fetch';
+
 import { API_BASE_URL } from './config';
 import { supabase } from './supabase';
 
@@ -55,11 +57,18 @@ async function doFetch(path: string, options: RequestOptions, token: string | nu
   if (token) headers.Authorization = `Bearer ${token}`;
   if (!options.formData) headers['Content-Type'] = 'application/json';
 
-  return fetch(buildUrl(path, options.query), {
+  // React Native's global fetch rejects a FormData part built from
+  // expo-file-system's File (a Blob-like, not a plain {uri,name,type}
+  // object) with "Unsupported FormDataPart implementation" — expo/fetch's
+  // native implementation is the one that actually supports it. Only used
+  // for multipart requests; the JSON path keeps using the global fetch.
+  const fetchImpl = options.formData ? expoFetch : fetch;
+
+  return fetchImpl(buildUrl(path, options.query), {
     method: options.method ?? 'GET',
     headers,
     body: options.formData ?? (options.body !== undefined ? JSON.stringify(options.body) : undefined),
-  });
+  }) as unknown as Promise<Response>;
 }
 
 /**

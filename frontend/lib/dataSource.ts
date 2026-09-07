@@ -1,3 +1,5 @@
+import { File } from 'expo-file-system';
+
 import { apiRequest } from './api';
 import { USE_MOCKS } from './config';
 import { mockStore } from './mockStore';
@@ -133,17 +135,16 @@ export async function unregisterDevice(token: string): Promise<void> {
 }
 
 /** POST /v1/scans. `imageUri` is a local file:// URI from expo-image-picker. */
-export async function createScan(imageUri: string, mimeType?: string): Promise<ScanResponse> {
+export async function createScan(imageUri: string): Promise<ScanResponse> {
   if (USE_MOCKS) {
     await mockDelay();
     return mockStore.createScan();
   }
+  // expo-file-system's File is Blob-like, which native fetch's FormData
+  // requires — a plain {uri,name,type} object throws "Unsupported
+  // FormDataPart implementation" on SDK 57.
+  const file = new File(imageUri);
   const formData = new FormData();
-  const filename = imageUri.split('/').pop() ?? 'label.jpg';
-  formData.append('image', {
-    uri: imageUri,
-    name: filename,
-    type: mimeType ?? 'image/jpeg',
-  } as unknown as Blob);
+  formData.append('image', file);
   return apiRequest<ScanResponse>('/v1/scans', { method: 'POST', formData });
 }

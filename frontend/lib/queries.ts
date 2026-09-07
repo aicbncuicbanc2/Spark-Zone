@@ -83,6 +83,6 @@ export function useDiscardItem(id: string) {
 
 export function useCreateScan() {
   return useMutation({
-    mutationFn: ({ uri, mimeType }: { uri: string; mimeType?: string }) => createScan(uri, mimeType),
+    mutationFn: ({ uri }: { uri: string }) => createScan(uri),
   });
 }
