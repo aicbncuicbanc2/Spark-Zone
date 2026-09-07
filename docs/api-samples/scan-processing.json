@@ -1,0 +1,27 @@
+{
+  "scan_id": "8287a5b0-23d9-40e6-b2c5-4f361021b400",
+  "status": "processing",
+  "image_url": null,
+  "extracted_expiry_date": null,
+  "date_confidence": null,
+  "date_type": null,
+  "detected_barcode": null,
+  "engine_used": null,
+  "engines_attempted": [],
+  "raw_text": null,
+  "ocr_confidence": null,
+  "needs_review": false,
+  "review_reason": null,
+  "alternatives": [],
+  "suggested_item": {
+    "name": null,
+    "brand": null,
+    "category_id": null,
+    "expiry_date": null,
+    "pao_months": null
+  },
+  "error_code": null,
+  "error_detail": null,
+  "processing_ms": null,
+  "created_at": "2026-09-07T17:09:21.437311Z"
+}

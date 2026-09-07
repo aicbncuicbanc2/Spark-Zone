@@ -1,7 +1,7 @@
 {
-  "scan_id": "5750bc5a-b9a2-4a57-90e3-75110b414929",
+  "scan_id": "8287a5b0-23d9-40e6-b2c5-4f361021b400",
   "status": "succeeded",
-  "image_url": "https://res.cloudinary.com/bwzrkg90/image/upload/v1788615282/expiry-guardian/11111111-1111-4111-8111-111111111111/vanozk3eavszvmziqrjq.jpg",
+  "image_url": "https://res.cloudinary.com/bwzrkg90/image/upload/v1788800962/expiry-guardian/11111111-1111-4111-8111-111111111111/kx3oqk1v9khe5lpwh71b.jpg",
   "extracted_expiry_date": "2027-12-22",
   "date_confidence": 0.9,
   "date_type": "expiry",
@@ -11,14 +11,15 @@
     {
       "error": null,
       "engine": "paddleocr",
+      "variant": "fast",
       "succeeded": true,
       "date_found": true,
-      "duration_ms": 15964,
-      "ocr_confidence": 0.997
+      "duration_ms": 6839,
+      "ocr_confidence": 1.0
     }
   ],
-  "raw_text": "Malaysia\n(DAY/MONTH/YEAR) / (HARI/BULAN/T BEST BEFORE / BAIK SEBELUM /\nPRD DATE:23/06/2026 EXP DATE:22/12/2027\n42601965-2306AP6B\n18:22",
-  "ocr_confidence": 0.997,
+  "raw_text": "Country Malaysia\nBEFORE/BAIK SEBELUM\nBEST (HARI/BULAN/T\n(DAY/MONTH/YEAR)\nPRD DATE:23/06/2026\nEXP DATE:22/12/2027\n42601965-2306AP6B\n18:22",
+  "ocr_confidence": 1.0,
   "needs_review": false,
   "review_reason": null,
   "alternatives": [],
@@ -31,6 +32,6 @@
   },
   "error_code": null,
   "error_detail": null,
-  "processing_ms": 22186,
-  "created_at": "2026-09-05T13:35:02.144341Z"
+  "processing_ms": 8780,
+  "created_at": "2026-09-07T17:09:21.437311Z"
 }

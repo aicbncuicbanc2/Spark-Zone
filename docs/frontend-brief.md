@@ -159,11 +159,39 @@ that, `expiry_date` does not.
 `upcoming` (4–7) · `ok` (>7). The five dashboard bucket counts always sum to
 `total_active`, so a stacked bar needs no reconciliation.
 
-### 2. The scan result must always be editable
+### 2. Scanning is async — POST returns instantly, then you poll
 
-OCR gets dates wrong. `POST /v1/scans` returns `status: "needs_review"` and a
-`review_reason` when it is unsure — for example a genuinely ambiguous six-digit
-date, or a pack that only prints a manufacture date.
+**This changed after real testing found a real bug, so read this even if you
+already wired up the scan screen.** `POST /v1/scans` used to hold the
+connection open for the whole OCR run (2 to 40+ seconds depending on server
+load) and return the full result in one response. On a real device that
+failed: the connection got cancelled mid-request before the response ever
+arrived, and the app showed a generic "scan failed" even though the backend
+was still working correctly and finished successfully moments later.
+
+The fix: `POST /v1/scans` now returns **immediately** —
+`202 Accepted`, `{"status": "processing", "scan_id": "...", ...}` — and you
+poll `GET /v1/scans/{scan_id}` every 1-2 seconds until `status` is no longer
+`"processing"`. Every individual request is now short, so nothing has time to
+be cancelled, however slow the actual OCR run turns out to be.
+
+```
+POST /v1/scans          -> 202 { status: "processing", scan_id: "..." }
+GET /v1/scans/{id}       -> { status: "processing", ... }   (poll)
+GET /v1/scans/{id}       -> { status: "processing", ... }   (poll)
+GET /v1/scans/{id}       -> { status: "succeeded", extracted_expiry_date: "...", ... }
+```
+
+Stop polling and offer manual entry if it's still `processing` after roughly a
+minute — at that point something has genuinely gone wrong, not just a slow
+scan. `docs/api-samples/scan-processing.json` shows the initial response shape;
+the existing `scan-succeeded.json` / `scan-needs-review.json` samples show what
+polling eventually returns.
+
+OCR gets dates wrong even when it succeeds. Once `status` resolves,
+`needs_review` and `review_reason` tell you when to make the user confirm
+rather than trust the read — for example a genuinely ambiguous six-digit date,
+or a pack that only prints a manufacture date.
 
 Prefill the form, never auto-save. When the user edits the date, send
 `date_source: "user"` — that is how OCR accuracy gets measured.

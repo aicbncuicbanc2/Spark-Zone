@@ -11,6 +11,10 @@ from supabase import Client
 
 TABLE = "scans"
 
+#: Scans carry a product identity once a barcode resolves. Embedding it
+#: means GET/update never need a second round trip to show suggested_item.
+SELECT_WITH_PRODUCT = "*, products(name, brand, category_id)"
+
 
 def create_scan(client: Client, user_id: str, payload: dict[str, Any]) -> dict[str, Any]:
     row = {**payload, "user_id": user_id}
@@ -29,7 +33,11 @@ def create_scan(client: Client, user_id: str, payload: dict[str, Any]) -> dict[s
 def get_scan(client: Client, user_id: str, scan_id: str) -> dict[str, Any]:
     try:
         result = (
-            client.table(TABLE).select("*").eq("id", scan_id).eq("user_id", user_id).execute()
+            client.table(TABLE)
+            .select(SELECT_WITH_PRODUCT)
+            .eq("id", scan_id)
+            .eq("user_id", user_id)
+            .execute()
         )
     except APIError as exc:
         raise UpstreamError("Could not load the scan.", details={"db": str(exc)[:300]}) from exc
@@ -48,6 +56,7 @@ def update_scan(
             .update(changes)
             .eq("id", scan_id)
             .eq("user_id", user_id)
+            .select(SELECT_WITH_PRODUCT)
             .execute()
         )
     except APIError as exc:

@@ -378,9 +378,16 @@ def test_image_url_is_consistent_across_create_get_and_list(
 
     buffer = io.BytesIO()
     Image.new("RGB", (400, 300), (250, 250, 250)).save(buffer, format="JPEG")
-    scan = client.post(
+    started = client.post(
         "/v1/scans", headers=auth_a, files={"image": ("p.jpg", buffer.getvalue(), "image/jpeg")}
     ).json()
+    assert started["status"] == "processing", "scanning is async now - this must be the initial state"
+
+    # FastAPI's TestClient runs background tasks to completion before .post()
+    # returns, so the work is already done - but the response body sent back
+    # from POST was serialized before that happened, so it never carries the
+    # result. GET is required to see it, exactly as a real client would poll.
+    scan = client.get(f"/v1/scans/{started['scan_id']}", headers=auth_a).json()
 
     created = client.post(
         "/v1/items",

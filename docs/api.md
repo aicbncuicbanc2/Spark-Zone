@@ -165,12 +165,35 @@ straight from `counts` without reconciling anything.
 
 ## ✅ Scans — OCR
 
-### `POST /v1/scans`
+### `POST /v1/scans` — **asynchronous: poll for the result**
+
 `multipart/form-data`, field name `image`. Max 8 MB, JPEG or PNG.
 
-The response is **always** shaped with `status` so that if we later move OCR to a
-background job, polling `GET /v1/scans/{id}` is the only change — this contract
-does not break.
+> **This used to be synchronous and no longer is — read this section even if
+> you already integrated it.** OCR takes anywhere from 2 to 40+ seconds
+> depending on server load. Holding one HTTP request open that long turned out
+> to be genuinely unreliable on real devices: mobile OS timeouts and the
+> tunnel itself cancel a connection held open that long, even though the
+> backend was still working correctly. `POST` now returns **immediately**
+> (`202 Accepted`) with `status: "processing"`, and you poll
+> `GET /v1/scans/{id}` every 1-2 seconds until `status` changes. No individual
+> request is ever open for more than a few seconds, so nothing has time to be
+> cancelled.
+
+**Immediately after POST:**
+
+```json
+{
+  "scan_id": "uuid",
+  "status": "processing",
+  "extracted_expiry_date": null,
+  "image_url": null,
+  "engine_used": null,
+  "engines_attempted": []
+}
+```
+
+**Poll `GET /v1/scans/{id}` until `status` is no longer `"processing"`:**
 
 ```json
 {
@@ -180,10 +203,9 @@ does not break.
   "extracted_expiry_date": "2026-11-30",
   "date_confidence": 0.91,
   "detected_barcode": "9556001234567",
-  "product": { "id": "uuid", "name": "Panadol Extra", "brand": "Haleon", "category_id": "medicine" },
+  "suggested_item": { "name": "Panadol Extra", "category_id": "medicine", "expiry_date": "2026-11-30" },
   "engine_used": "paddleocr",
-  "raw_text": "EXP 30 NOV 2026 ...",
-  "suggested_item": { "name": "Panadol Extra", "category_id": "medicine", "expiry_date": "2026-11-30" }
+  "raw_text": "EXP 30 NOV 2026 ..."
 }
 ```
 
@@ -191,9 +213,14 @@ does not break.
 
 | status | meaning | what the app should do |
 |---|---|---|
+| `processing` | still working | keep polling — don't show an error yet |
 | `succeeded` | confident expiry date | prefill the form, still let the user edit |
 | `needs_review` | read something, but confirm it | **prefill and require confirmation** — `review_reason` says why |
 | `failed` | OCR could not read the image | offer manual entry |
+
+A reasonable poll loop: every 1.5-2 seconds, stop polling (and show a manual
+entry option) if it's still `processing` after ~60 seconds — that would mean
+something has actually gone wrong, not just a slow but working scan.
 
 `needs_review` fires for two real situations: an ambiguous date (six digits with
 no separator can be DDMMYY *or* YYMMDD), and a pack that only prints a
@@ -203,7 +230,8 @@ the user their item expired months ago.
 
 When there is a genuine choice, `alternatives[]` carries the other readings with
 their confidence and an explanation, so the app can offer options instead of a
-guess.
+guess. This is only ever populated once `status` has left `processing` — poll
+first, then read it.
 
 `DELETE /v1/scans/{id}` removes a scan and its stored image. Items created from
 it survive.
@@ -213,7 +241,10 @@ it survive.
 > judge hands you.
 
 ### `GET /v1/scans/{id}` · `POST /v1/scans/{id}/retry`
-`retry` accepts `?engine=google_vision` to force the fallback engine.
+
+`GET` is what you poll — see above. `retry` follows the exact same
+create-then-poll shape (`202` immediately, poll `GET` for the result) and
+accepts `?engine=google_vision` to force the fallback engine.
 
 ---
 
