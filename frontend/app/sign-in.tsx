@@ -37,7 +37,7 @@ export default function SignInScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.form}>
-        <Text style={styles.title}>Expiry Guardian</Text>
+        <Text style={styles.title}>Thyme</Text>
         <Text style={styles.subtitle}>Sign in to your pantry</Text>
 
         <TextInput
