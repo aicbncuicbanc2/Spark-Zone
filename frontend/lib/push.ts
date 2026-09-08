@@ -1,17 +1,21 @@
 import Constants from 'expo-constants';
-import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
 import type { DevicePlatform } from './types';
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: false,
-    shouldSetBadge: false,
-  }),
-});
+// expo-notifications throws just from being imported when remote push isn't
+// supported in the current environment (Android + Expo Go, since SDK 53 -
+// see https://docs.expo.dev/versions/v57.0.0/sdk/notifications/). So it's
+// loaded dynamically, only once this check has already ruled that out -
+// a static top-level import would crash the whole app before this file's
+// own guard ever got a chance to run.
+//
+// `appOwnership` is deprecated in favor of `executionEnvironment`, but the
+// replacement can't tell Expo Go apart from a real expo-dev-client build
+// (both report "storeClient") - only `appOwnership === 'expo'` identifies
+// Expo Go specifically, which is exactly the distinction this needs: push
+// should still work once this ships as a real dev client or standalone build.
+const PUSH_UNSUPPORTED = Platform.OS === 'android' && Constants.appOwnership === 'expo';
 
 /**
  * Gets an Expo push token for this device, or null if that isn't possible
@@ -23,6 +27,24 @@ Notifications.setNotificationHandler({
  */
 export async function getExpoPushToken(): Promise<string | null> {
   if (Platform.OS === 'web') return null;
+
+  if (PUSH_UNSUPPORTED) {
+    console.warn(
+      '[push] Expo Go on Android cannot use remote push (needs a dev client) — skipping.'
+    );
+    return null;
+  }
+
+  const Notifications = await import('expo-notifications');
+
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: false,
+      shouldSetBadge: false,
+    }),
+  });
 
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('default', {
