@@ -64,6 +64,19 @@ export interface Category {
   default_pao_months: number | null;
   icon: string;
   sort_order: number;
+  /** Mock-only: true for a category the user created on-device. There is no
+   * POST /v1/categories on the real backend yet — see createCategory(). */
+  isCustom?: boolean;
+}
+
+/**
+ * Mock-only for now — no POST /v1/categories exists on the real backend.
+ * Calling createCategory() with USE_MOCKS=false throws rather than hitting
+ * a 404, so the failure is clear instead of looking like a network bug.
+ */
+export interface CreateCategoryInput {
+  label_en: string;
+  icon?: string;
 }
 
 export interface MePreferences {

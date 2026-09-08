@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   consumeItem,
+  createCategory,
   createItem,
   createScan,
   discardItem,
@@ -11,7 +12,7 @@ import {
   getItems,
   patchItem,
 } from './dataSource';
-import type { CreateItemInput, PatchItemInput } from './types';
+import type { CreateCategoryInput, CreateItemInput, PatchItemInput } from './types';
 import type { ItemsQuery } from './dataSource';
 
 export const queryKeys = {
@@ -35,6 +36,16 @@ export function useItem(id: string) {
 
 export function useCategories() {
   return useQuery({ queryKey: queryKeys.categories, queryFn: getCategories });
+}
+
+export function useCreateCategory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateCategoryInput) => createCategory(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.categories });
+    },
+  });
 }
 
 export function useCreateItem() {
