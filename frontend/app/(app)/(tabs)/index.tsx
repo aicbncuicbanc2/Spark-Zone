@@ -4,6 +4,7 @@ import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, T
 import { ItemRow } from '../../../components/ItemRow';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useDashboard } from '../../../lib/queries';
+import { colors } from '../../../lib/theme';
 import type { DashboardResponse } from '../../../lib/types';
 
 const BUCKETS: { key: keyof DashboardResponse['counts']; label: string; color: string }[] = [
@@ -73,7 +74,7 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.cream,
   },
   center: {
     flex: 1,
@@ -81,14 +82,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     padding: 24,
+    backgroundColor: colors.cream,
   },
   errorText: {
     fontSize: 16,
     fontWeight: '600',
+    color: colors.navy,
   },
   errorDetail: {
     fontSize: 13,
-    color: '#888',
+    color: colors.textMuted,
     textAlign: 'center',
   },
   header: {
@@ -101,9 +104,10 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '700',
+    color: colors.navy,
   },
   signOut: {
-    color: '#c0392b',
+    color: colors.danger,
     fontSize: 14,
   },
   bucketRow: {
@@ -122,11 +126,11 @@ const styles = StyleSheet.create({
   },
   bucketLabel: {
     fontSize: 12,
-    color: '#777',
+    color: colors.textMuted,
   },
   totalLabel: {
     textAlign: 'center',
-    color: '#999',
+    color: colors.textMuted,
     fontSize: 12,
     marginTop: 8,
   },
@@ -136,9 +140,10 @@ const styles = StyleSheet.create({
     marginTop: 24,
     marginBottom: 8,
     paddingHorizontal: 16,
+    color: colors.navy,
   },
   empty: {
-    color: '#999',
+    color: colors.textMuted,
     paddingHorizontal: 16,
   },
 });

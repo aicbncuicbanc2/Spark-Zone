@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -11,6 +12,7 @@ import {
 } from 'react-native';
 
 import { useAuth } from '../contexts/AuthContext';
+import { colors } from '../lib/theme';
 
 export default function SignInScreen() {
   const { signIn } = useAuth();
@@ -37,12 +39,17 @@ export default function SignInScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.form}>
-        <Text style={styles.title}>Thyme</Text>
+        <Image
+          source={require('../assets/brand/wordmark.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
         <Text style={styles.subtitle}>Sign in to your pantry</Text>
 
         <TextInput
           style={styles.input}
           placeholder="Email"
+          placeholderTextColor={colors.textMuted}
           autoCapitalize="none"
           autoComplete="email"
           keyboardType="email-address"
@@ -53,6 +60,7 @@ export default function SignInScreen() {
         <TextInput
           style={styles.input}
           placeholder="Password"
+          placeholderTextColor={colors.textMuted}
           secureTextEntry
           autoCapitalize="none"
           autoComplete="password"
@@ -70,7 +78,7 @@ export default function SignInScreen() {
           disabled={!canSubmit}
         >
           {isSubmitting ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={colors.white} />
           ) : (
             <Text style={styles.buttonText}>Sign in</Text>
           )}
@@ -83,39 +91,41 @@ export default function SignInScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.cream,
     justifyContent: 'center',
   },
   form: {
     paddingHorizontal: 24,
     gap: 12,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    textAlign: 'center',
+  logo: {
+    width: '100%',
+    height: 70,
+    alignSelf: 'center',
+    marginBottom: 4,
   },
   subtitle: {
     fontSize: 15,
-    color: '#666',
+    color: colors.textMuted,
     textAlign: 'center',
     marginBottom: 16,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colors.border,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
+    backgroundColor: colors.white,
   },
   error: {
-    color: '#c0392b',
+    color: colors.danger,
     fontSize: 14,
     textAlign: 'center',
   },
   button: {
-    backgroundColor: '#2e7d32',
+    backgroundColor: colors.navy,
     borderRadius: 10,
     paddingVertical: 14,
     alignItems: 'center',
@@ -125,7 +135,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   buttonText: {
-    color: '#fff',
+    color: colors.white,
     fontSize: 16,
     fontWeight: '600',
   },

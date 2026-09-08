@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 
 import { useCategories, useCreateItem } from '../../lib/queries';
+import { colors } from '../../lib/theme';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -154,7 +155,7 @@ export default function AddItemScreen() {
 
       <Pressable style={[styles.submit, !canSubmit && styles.submitDisabled]} disabled={!canSubmit} onPress={handleSubmit}>
         {createMutation.isPending ? (
-          <ActivityIndicator color="#fff" />
+          <ActivityIndicator color={colors.white} />
         ) : (
           <Text style={styles.submitText}>Add item</Text>
         )}
@@ -166,7 +167,7 @@ export default function AddItemScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.cream,
   },
   content: {
     padding: 16,
@@ -189,17 +190,18 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 13,
-    color: '#777',
+    color: colors.textMuted,
     marginTop: 14,
     marginBottom: 6,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colors.border,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 16,
+    backgroundColor: colors.white,
   },
   notesInput: {
     minHeight: 70,
@@ -217,22 +219,23 @@ const styles = StyleSheet.create({
   },
   chip: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colors.border,
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 6,
     marginRight: 8,
+    backgroundColor: colors.white,
   },
   chipActive: {
-    backgroundColor: '#2e7d32',
-    borderColor: '#2e7d32',
+    backgroundColor: colors.navy,
+    borderColor: colors.navy,
   },
   chipText: {
     fontSize: 13,
-    color: '#555',
+    color: colors.textMuted,
   },
   chipTextActive: {
-    color: '#fff',
+    color: colors.white,
     fontWeight: '600',
   },
   altRow: {
@@ -244,26 +247,26 @@ const styles = StyleSheet.create({
   },
   altLabel: {
     fontSize: 12,
-    color: '#888',
+    color: colors.textMuted,
   },
   altChip: {
     borderWidth: 1,
-    borderColor: '#2e7d32',
+    borderColor: colors.navy,
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
   altChipText: {
     fontSize: 12,
-    color: '#2e7d32',
+    color: colors.navy,
   },
   error: {
-    color: '#c0392b',
+    color: colors.danger,
     marginTop: 14,
     textAlign: 'center',
   },
   submit: {
-    backgroundColor: '#2e7d32',
+    backgroundColor: colors.navy,
     borderRadius: 10,
     paddingVertical: 14,
     alignItems: 'center',
@@ -273,7 +276,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   submitText: {
-    color: '#fff',
+    color: colors.white,
     fontSize: 16,
     fontWeight: '600',
   },

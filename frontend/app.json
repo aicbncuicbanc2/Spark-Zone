@@ -5,27 +5,34 @@
     "version": "1.0.0",
     "scheme": "expiryguardian",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/brand/logo.png",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
+        "backgroundColor": "#F6F4F0",
+        "foregroundImage": "./assets/brand/logo.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/brand/logo.png"
     },
     "plugins": [
       "expo-router",
       "expo-status-bar",
-      "expo-splash-screen",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#F6F4F0",
+          "image": "./assets/brand/wordmark.png",
+          "imageWidth": 220,
+          "resizeMode": "contain"
+        }
+      ],
       "expo-notifications",
       [
         "expo-image-picker",

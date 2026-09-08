@@ -12,6 +12,7 @@ import {
 
 import { ItemRow } from '../../../components/ItemRow';
 import { useCategories, useItems } from '../../../lib/queries';
+import { colors } from '../../../lib/theme';
 import type { ItemStatus } from '../../../lib/types';
 
 const STATUSES: ItemStatus[] = ['active', 'consumed', 'discarded', 'expired'];
@@ -101,7 +102,7 @@ export default function PantryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.cream,
   },
   header: {
     flexDirection: 'row',
@@ -114,15 +115,16 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '700',
+    color: colors.navy,
   },
   addButton: {
-    backgroundColor: '#2e7d32',
+    backgroundColor: colors.navy,
     borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 8,
   },
   addButtonText: {
-    color: '#fff',
+    color: colors.white,
     fontWeight: '600',
   },
   chipRow: {
@@ -132,22 +134,23 @@ const styles = StyleSheet.create({
   },
   chip: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colors.border,
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 6,
     marginRight: 8,
+    backgroundColor: colors.white,
   },
   chipActive: {
-    backgroundColor: '#2e7d32',
-    borderColor: '#2e7d32',
+    backgroundColor: colors.navy,
+    borderColor: colors.navy,
   },
   chipText: {
     fontSize: 13,
-    color: '#555',
+    color: colors.textMuted,
   },
   chipTextActive: {
-    color: '#fff',
+    color: colors.white,
     fontWeight: '600',
   },
   sortButton: {
@@ -157,7 +160,7 @@ const styles = StyleSheet.create({
   },
   sortButtonText: {
     fontSize: 12,
-    color: '#2e7d32',
+    color: colors.navy,
     fontWeight: '600',
   },
   center: {
@@ -167,7 +170,7 @@ const styles = StyleSheet.create({
   },
   empty: {
     textAlign: 'center',
-    color: '#999',
+    color: colors.textMuted,
     marginTop: 40,
   },
 });
