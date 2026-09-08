@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 
+import { CategoryPicker } from '../../components/CategoryPicker';
 import { useCategories, useCreateItem } from '../../lib/queries';
 import { colors } from '../../lib/theme';
 
@@ -96,19 +97,7 @@ export default function AddItemScreen() {
       <TextInput style={styles.input} value={brand} onChangeText={setBrand} placeholder="Haleon" />
 
       <Text style={styles.label}>Category</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
-        {categories?.map((c) => (
-          <Pressable
-            key={c.id}
-            style={[styles.chip, categoryId === c.id && styles.chipActive]}
-            onPress={() => setCategoryId(c.id)}
-          >
-            <Text style={[styles.chipText, categoryId === c.id && styles.chipTextActive]}>
-              {c.label_en}
-            </Text>
-          </Pressable>
-        ))}
-      </ScrollView>
+      <CategoryPicker categories={categories} selectedId={categoryId} onSelect={setCategoryId} />
 
       <Text style={styles.label}>Expiry date * (YYYY-MM-DD)</Text>
       <TextInput
@@ -213,30 +202,6 @@ const styles = StyleSheet.create({
   },
   inlineField: {
     flex: 1,
-  },
-  chipRow: {
-    flexGrow: 0,
-  },
-  chip: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    marginRight: 8,
-    backgroundColor: colors.white,
-  },
-  chipActive: {
-    backgroundColor: colors.navy,
-    borderColor: colors.navy,
-  },
-  chipText: {
-    fontSize: 13,
-    color: colors.textMuted,
-  },
-  chipTextActive: {
-    color: colors.white,
-    fontWeight: '600',
   },
   altRow: {
     flexDirection: 'row',

@@ -6,6 +6,7 @@ import scanNeedsReviewJson from '../mocks/scan-needs-review.json';
 import scanSucceededJson from '../mocks/scan-succeeded.json';
 import type {
   Category,
+  CreateCategoryInput,
   CreateItemInput,
   DashboardResponse,
   Device,
@@ -22,7 +23,7 @@ import type {
 // This is a stand-in for the server — not a pattern to reuse once real
 // calls are wired up.
 let items: Item[] = structuredClone((itemsListJson as { items: Item[] }).items);
-const categories = categoriesJson as Category[];
+let categories = categoriesJson as Category[];
 const me = meJson as MePreferences;
 let devices: Device[] = [];
 let scanCount = 0;
@@ -58,6 +59,22 @@ export const mockStore = {
 
   getCategories(): Category[] {
     return categories;
+  },
+
+  createCategory(input: CreateCategoryInput): Category {
+    const id = `custom-${input.label_en.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now()}`;
+    const category: Category = {
+      id,
+      label_en: input.label_en.trim(),
+      label_ms: input.label_en.trim(),
+      label_zh: input.label_en.trim(),
+      default_pao_months: null,
+      icon: input.icon ?? 'tag',
+      sort_order: (categories[categories.length - 1]?.sort_order ?? 0) + 10,
+      isCustom: true,
+    };
+    categories = [...categories, category];
+    return category;
   },
 
   getMe(): MePreferences {
