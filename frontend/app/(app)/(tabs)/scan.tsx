@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 
 import { useCreateScan } from '../../../lib/queries';
+import { colors } from '../../../lib/theme';
 
 async function pickImage(source: 'camera' | 'library') {
   const permission =
@@ -124,7 +125,7 @@ export default function ScanScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.cream,
   },
   center: {
     flex: 1,
@@ -146,20 +147,21 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     textAlign: 'center',
+    color: colors.navy,
   },
   body: {
     fontSize: 14,
-    color: '#777',
+    color: colors.textMuted,
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 8,
   },
   statusText: {
-    color: '#777',
+    color: colors.textMuted,
     marginTop: 8,
   },
   button: {
-    backgroundColor: '#2e7d32',
+    backgroundColor: colors.navy,
     borderRadius: 10,
     paddingHorizontal: 24,
     paddingVertical: 12,
@@ -167,23 +169,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   secondaryButton: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.white,
     borderWidth: 1,
-    borderColor: '#2e7d32',
+    borderColor: colors.navy,
   },
   buttonText: {
-    color: '#fff',
+    color: colors.white,
     fontWeight: '600',
   },
   secondaryButtonText: {
-    color: '#2e7d32',
+    color: colors.navy,
   },
   manualLink: {
     marginTop: 4,
     padding: 8,
   },
   manualLinkText: {
-    color: '#888',
+    color: colors.textMuted,
     fontSize: 13,
   },
 });

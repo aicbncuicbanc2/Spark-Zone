@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { colors } from '../lib/theme';
 import type { Item } from '../lib/types';
 import { UrgencyBadge, urgencyLabel } from './UrgencyBadge';
 
@@ -30,7 +31,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: colors.border,
     gap: 12,
   },
   main: {
@@ -40,10 +41,11 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 16,
     fontWeight: '600',
+    color: colors.navy,
   },
   meta: {
     fontSize: 13,
-    color: '#777',
+    color: colors.textMuted,
   },
   right: {
     alignItems: 'flex-end',
@@ -51,6 +53,6 @@ const styles = StyleSheet.create({
   },
   days: {
     fontSize: 12,
-    color: '#888',
+    color: colors.textMuted,
   },
 });

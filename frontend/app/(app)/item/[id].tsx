@@ -3,6 +3,7 @@ import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View
 
 import { UrgencyBadge, urgencyLabel } from '../../../components/UrgencyBadge';
 import { useCategories, useConsumeItem, useDiscardItem, useItem, usePatchItem } from '../../../lib/queries';
+import { colors } from '../../../lib/theme';
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
@@ -138,7 +139,7 @@ export default function ItemDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.cream,
   },
   content: {
     padding: 16,
@@ -148,14 +149,16 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: colors.cream,
   },
   name: {
     fontSize: 24,
     fontWeight: '700',
+    color: colors.navy,
   },
   brand: {
     fontSize: 15,
-    color: '#777',
+    color: colors.textMuted,
     marginTop: 2,
   },
   badgeRow: {
@@ -164,10 +167,10 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   daysText: {
-    color: '#888',
+    color: colors.textMuted,
   },
   card: {
-    backgroundColor: '#f7f7f7',
+    backgroundColor: colors.creamCard,
     borderRadius: 12,
     padding: 14,
     gap: 10,
@@ -177,7 +180,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   rowLabel: {
-    color: '#777',
+    color: colors.textMuted,
     fontSize: 14,
   },
   rowValue: {
@@ -185,24 +188,25 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     maxWidth: '60%',
     textAlign: 'right',
+    color: colors.navy,
   },
   notice: {
     fontSize: 12,
-    color: '#c0392b',
+    color: colors.danger,
   },
   openButton: {
-    backgroundColor: '#2e7d32',
+    backgroundColor: colors.navy,
     borderRadius: 8,
     paddingVertical: 10,
     alignItems: 'center',
   },
   openButtonText: {
-    color: '#fff',
+    color: colors.white,
     fontWeight: '600',
   },
   notes: {
     fontStyle: 'italic',
-    color: '#555',
+    color: colors.textMuted,
   },
   actionRow: {
     flexDirection: 'row',
@@ -218,15 +222,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#1e8449',
   },
   discardButton: {
-    backgroundColor: '#c0392b',
+    backgroundColor: colors.danger,
   },
   actionButtonText: {
-    color: '#fff',
+    color: colors.white,
     fontWeight: '600',
   },
   resolvedNotice: {
     textAlign: 'center',
-    color: '#888',
+    color: colors.textMuted,
     fontSize: 13,
   },
 });
