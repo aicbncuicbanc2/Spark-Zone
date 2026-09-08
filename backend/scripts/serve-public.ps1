@@ -80,6 +80,11 @@ try {
     Write-Host "`n=== 2. Opening the Cloudflare tunnel ===" -ForegroundColor Cyan
     $log = Join-Path $env:TEMP "cloudflared-$Port.log"
     Remove-Item $log -ErrorAction SilentlyContinue
+    # A previous run's URL deliberately survives an abrupt shutdown (see the
+    # finally block below), but that means it can also sit here into the next
+    # run's readiness window - anything polling "does the file exist" as its
+    # signal can read last run's now-dead URL before this run overwrites it.
+    Remove-Item $urlFile -ErrorAction SilentlyContinue
     $tunnel = Start-Process -FilePath $cloudflared `
         -ArgumentList "tunnel", "--url", "http://localhost:$Port", "--no-autoupdate" `
         -PassThru -WindowStyle Hidden -RedirectStandardError $log -RedirectStandardOutput "$log.out"
@@ -150,6 +155,10 @@ finally {
     foreach ($proc in @($tunnel, $api)) {
         if ($proc -and -not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
     }
-    Remove-Item $urlFile -ErrorAction SilentlyContinue
+    # Deliberately NOT deleting $urlFile here. If the terminal was closed abruptly
+    # rather than Ctrl-C'd, Stop-Process above can race with process teardown and
+    # leave the child processes running detached anyway - in that case a stale
+    # PUBLIC_URL.txt pointing at the still-alive tunnel is far more useful than no
+    # file at all. A clean run always overwrites it with the new URL on line 102.
     Write-Host "Stopped.`n"
 }

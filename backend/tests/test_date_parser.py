@@ -62,6 +62,12 @@ def test_korean_until_suffix_is_stripped() -> None:
     assert result.expiry_date == date(2028, 6, 2)
 
 
+def test_ocr_misread_slash_as_greater_than() -> None:
+    """A real scan: PaddleOCR read "EXP:02/2031" as "EXP:02>2031"."""
+    result = parse("LOT:0275606\nEXP:02>2031", today=TODAY)
+    assert result.expiry_date == date(2031, 2, 28)
+
+
 # --- Distractors --------------------------------------------------------------
 
 

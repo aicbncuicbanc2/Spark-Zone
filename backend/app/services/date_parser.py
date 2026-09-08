@@ -12,6 +12,7 @@ awkward cases are all real:
     EXP DATE:22/12/2027
     EXP 2028.06.02까지            Korean suffix meaning "until"
     MFG 05/26 10:39 041           manufacture only; no expiry exists at all
+    LOT:0275606 EXP:02>2031       PaddleOCR misread "/" as ">"
 
 Three principles:
 
@@ -194,6 +195,12 @@ def normalise(text: str) -> str:
     for marker in TRAILING_NOISE:
         cleaned = cleaned.replace(marker.upper(), " ")
     cleaned = cleaned.replace("：", ":")
+    # PaddleOCR reads a printed "/" as ">" often enough that a real scan hit
+    # it: "EXP:02/2031" came back as "EXP:02>2031", and every date pattern
+    # below only recognises "/", ".", "-" as separators, so it fell through
+    # to needs_review with no date found at all instead of just a low-
+    # confidence read. ">" has no legitimate use as punctuation on a label.
+    cleaned = cleaned.replace(">", "/")
     return re.sub(r"[ \t]+", " ", cleaned)
 
 
