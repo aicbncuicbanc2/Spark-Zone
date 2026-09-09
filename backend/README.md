@@ -13,7 +13,7 @@ in [`../docs/api.md`](../docs/api.md).
 | Primary OCR | PaddleOCR — handles Malay/Chinese label text |
 | Fallback OCR | Google Cloud Vision |
 | Image storage | Cloudinary |
-| Push | Firebase Cloud Messaging |
+| Push | Expo push notifications (→ FCM/APNs) |
 | Hosting | Google Cloud Run + Cloud Scheduler |
 
 ## Local setup
@@ -198,12 +198,12 @@ to zero, so APScheduler inside the app simply never fires. Cloud Scheduler calls
 | Days | Milestone | State |
 |---|---|---|
 | 1–2 | Scaffold, schema, RLS, seeds, auth verified end to end | ✅ done |
-| 1–2 | `/health` deployed to Cloud Run | ⬜ blocked on gcloud + Docker install |
-| 3–4 | JWT auth, items CRUD, `/v1/dashboard` | ⬜ |
-| 5–7 | Cloudinary + PaddleOCR + `date_parser` (highest risk) | ⬜ |
-| 8–9 | Google Vision fallback, barcode + Open Food Facts | ⬜ |
-| 10–11 | FCM, devices, reminder sweep, Cloud Scheduler | ⬜ |
-| 12–13 | Guidance, stats, hardening | ⬜ |
-| 14–15 | Integration freeze with the app | ⬜ |
+| 1–2 | `/health` deployed to Cloud Run | ⬜ blocked on GCP billing account |
+| 3–4 | JWT auth, items CRUD, `/v1/dashboard` | ✅ done |
+| 5–7 | Cloudinary + PaddleOCR + `date_parser` (highest risk) | ✅ done — tiered fast/accurate OCR, pure-Python date parser, real-photo test fixtures |
+| 8–9 | Google Vision fallback, barcode + Open Food Facts | Barcode + Open Food Facts ✅ done; Google Vision 🟡 coded and wired in, not yet live (same GCP billing blocker) |
+| 10–11 | Push, devices, reminder sweep, Cloud Scheduler | Expo push + devices + sweep ✅ done; Cloud Scheduler ⬜ (a local 15-min loop stands in until Cloud Run is deployed) |
+| 12–13 | Guidance, stats, hardening | ✅ done |
+| 14–15 | Integration freeze with the app | 🟡 in progress — real device testing under way, async scan/polling rewrite shipped after real-device failures surfaced it |
 | 16–17 | Demo dry runs, warm instances, backup video | ⬜ |
 | 18 | Buffer + submission materials | ⬜ |
