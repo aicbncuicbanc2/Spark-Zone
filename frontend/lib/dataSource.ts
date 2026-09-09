@@ -135,12 +135,17 @@ export async function unregisterDevice(token: string): Promise<void> {
 }
 
 const SCAN_POLL_INTERVAL_MS = 1500;
-//: A real scan on the backend dev's machine hit 158s under memory pressure
+//: A real scan on the backend dev's machine hit 289s under memory pressure
 //: (PaddleOCR degrades badly when free RAM is low) - a scan that is still
 //: genuinely working must not be reported as failed just because this
 //: laptop is slow tonight. Generous on purpose; the backend itself is what
 //: actually gives up, this is only a safety net against a truly stuck scan.
 const SCAN_POLL_TIMEOUT_MS = 5 * 60_000;
+//: A wait this long is dozens of polls over a phone's mobile/hotspot
+//: connection - one of them dropping is routine, not a real failure. Only
+//: give up after several in a row fail, so a single blip mid-scan doesn't
+//: report a scan that is still working fine as failed.
+const SCAN_POLL_MAX_CONSECUTIVE_FAILURES = 5;
 
 /** GET /v1/scans/{id}. */
 export async function getScan(scanId: string): Promise<ScanResponse> {
@@ -170,12 +175,19 @@ export async function createScan(imageUri: string): Promise<ScanResponse> {
   let scan = await apiRequest<ScanResponse>('/v1/scans', { method: 'POST', formData });
 
   const deadline = Date.now() + SCAN_POLL_TIMEOUT_MS;
+  let consecutiveFailures = 0;
   while (scan.status === 'pending' || scan.status === 'processing') {
     if (Date.now() > deadline) {
       throw new Error('The scan is taking longer than expected. Please try again.');
     }
     await new Promise((resolve) => setTimeout(resolve, SCAN_POLL_INTERVAL_MS));
-    scan = await getScan(scan.scan_id);
+    try {
+      scan = await getScan(scan.scan_id);
+      consecutiveFailures = 0;
+    } catch (error) {
+      consecutiveFailures += 1;
+      if (consecutiveFailures >= SCAN_POLL_MAX_CONSECUTIVE_FAILURES) throw error;
+    }
   }
   return scan;
 }

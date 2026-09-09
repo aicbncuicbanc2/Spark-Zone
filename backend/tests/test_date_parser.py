@@ -68,6 +68,12 @@ def test_ocr_misread_slash_as_greater_than() -> None:
     assert result.expiry_date == date(2031, 2, 28)
 
 
+def test_year_first_month_year() -> None:
+    """A real scan: "EXP 2028/04" is year-first, not the usual month-first."""
+    result = parse("BAS027099 EXP 2028/04", today=TODAY)
+    assert result.expiry_date == date(2028, 4, 30)
+
+
 # --- Distractors --------------------------------------------------------------
 
 

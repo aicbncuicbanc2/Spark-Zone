@@ -13,6 +13,7 @@ awkward cases are all real:
     EXP 2028.06.02까지            Korean suffix meaning "until"
     MFG 05/26 10:39 041           manufacture only; no expiry exists at all
     LOT:0275606 EXP:02>2031       PaddleOCR misread "/" as ">"
+    BAS027099 EXP 2028/04         year-first month/year, not month-first
 
 Three principles:
 
@@ -126,6 +127,9 @@ _TEXT_MONTH = re.compile(
     r"\b(\d{1,2})?\s*(" + _MONTH_ALTERNATION + r")\s*[.\-/ ]?\s*(\d{2,4})\b"
 )
 _MONTH_YEAR = re.compile(r"\b(\d{1,2})\s*[./\-]\s*(\d{4}|\d{2})\b")
+#: Year-first month/year, e.g. "EXP 2028/04". Requires a full 4-digit year -
+#: a 2-digit one would collide with DD/MM readings _DMY already handles.
+_YEAR_MONTH = re.compile(r"\b(\d{4})\s*[./\-]\s*(\d{1,2})\b")
 _SIX = re.compile(r"\b(\d{6})\b")
 _EIGHT = re.compile(r"\b(\d{8})\b")
 
@@ -423,6 +427,28 @@ def _extract(text: str) -> list[DateCandidate]:
             0.60,
             (
                 "month and year only; resolved to "
+                + ("first" if is_manufacture else "last")
+                + " day of month",
+            ),
+        )
+
+    # 7. YYYY/MM, year-first - a real scan hit "EXP 2028/04", which _MONTH_YEAR
+    # above cannot match since it always reads the first number as the month.
+    for match in _YEAR_MONTH.finditer(text):
+        year_raw, month = (int(g) for g in match.groups())
+        if not 1 <= month <= 12:
+            continue
+        year = _expand_year(year_raw)
+        label = _label_before(text, match.start())
+        is_manufacture = label is not None and label[0] is DateType.MANUFACTURE
+        day = 1 if is_manufacture else _last_day(year, month)
+        add(
+            _safe_date(year, month, day),
+            match.group(0),
+            *match.span(),
+            0.60,
+            (
+                "year and month only; resolved to "
                 + ("first" if is_manufacture else "last")
                 + " day of month",
             ),
