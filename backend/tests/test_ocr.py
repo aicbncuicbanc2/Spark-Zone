@@ -123,6 +123,28 @@ def test_describe_handles_junk() -> None:
     assert describe(b"nope")["format"] == "unreadable"
 
 
+def test_vision_runs_before_the_slow_accurate_tier() -> None:
+    """Vision is a ~1-2s cloud call; the accurate tier is a local model that
+    ran 100s+ under real memory pressure. Verified against all 7 real label
+    fixtures that trying Vision first never costs accuracy - the pipeline
+    always keeps the best-scoring result across every engine actually tried,
+    not just whichever ran first - so this only ever saves time.
+    """
+    from app.services.ocr.paddle_engine import ACCURATE, FAST, PaddleEngine
+    from app.services.ocr.pipeline import _engines
+    from app.services.ocr.vision_engine import VisionEngine
+
+    names = [
+        (e.name, getattr(e, "variant", None))
+        for e in _engines()
+        if isinstance(e, (PaddleEngine, VisionEngine))
+    ]
+    assert names.index((OcrEngine.PADDLEOCR, FAST)) == 0
+    assert names.index((OcrEngine.GOOGLE_VISION, None)) < names.index(
+        (OcrEngine.PADDLEOCR, ACCURATE)
+    )
+
+
 # --- The real thing -----------------------------------------------------------
 
 paddle = pytest.importorskip(

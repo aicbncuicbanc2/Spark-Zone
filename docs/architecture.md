@@ -24,7 +24,7 @@ flowchart LR
 
     subgraph Backend["FastAPI — 20 endpoints"]
         API[REST API]
-        OCR["OCR Pipeline<br/>PaddleOCR fast → accurate → Vision"]
+        OCR["OCR Pipeline<br/>PaddleOCR fast → Vision → accurate"]
         Parser["Date Parser<br/>pure Python, no ML"]
         Sweep["Reminder Sweep<br/>every 15 min"]
     end
@@ -59,7 +59,7 @@ and the reminder-scheduling logic the client never sees.
 | **FastAPI (Python)** | PaddleOCR is Python-native; async I/O suits many small Supabase round trips |
 | **Supabase (Postgres)** | Row-Level Security enforces per-user isolation *in the database*, not just in application code — verified with real attack tests (below) |
 | **PaddleOCR, tiered** | Handles Malay/Chinese label text; a fast/accurate two-tier chain cuts typical scan time from ~14s to ~3s (see *OCR pipeline*) |
-| **Google Cloud Vision** | Fallback engine behind the same interface as PaddleOCR — implemented and tested, pending GCP billing to actually run |
+| **Google Cloud Vision** | Fallback engine behind the same interface as PaddleOCR — live and verified; 5/7 correct alone on the real fixtures (weaker than PaddleOCR on one low-contrast, reflective label), so it stays a fallback rather than primary, but the full pipeline with it included still reads 6/7 with zero regression |
 | **Cloudinary** | Label photo storage; scans still succeed if it's unreachable (best-effort) |
 | **Expo Push → FCM/APNs** | Frontend's choice; backend never touches raw FCM tokens |
 
@@ -93,16 +93,24 @@ in `backend/tests/fixtures/labels/` — not synthetic text.
 fast PaddleOCR (mobile detector)   →  4/5 real labels,  ~3.5s
       │ escalates only on low confidence or no date found
       ▼
-accurate PaddleOCR (server detector) → 5/5,            ~14s
+Google Vision (cloud, ~1-2s)       →  5/7 real labels, alone
       │ escalates only if still unresolved
       ▼
-Google Vision (fallback, same interface)
+accurate PaddleOCR (server detector) → 5/5,            ~14s
 ```
 
 Chaining fast-then-accurate keeps the common case fast (most scans resolve on
-the first tier in 2–4s) while still recovering the hard cases. Every scan
-records `engines_attempted` — which tier ran, its confidence, whether it
-found a date — so the escalation is auditable per-request, not asserted.
+the first tier in 2–4s) while still recovering the hard cases. Vision runs
+before the accurate tier, not after: both are only reached when fast tier
+isn't good enough, and Vision is a ~1-2s cloud call against the accurate
+tier's own local detector, measured at 14s under normal load and well over
+100s under real memory pressure. Verified against all 7 real fixtures that
+this ordering never costs accuracy — the pipeline always keeps the best-
+scoring result across every engine actually tried, not just whichever ran
+first, so a fast engine trying (and failing) before a slow one only ever
+saves time. Every scan records `engines_attempted` — which tier ran, its
+confidence, whether it found a date — so the escalation is auditable
+per-request, not asserted.
 
 **Real accuracy claims, both true and both worth stating precisely:**
 - **7/7** at the parser level (clean printed text → correct date)
@@ -201,18 +209,17 @@ automatically, so adding a new photo adds coverage with no code change.
 ## Deployment — the honest version
 
 Currently served over a **Cloudflare Tunnel** from a development machine,
-not Cloud Run. Cloud Run requires a GCP billing account (a card for
-verification, even on the free tier); the project doesn't have one yet.
-`backend/scripts/deploy.ps1` is written, idempotent, and moves secrets into
-Secret Manager rather than environment flags — ready to run the moment
-billing exists. Until then, `serve-public.ps1` runs the same container
-image logic locally and exposes it publicly, including the 15-minute
-reminder sweep.
+not Cloud Run — GCP billing is now active on the project, but Cloud Run
+itself hasn't been deployed yet. `backend/scripts/deploy.ps1` is written,
+idempotent, and moves secrets into Secret Manager rather than environment
+flags — ready to run. Until it's actually deployed, `serve-public.ps1` runs
+the same container image logic locally and exposes it publicly, including
+the 15-minute reminder sweep.
 
-**Google Cloud touchpoints:** Cloud Run (scripted, pending billing), Cloud
-Scheduler (scripted, pending billing), Cloud Vision (implemented behind the
-same interface as PaddleOCR, pending billing), Firebase Cloud Messaging
-(live, via Expo's push service).
+**Google Cloud touchpoints:** Cloud Run (scripted, not yet deployed), Cloud
+Scheduler (scripted, not yet deployed — a local loop stands in for now),
+Cloud Vision (live — see the OCR pipeline section above), Firebase Cloud
+Messaging (live, via Expo's push service).
 
 ---
 

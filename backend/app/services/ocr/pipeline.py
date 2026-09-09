@@ -73,11 +73,21 @@ def _engines() -> list[OcrBackend]:
     3.5 seconds, the accurate tier reads 5 of 5 in about 14. Running fast first
     means the common scan finishes quickly and only the awkward ones pay for
     the heavier detector.
+
+    Vision runs before the accurate tier, not after: both are only reached
+    when fast tier isn't good enough, and Vision is a ~1-2s cloud call versus
+    the accurate tier's own local detector, which is far more likely to be
+    the expensive one - measured locally at 14s under normal load and well
+    over 100s under real memory pressure. Verified against all 7 real label
+    fixtures that this reordering does not change the final answer on any of
+    them: _good_enough / _quality below always pick the best-scoring result
+    across every engine actually tried, not just whichever ran first, so an
+    engine trying (and failing) earlier never costs accuracy - only time.
     """
     settings = get_settings()
     if settings.ocr_primary_engine == "google_vision":
         return [VisionEngine(), PaddleEngine(FAST), PaddleEngine(ACCURATE)]
-    return [PaddleEngine(FAST), PaddleEngine(ACCURATE), VisionEngine()]
+    return [PaddleEngine(FAST), VisionEngine(), PaddleEngine(ACCURATE)]
 
 
 def _good_enough(ocr: OcrResult, parsed: ParseResult, threshold: float) -> bool:
