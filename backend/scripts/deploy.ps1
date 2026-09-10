@@ -139,6 +139,15 @@ Write-Host "  $runtimeSa can push images to Artifact Registry"
 Write-Host "`n=== 5. Deploying (Cloud Build; the OCR layer takes a while) ===" -ForegroundColor Cyan
 $secretFlags = ($secrets.Keys | ForEach-Object { "$($secrets[$_])=$($_):latest" }) -join ","
 
+# --no-cpu-throttling is required, not optional: Cloud Run freezes a
+# container's CPU the instant its HTTP response is sent unless this is set,
+# and this API deliberately returns 202 immediately then does the real OCR
+# work in a FastAPI background task afterward - verified live that without
+# this flag, a real scan just sits at status=processing forever, with
+# engines_attempted staying empty because the background task never gets
+# CPU to actually run. Costs more (billed for idle time, not just active
+# request time), but there is no working alternative given this app's async
+# scan architecture.
 & $gcloud run deploy $ServiceName `
     --source $backend `
     --project $ProjectId `
@@ -147,6 +156,7 @@ $secretFlags = ($secrets.Keys | ForEach-Object { "$($secrets[$_])=$($_):latest" 
     --allow-unauthenticated `
     --memory 2Gi `
     --cpu 2 `
+    --no-cpu-throttling `
     --timeout 300 `
     --concurrency 4 `
     --max-instances 3 `
