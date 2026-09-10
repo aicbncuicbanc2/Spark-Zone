@@ -74,6 +74,31 @@ def test_year_first_month_year() -> None:
     assert result.expiry_date == date(2028, 4, 30)
 
 
+def test_us_style_month_first_date() -> None:
+    """Found by audit: "DEC 25 2027" has no day before the month, so the
+    day-first pattern used to misread the day after it as a 2-digit year -
+    silently becoming 2025-12-31 instead of 2027-12-25."""
+    assert parse("EXP DEC 25 2027", today=TODAY).expiry_date == date(2027, 12, 25)
+    assert parse("EXP DEC 25, 2027", today=TODAY).expiry_date == date(2027, 12, 25)
+
+
+def test_ordinal_suffix_is_stripped() -> None:
+    """Found by audit: the "TH" in "25TH" broke the day-month adjacency
+    every pattern needs."""
+    assert parse("EXP 25TH DEC 2027", today=TODAY).expiry_date == date(2027, 12, 25)
+
+
+def test_bare_year_needs_a_keyword_right_next_to_it() -> None:
+    """Found by audit: "EXP 2027" has no month or day at all. A lone 4-digit
+    number without any keyword nearby must never become a date candidate -
+    it is far more likely to be a price, weight, or product code."""
+    assert parse("EXP 2027", today=TODAY).expiry_date == date(2027, 12, 31)
+    assert parse("MFG 2024", today=TODAY).expiry_date is None
+    assert parse("MFG 2024", today=TODAY).best.value == date(2024, 1, 1)
+    # No keyword anywhere near it - "2027" alone must not become a date.
+    assert parse("NET WEIGHT 2027 G", today=TODAY).expiry_date is None
+
+
 # --- Distractors --------------------------------------------------------------
 
 

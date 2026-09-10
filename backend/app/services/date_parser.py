@@ -15,6 +15,13 @@ awkward cases are all real:
     LOT:0275606 EXP:02>2031       PaddleOCR misread "/" as ">"
     BAS027099 EXP 2028/04         year-first month/year, not month-first
 
+A later audit (not a failed real scan, but worth being honest about the
+difference) found three more genuine gaps and fixed them the same way:
+
+    DEC 25 2027                   US month-first order, not day-first
+    EXP 25TH DEC 2027              ordinal suffix breaks day/month adjacency
+    EXP 2027                      a bare year, no month or day at all
+
 Three principles:
 
 1. Never silently guess. An ambiguous read is reported as ambiguous so the app
@@ -126,12 +133,28 @@ _MONTH_ALTERNATION = "|".join(sorted(MONTHS, key=len, reverse=True))
 _TEXT_MONTH = re.compile(
     r"\b(\d{1,2})?\s*(" + _MONTH_ALTERNATION + r")\s*[.\-/ ]?\s*(\d{2,4})\b"
 )
+#: US-style month-first, e.g. "DEC 25 2027" or "DEC 25, 2027". Without this,
+#: _TEXT_MONTH above (which always reads day-before-month) misparses it: it
+#: has no day to find before the month, so it takes the first number after
+#: the month as a 2-digit year instead - "DEC 25 2027" silently became
+#: 2025-12-31, not 2027-12-25. Requires a full 4-digit year specifically so
+#: it can never match where _TEXT_MONTH already correctly applies (that
+#: pattern only ever leaves a single number after the month, never two).
+_TEXT_MONTH_FIRST = re.compile(
+    r"\b(" + _MONTH_ALTERNATION + r")\s+(\d{1,2})\s*,?\s+(\d{4})\b"
+)
 _MONTH_YEAR = re.compile(r"\b(\d{1,2})\s*[./\-]\s*(\d{4}|\d{2})\b")
 #: Year-first month/year, e.g. "EXP 2028/04". Requires a full 4-digit year -
 #: a 2-digit one would collide with DD/MM readings _DMY already handles.
 _YEAR_MONTH = re.compile(r"\b(\d{4})\s*[./\-]\s*(\d{1,2})\b")
 _SIX = re.compile(r"\b(\d{6})\b")
 _EIGHT = re.compile(r"\b(\d{8})\b")
+#: A bare year, e.g. "EXP 2027" with no month or day at all. Deliberately
+#: not treated like the other patterns: a lone 4-digit number is far more
+#: likely to be a price, weight, or product code than a date, so this only
+#: ever produces a candidate when a real keyword sits immediately next to
+#: it - see the strict label check where this is used, below.
+_YEAR_ONLY = re.compile(r"\b(\d{4})\b")
 
 #: Two-digit years at or below this map to 20xx; above it, to 19xx.
 _CENTURY_PIVOT = 79
@@ -205,6 +228,10 @@ def normalise(text: str) -> str:
     # to needs_review with no date found at all instead of just a low-
     # confidence read. ">" has no legitimate use as punctuation on a label.
     cleaned = cleaned.replace(">", "/")
+    # "25TH DEC 2027" - an ordinal suffix sits between the day digits and the
+    # month word, breaking every pattern below that expects them adjacent.
+    # Stripping it here, once, is safer than teaching every pattern about it.
+    cleaned = re.sub(r"\b(\d{1,2})(ST|ND|RD|TH)\b", r"\1", cleaned)
     return re.sub(r"[ \t]+", " ", cleaned)
 
 
@@ -349,7 +376,22 @@ def _extract(text: str) -> list[DateCandidate]:
         elif as_dmy:
             add(as_dmy, match.group(0), *match.span(), 0.60, ("read as DDMMYYYY",))
 
-    # 3. Textual month, e.g. 25 MAR 2026 or MAC 2026.
+    # 3. US-style month-first, e.g. DEC 25 2027 or DEC 25, 2027. Before
+    # textual day-first below, so it claims the span first - otherwise that
+    # pattern misreads the day after the month as a 2-digit year.
+    for match in _TEXT_MONTH_FIRST.finditer(text):
+        word, day_raw, year_raw = match.groups()
+        month = MONTHS.get(word)
+        if month is None:
+            continue
+        add(
+            _safe_date(_expand_year(int(year_raw)), month, int(day_raw)),
+            match.group(0),
+            *match.span(),
+            0.80,
+        )
+
+    # 4. Textual month, day-first, e.g. 25 MAR 2026 or MAC 2026.
     for match in _TEXT_MONTH.finditer(text):
         day_raw, word, year_raw = match.groups()
         month = MONTHS.get(word)
@@ -367,7 +409,7 @@ def _extract(text: str) -> list[DateCandidate]:
                 ("month and year only; resolved to last day of month",),
             )
 
-    # 4. DD/MM/YY(YY) - the dominant Malaysian convention.
+    # 5. DD/MM/YY(YY) - the dominant Malaysian convention.
     for match in _DMY.finditer(text):
         first, second, year_raw = (int(g) for g in match.groups())
         year = _expand_year(year_raw)
@@ -382,7 +424,7 @@ def _extract(text: str) -> list[DateCandidate]:
             notes = ("day and month both <= 12; assumed DD/MM",)
         add(_safe_date(year, month, day), match.group(0), *match.span(), 0.75, notes)
 
-    # 5. Six digits, no separators. Genuinely ambiguous - both readings occur.
+    # 6. Six digits, no separators. Genuinely ambiguous - both readings occur.
     for match in _SIX.finditer(text):
         digits = match.group(1)
         if _near_batch_marker(text, match.start()):
@@ -408,7 +450,7 @@ def _extract(text: str) -> list[DateCandidate]:
         else:
             add(ddmmyy or yymmdd, match.group(0), *match.span(), 0.55)
 
-    # 6. MM/YY or MM/YYYY, last so it cannot steal digits from a fuller date.
+    # 7. MM/YY or MM/YYYY, last so it cannot steal digits from a fuller date.
     for match in _MONTH_YEAR.finditer(text):
         month, year_raw = (int(g) for g in match.groups())
         if not 1 <= month <= 12:
@@ -432,7 +474,7 @@ def _extract(text: str) -> list[DateCandidate]:
             ),
         )
 
-    # 7. YYYY/MM, year-first - a real scan hit "EXP 2028/04", which _MONTH_YEAR
+    # 8. YYYY/MM, year-first - a real scan hit "EXP 2028/04", which _MONTH_YEAR
     # above cannot match since it always reads the first number as the month.
     for match in _YEAR_MONTH.finditer(text):
         year_raw, month = (int(g) for g in match.groups())
@@ -452,6 +494,29 @@ def _extract(text: str) -> list[DateCandidate]:
                 + ("first" if is_manufacture else "last")
                 + " day of month",
             ),
+        )
+
+    # 9. A bare year alone, e.g. "EXP 2027" - no month or day at all. Unlike
+    # every pattern above, this never produces a candidate without a real
+    # keyword immediately next to it - elsewhere a lone 4-digit number is far
+    # too likely to be a price, weight, or product code. Confidence is
+    # capped low enough that even a strict keyword match still needs review;
+    # a year alone is too sparse to ever resolve confidently on its own.
+    for match in _YEAR_ONLY.finditer(text):
+        if _near_batch_marker(text, match.start()):
+            continue
+        label = _label_before(text, match.start()) or _label_after(text, match.end())
+        if label is None:
+            continue
+        year = _expand_year(int(match.group(1)))
+        is_manufacture = label[0] is DateType.MANUFACTURE
+        day, month = (1, 1) if is_manufacture else (31, 12)
+        add(
+            _safe_date(year, month, day),
+            match.group(0),
+            *match.span(),
+            0.40,
+            ("year only; resolved to " + ("1 January" if is_manufacture else "31 December"),),
         )
 
     return sorted(found, key=lambda c: c.start)
