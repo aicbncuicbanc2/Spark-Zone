@@ -28,12 +28,18 @@ const SORTS = ['expiry', 'name', 'created'] as const;
 export default function PantryScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  // Arrives here from the dashboard's bucket cards, category circles, or
-  // calendar days.
-  const params = useLocalSearchParams<{ category?: string; expiryDate?: string; urgency?: string }>();
+  // Arrives here from the dashboard's bucket cards, category/location
+  // circles, or calendar days.
+  const params = useLocalSearchParams<{
+    category?: string;
+    location?: string;
+    expiryDate?: string;
+    urgency?: string;
+  }>();
 
   const [status, setStatus] = useState<StatusFilter>('active');
   const [category, setCategory] = useState<string | undefined>(undefined);
+  const [location, setLocation] = useState<string | undefined>(undefined);
   const [search, setSearch] = useState('');
   const [sortIndex, setSortIndex] = useState(0);
   const sort = SORTS[sortIndex];
@@ -42,24 +48,46 @@ export default function PantryScreen() {
     if (params.category) setCategory(params.category);
   }, [params.category]);
 
+  useEffect(() => {
+    if (params.location) setLocation(params.location);
+  }, [params.location]);
+
   const { data: categories } = useCategories();
 
-  const singleStatusQuery = useItems(status === 'all' ? { category, sort } : { status, category, sort });
+  const showAllStatuses = status === 'all';
+  const singleStatusQuery = useItems(showAllStatuses ? undefined : { status, category, sort });
   const allStatusQuery = useAllStatusItems({ category, sort });
-  const { data: rawItems, isLoading, error, refetch, isRefetching } =
-    status === 'all'
-      ? { data: { items: allStatusQuery.items }, ...allStatusQuery }
-      : singleStatusQuery;
+
+  const fetchedItems = showAllStatuses ? allStatusQuery.items : singleStatusQuery.data?.items ?? [];
+  const isLoading = showAllStatuses ? allStatusQuery.isLoading : singleStatusQuery.isLoading;
+  const isRefetching = showAllStatuses ? allStatusQuery.isRefetching : singleStatusQuery.isRefetching;
+  const error = showAllStatuses ? allStatusQuery.error : singleStatusQuery.error;
+  const refetch = showAllStatuses ? allStatusQuery.refetch : singleStatusQuery.refetch;
 
   const categoryLabel = (id: string) => categories?.find((c) => c.id === id)?.label_en ?? '';
 
+  // storage_location is already a free-text field on every item (users set
+  // it themselves via the Add form, no backend list to manage) — the list
+  // of "locations" to filter by is just whatever distinct values are
+  // actually in use, derived from what's loaded rather than a fixed set.
+  const locations = useMemo(() => {
+    const set = new Set<string>();
+    for (const item of fetchedItems) {
+      if (item.storage_location) set.add(item.storage_location);
+    }
+    return Array.from(set).sort();
+  }, [fetchedItems]);
+
   const items = useMemo(() => {
-    let list = rawItems?.items ?? [];
+    let list = fetchedItems;
     if (params.expiryDate) {
       list = list.filter((item) => item.effective_expiry_date === params.expiryDate);
     }
     if (params.urgency) {
       list = list.filter((item) => item.urgency === (params.urgency as Urgency));
+    }
+    if (location) {
+      list = list.filter((item) => item.storage_location === location);
     }
     if (search.trim()) {
       const q = search.trim().toLowerCase();
@@ -79,7 +107,7 @@ export default function PantryScreen() {
     }
     return list;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rawItems, search, params.expiryDate, params.urgency, categories]);
+  }, [fetchedItems, search, params.expiryDate, params.urgency, location, categories]);
 
   return (
     <View style={styles.container}>
@@ -142,6 +170,31 @@ export default function PantryScreen() {
           />
         </View>
       </View>
+
+      {locations.length > 0 && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
+          <Pressable
+            style={[styles.chip, styles.chipRowContent, !location && styles.chipActive]}
+            onPress={() => setLocation(undefined)}
+          >
+            <Ionicons
+              name="location-outline"
+              size={13}
+              color={!location ? colors.white : colors.textMuted}
+            />
+            <Text style={[styles.chipText, !location && styles.chipTextActive]}>Any location</Text>
+          </Pressable>
+          {locations.map((loc) => (
+            <Pressable
+              key={loc}
+              style={[styles.chip, location === loc && styles.chipActive]}
+              onPress={() => setLocation(loc)}
+            >
+              <Text style={[styles.chipText, location === loc && styles.chipTextActive]}>{loc}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      )}
 
       <Pressable style={styles.sortButton} onPress={() => setSortIndex((sortIndex + 1) % SORTS.length)}>
         <Text style={styles.sortButtonText}>Sort: {sort}</Text>
@@ -264,7 +317,13 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 999,
     paddingHorizontal: 14,
+    marginRight: 8,
     backgroundColor: colors.white,
+  },
+  chipRowContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   chipActive: {
     backgroundColor: colors.navy,

@@ -33,7 +33,7 @@ const BUCKETS: { key: keyof DashboardResponse['counts']; label: string; color: s
   { key: 'ok', label: 'Good', color: urgencyColors.ok },
 ];
 
-const AUTO_SWIPE_MS = 10_000;
+const AUTO_SWIPE_MS = 5_000;
 
 function formatShortDate(iso: string): string {
   const d = new Date(iso + 'T00:00:00');
@@ -63,14 +63,19 @@ function TipCardBody({ item }: { item: Item }) {
 }
 
 function TipCarousel({ items }: { items: Item[] }) {
+  // pagingEnabled snaps to the ScrollView's OWN width, not each child's
+  // width — the previous version made pages (windowWidth - 32) wide (to
+  // leave a margin) while the ScrollView itself stayed windowWidth wide,
+  // so every snap landed mid-gap and showed two half cards. Fix: each page
+  // is the full window width, and the 16px gutter is padding *inside* the
+  // page instead of a margin around a narrower card.
   const { width: windowWidth } = useWindowDimensions();
-  const pageWidth = windowWidth - 32; // matches the 16px screen padding each side
   const [pageIndex, setPageIndex] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
   const pageIndexRef = useRef(0);
 
   function handleScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
-    const idx = Math.round(e.nativeEvent.contentOffset.x / pageWidth);
+    const idx = Math.round(e.nativeEvent.contentOffset.x / windowWidth);
     pageIndexRef.current = idx;
     setPageIndex(idx);
   }
@@ -80,11 +85,11 @@ function TipCarousel({ items }: { items: Item[] }) {
     const timer = setInterval(() => {
       const next = (pageIndexRef.current + 1) % items.length;
       pageIndexRef.current = next;
-      scrollRef.current?.scrollTo({ x: next * pageWidth, animated: true });
+      scrollRef.current?.scrollTo({ x: next * windowWidth, animated: true });
       setPageIndex(next);
     }, AUTO_SWIPE_MS);
     return () => clearInterval(timer);
-  }, [items.length, pageWidth]);
+  }, [items.length, windowWidth]);
 
   if (items.length === 0) return null;
 
@@ -99,8 +104,10 @@ function TipCarousel({ items }: { items: Item[] }) {
         style={styles.tipScroll}
       >
         {items.map((item) => (
-          <View key={item.id} style={[styles.tipCard, { width: pageWidth }]}>
-            <TipCardBody item={item} />
+          <View key={item.id} style={[styles.tipPage, { width: windowWidth }]}>
+            <View style={styles.tipCard}>
+              <TipCardBody item={item} />
+            </View>
           </View>
         ))}
       </ScrollView>
@@ -151,6 +158,11 @@ export default function DashboardScreen() {
   const bannerItems = data.expiring_soon.filter(
     (item) => item.urgency === 'expired' || item.urgency === 'critical'
   );
+  // storage_location is free text the user sets on Add — no backend list of
+  // locations to fetch, so this is just whatever distinct values exist.
+  const locations = Array.from(
+    new Set((activeItems?.items ?? []).map((item) => item.storage_location).filter((v): v is string => !!v))
+  ).sort();
 
   return (
     <ScrollView
@@ -199,6 +211,31 @@ export default function DashboardScreen() {
           </Pressable>
         ))}
       </ScrollView>
+
+      {locations.length > 0 && (
+        <>
+          <Pressable style={styles.sectionHeader} onPress={() => router.push('/pantry')}>
+            <Text style={styles.sectionTitle}>Locations</Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.navy} />
+          </Pressable>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryRow}>
+            {locations.map((loc) => (
+              <Pressable
+                key={loc}
+                style={styles.categoryItem}
+                onPress={() => router.push({ pathname: '/pantry', params: { location: loc } })}
+              >
+                <View style={styles.categoryCircle}>
+                  <Ionicons name="location-outline" size={26} color={colors.navy} />
+                </View>
+                <Text style={styles.categoryLabel} numberOfLines={1}>
+                  {loc}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </>
+      )}
 
       <View style={styles.calendarWrap}>
         <ExpiryCalendar
@@ -275,10 +312,12 @@ const styles = StyleSheet.create({
   tipScroll: {
     marginTop: 16,
   },
+  tipPage: {
+    paddingHorizontal: 16,
+  },
   tipCard: {
     backgroundColor: colors.tipCard,
     borderRadius: 20,
-    marginHorizontal: 16,
     padding: 24,
     minHeight: 130,
     justifyContent: 'center',
