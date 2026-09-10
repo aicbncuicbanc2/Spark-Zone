@@ -117,15 +117,13 @@ const styles = StyleSheet.create({
   },
   chipRow: {
     flexGrow: 0,
-    alignItems: 'center',
   },
   chip: {
-    height: 32,
-    justifyContent: 'center',
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 999,
     paddingHorizontal: 14,
+    paddingVertical: 6,
     marginRight: 8,
     backgroundColor: colors.white,
   },
@@ -146,8 +144,8 @@ const styles = StyleSheet.create({
     borderColor: colors.navy,
   },
   squareNewButton: {
-    width: 32,
-    height: 32,
+    width: 34,
+    height: 34,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: colors.navy,
