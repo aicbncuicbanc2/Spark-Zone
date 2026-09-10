@@ -123,6 +123,88 @@ def test_describe_handles_junk() -> None:
     assert describe(b"nope")["format"] == "unreadable"
 
 
+def test_no_escalation_when_a_confident_read_finds_no_expiry_keyword() -> None:
+    """Real case: a dishwashing-liquid bottle's only printed code was a
+    manufacture batch stamp ("120726 2335 15:54"), no "EXP" anywhere on the
+    label. All three real engines read it confidently (0.93-0.96) and all
+    three correctly found nothing - escalating cost 93 extra seconds for the
+    same unavoidable answer. A different engine cannot make a keyword exist
+    that the product simply never printed, so a confident read finding
+    numbers but no keyword must stop the pipeline, not escalate further.
+    """
+    from app.services.ocr.pipeline import _no_expiry_keyword_present
+
+    text = "Sunlight Extra Nature Mineral Salt Aloe Vera\n120726 2335 15:54\n0% No Dye"
+    parsed = parse(text, today=TODAY)
+    ocr = OcrResult(engine=OcrEngine.PADDLEOCR, blocks=[TextBlock(text, 0.95)])
+
+    assert parsed.best.date_type.value == "unknown"  # sanity: no keyword found
+    assert _no_expiry_keyword_present(ocr, parsed, threshold=0.65) is True
+
+
+def test_ambiguous_expiry_keyword_still_escalates() -> None:
+    """label1.jpg's real case: EXP:210827 is genuinely ambiguous (DDMMYY vs
+    YYMMDD), so parsed.confidence is capped low - but a real "EXP" keyword
+    IS present, so this must still escalate rather than being caught by the
+    no-keyword short-circuit above."""
+    from app.services.ocr.pipeline import _no_expiry_keyword_present
+
+    text = "LOT.5F0301\nEXP:210827"
+    parsed = parse(text, today=TODAY)
+    ocr = OcrResult(engine=OcrEngine.PADDLEOCR, blocks=[TextBlock(text, 0.95)])
+
+    assert parsed.best.date_type.value == "expiry"  # sanity: real keyword found
+    assert _no_expiry_keyword_present(ocr, parsed, threshold=0.65) is False
+
+
+def test_no_expiry_keyword_check_requires_a_confident_read() -> None:
+    """A low-confidence read finding no keyword must NOT short-circuit - the
+    keyword might simply have been missed or misread, not genuinely absent
+    from the label, and only a confident read can rule that out."""
+    from app.services.ocr.pipeline import _no_expiry_keyword_present
+
+    text = "blurry 120726 unclear text"
+    parsed = parse(text, today=TODAY)
+    ocr = OcrResult(engine=OcrEngine.PADDLEOCR, blocks=[TextBlock(text, 0.3)])
+
+    assert _no_expiry_keyword_present(ocr, parsed, threshold=0.65) is False
+
+
+def test_pipeline_actually_stops_escalating_when_no_keyword_present(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Integration-level proof, not just the unit check above: the second
+    engine must never even be called."""
+    from app.services.ocr import pipeline
+
+    text = "Sunlight Extra Nature Mineral Salt Aloe Vera\n120726 2335 15:54\n0% No Dye"
+
+    class _FakeFastEngine:
+        name = OcrEngine.PADDLEOCR
+        variant = "fast"
+
+        def is_available(self) -> bool:
+            return True
+
+        def read(self, image: bytes) -> OcrResult:
+            return OcrResult(engine=OcrEngine.PADDLEOCR, blocks=[TextBlock(text, 0.95)])
+
+    class _MustNotBeCalledEngine:
+        name = OcrEngine.GOOGLE_VISION
+
+        def is_available(self) -> bool:
+            return True
+
+        def read(self, image: bytes) -> OcrResult:
+            raise AssertionError("must not escalate when a confident read found no keyword")
+
+    monkeypatch.setattr(pipeline, "_engines", lambda: [_FakeFastEngine(), _MustNotBeCalledEngine()])
+    result = pipeline.run(b"fake image bytes", today=TODAY)
+
+    assert len(result.attempts) == 1
+    assert result.parsed.best.date_type.value == "unknown"
+
+
 def test_vision_runs_before_the_slow_accurate_tier() -> None:
     """Vision is a ~1-2s cloud call; the accurate tier is a local model that
     ran 100s+ under real memory pressure. Verified against all 7 real label

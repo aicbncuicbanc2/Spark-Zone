@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from datetime import date
 
 from app.config import get_settings
-from app.services.date_parser import ParseResult, parse
+from app.services.date_parser import DateType, ParseResult, parse
 from app.services.ocr.base import OcrBackend, OcrEngine, OcrResult
 from app.services.ocr.paddle_engine import ACCURATE, FAST, PaddleEngine
 from app.services.ocr.vision_engine import VisionEngine
@@ -100,6 +100,33 @@ def _good_enough(ocr: OcrResult, parsed: ParseResult, threshold: float) -> bool:
     )
 
 
+def _no_expiry_keyword_present(ocr: OcrResult, parsed: ParseResult, threshold: float) -> bool:
+    """Did a confident, complete read find date-like numbers with no EXP/
+    expiry keyword anywhere near any of them?
+
+    Real case that motivated this: a dishwashing-liquid bottle's only
+    printed code was a manufacture batch stamp ("120726 2335 15:54"), no
+    "EXP" anywhere on the label. All three engines read it fine (0.93-0.96
+    confidence) and all three correctly found nothing - `date_type` is only
+    ever UNKNOWN when no keyword was found nearby. Escalating to a different
+    engine cannot make a keyword exist that the product simply never
+    printed, so once a read is confident enough to trust as complete, that
+    escalation only spends time (measured: 93s more, for the same answer)
+    for no chance of a different result.
+
+    This does NOT weaken the ambiguous-date protection - an ambiguous
+    six-digit date next to a real "EXP" keyword still gets `date_type:
+    expiry` (just at capped confidence), so it never matches this check
+    and still escalates as before.
+    """
+    return (
+        ocr.succeeded
+        and ocr.confidence >= threshold
+        and parsed.best is not None
+        and parsed.best.date_type is DateType.UNKNOWN
+    )
+
+
 def _quality(ocr: OcrResult, parsed: ParseResult) -> tuple[int, float, float]:
     """Sort key for picking between two engines' results. Higher is better."""
     return (
@@ -157,6 +184,9 @@ def run(image: bytes, *, today: date | None = None, force: OcrEngine | None = No
 
         if _good_enough(ocr, parsed, threshold):
             break  # no reason to spend the fallback
+
+        if _no_expiry_keyword_present(ocr, parsed, threshold):
+            break  # a different engine cannot make a keyword exist that isn't printed
 
         logger.info(
             "ocr_escalating",
