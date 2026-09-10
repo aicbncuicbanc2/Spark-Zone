@@ -67,22 +67,31 @@ class PipelineResult:
 
 
 def _engines() -> list[OcrBackend]:
-    """The escalation chain, cheapest first.
+    """The escalation chain, cheapest first - "cheapest" now means something
+    different in production than it did when this was first measured.
 
-    Measured on the real label fixtures: the fast tier reads 4 of 5 in about
-    3.5 seconds, the accurate tier reads 5 of 5 in about 14. Running fast first
-    means the common scan finishes quickly and only the awkward ones pay for
-    the heavier detector.
+    On a local dev machine, PaddleOCR's fast tier reads 4/5 real fixtures in
+    about 3.5s with oneDNN acceleration enabled - genuinely comparable to
+    Vision's own ~1-2s cloud call, which is why PaddleOCR stayed the default
+    primary engine (`ocr_primary_engine` defaults to "paddleocr").
 
-    Vision runs before the accurate tier, not after: both are only reached
-    when fast tier isn't good enough, and Vision is a ~1-2s cloud call versus
-    the accurate tier's own local detector, which is far more likely to be
-    the expensive one - measured locally at 14s under normal load and well
-    over 100s under real memory pressure. Verified against all 7 real label
-    fixtures that this reordering does not change the final answer on any of
-    them: _good_enough / _quality below always pick the best-scoring result
-    across every engine actually tried, not just whichever ran first, so an
-    engine trying (and failing) earlier never costs accuracy - only time.
+    On Cloud Run, that assumption breaks: oneDNN has to be disabled there to
+    avoid a real crash (see paddle_engine.py), and the fast tier's actual
+    measured cost jumped to 15-30s - 8-15x slower than Vision's ~1-2s, which
+    is unaffected. `deploy.ps1` sets OCR_PRIMARY_ENGINE=google_vision
+    specifically for that reason: a scan that used to take ~20-70s (one or
+    more Paddle tiers before ever reaching Vision) now resolves in a few
+    seconds whenever Vision alone is confident enough. Verified this
+    reordering costs nothing in accuracy: rerunning all 7 real label fixtures
+    with Vision primary still passes 6/7 (the same known embossed-date
+    limitation still xfails) - identical to PaddleOCR-primary, because
+    _good_enough / _quality below always pick the best-scoring result across
+    every engine actually tried, not just whichever ran first. An engine
+    trying (and failing) earlier never costs accuracy, only time - which is
+    exactly why putting the fast, free-tier-friendly cloud call first on
+    Cloud Run specifically is a pure win there, while local dev keeps
+    PaddleOCR first since it has no reason to pay for a cloud call it
+    doesn't need.
     """
     settings = get_settings()
     if settings.ocr_primary_engine == "google_vision":

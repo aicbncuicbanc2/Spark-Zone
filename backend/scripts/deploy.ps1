@@ -173,7 +173,7 @@ $secretFlags = ($secrets.Keys | ForEach-Object { "$($secrets[$_])=$($_):latest" 
     --concurrency 1 `
     --min-instances 1 `
     --max-instances 3 `
-    --set-env-vars "ENVIRONMENT=production,LOG_LEVEL=INFO,CORS_ORIGINS=*" `
+    --set-env-vars "ENVIRONMENT=production,LOG_LEVEL=INFO,CORS_ORIGINS=*,OCR_PRIMARY_ENGINE=google_vision" `
     --set-secrets $secretFlags
 
 if ($LASTEXITCODE -ne 0) {

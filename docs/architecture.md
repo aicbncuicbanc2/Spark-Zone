@@ -89,28 +89,47 @@ today** — the single detail no simple "expiry tracker" app gets right.
 Every claim below was benchmarked against real, photographed product labels
 in `backend/tests/fixtures/labels/` — not synthetic text.
 
+**Production (Cloud Run) order** — Vision first:
+
 ```
-fast PaddleOCR (mobile detector)   →  4/5 real labels,  ~3.5s
+Google Vision (cloud, ~1-2s)        →  5/7 real labels, alone
+      │ escalates only if unresolved
+      ▼
+fast PaddleOCR (mobile detector)    →  4/5 real labels,  ~3.5s locally / 15-30s on Cloud Run
       │ escalates only on low confidence or no date found
       ▼
-Google Vision (cloud, ~1-2s)       →  5/7 real labels, alone
-      │ escalates only if still unresolved
-      ▼
-accurate PaddleOCR (server detector) → 5/5,            ~14s
+accurate PaddleOCR (server detector) → 5/5,             ~14s locally / 37s+ on Cloud Run
 ```
 
-Chaining fast-then-accurate keeps the common case fast (most scans resolve on
-the first tier in 2–4s) while still recovering the hard cases. Vision runs
-before the accurate tier, not after: both are only reached when fast tier
-isn't good enough, and Vision is a ~1-2s cloud call against the accurate
-tier's own local detector, measured at 14s under normal load and well over
-100s under real memory pressure. Verified against all 7 real fixtures that
-this ordering never costs accuracy — the pipeline always keeps the best-
-scoring result across every engine actually tried, not just whichever ran
-first, so a fast engine trying (and failing) before a slow one only ever
-saves time. Every scan records `engines_attempted` — which tier ran, its
-confidence, whether it found a date — so the escalation is auditable
-per-request, not asserted.
+**Local dev order** — PaddleOCR fast first, same chain otherwise (set via
+`OCR_PRIMARY_ENGINE`, defaults to `paddleocr`; `deploy.ps1` overrides it to
+`google_vision` for Cloud Run specifically).
+
+These used to be the same order everywhere. They aren't anymore, and that's
+a real, measured decision, not a stylistic one: on a local dev machine with
+oneDNN acceleration enabled, PaddleOCR's fast tier (~3.5s) is genuinely
+comparable to Vision's own ~1-2s cloud call, so there was no reason to pay
+for a cloud call when a free local one is just as fast. On Cloud Run, oneDNN
+has to stay disabled to avoid a real crash (below), and that makes the fast
+tier's measured cost 15-30s — 8-15x slower than Vision, which is unaffected
+by any of this. Putting Vision first in production turns a scan that used
+to take 20-70s+ into one that resolves in a few seconds whenever Vision
+alone is confident enough. Verified this costs nothing in accuracy: rerunning
+all 7 real fixtures with Vision primary still passes 6/7, identical to
+PaddleOCR-primary — the pipeline always keeps the best-scoring result across
+every engine actually tried, not just whichever ran first, so an engine
+trying (and failing) earlier only ever costs time, never accuracy. Every
+scan records `engines_attempted` — which tier ran, its confidence, whether
+it found a date — so the escalation is auditable per-request, not asserted.
+
+A separate, real fix stops a specific kind of pointless escalation: if a
+confident read finds date-like numbers but no "EXP" keyword anywhere near
+them (e.g. a product whose only printed code is a manufacture batch stamp),
+no other engine can conjure a keyword into existence that the product never
+printed — so the pipeline now stops right there instead of still trying
+every remaining tier. Measured on a real photo (a dishwashing-liquid bottle
+with only a batch stamp, no expiry date at all): 140s → 33s locally, with
+the same correct final answer (no invented expiry date).
 
 **Real accuracy claims, both true and both worth stating precisely:**
 - **7/7** at the parser level (clean printed text → correct date)
