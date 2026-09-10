@@ -27,3 +27,6 @@ inference/
 
 # Cloudflare quick-tunnel URL, regenerated on every run
 backend/scripts/PUBLIC_URL.txt
+
+# Netlify CLI's local site link - machine-specific, not shared config
+frontend/.netlify/
