@@ -148,17 +148,30 @@ $secretFlags = ($secrets.Keys | ForEach-Object { "$($secrets[$_])=$($_):latest" 
 # CPU to actually run. Costs more (billed for idle time, not just active
 # request time), but there is no working alternative given this app's async
 # scan architecture.
+#
+# --memory 4Gi / --concurrency 1 (was 2Gi / 4): a real scan under the old
+# settings got OOM-killed mid-request ("Memory limit of 2048 MiB exceeded
+# with 2177 MiB used") when the accurate PaddleOCR tier loaded alongside
+# whatever else the same container was juggling - confirmed fixed by
+# rerunning the same kind of scan afterward with zero memory errors.
+#
+# --min-instances 1: without this, Cloud Run scales to zero when idle and
+# a judge's first request after any idle period pays a cold start plus
+# (before the Dockerfile baked the models in) a HuggingFace model download
+# mid-request. Costs a small always-on fee for the judging window, worth it
+# so "try it fresh" is never the slow path.
 & $gcloud run deploy $ServiceName `
     --source $backend `
     --project $ProjectId `
     --region $Region `
     --quiet `
     --allow-unauthenticated `
-    --memory 2Gi `
+    --memory 4Gi `
     --cpu 2 `
     --no-cpu-throttling `
     --timeout 300 `
-    --concurrency 4 `
+    --concurrency 1 `
+    --min-instances 1 `
     --max-instances 3 `
     --set-env-vars "ENVIRONMENT=production,LOG_LEVEL=INFO,CORS_ORIGINS=*" `
     --set-secrets $secretFlags
@@ -191,6 +204,11 @@ if (-not $SkipScheduler) {
     $existing = & $gcloud scheduler jobs describe $jobName --location $Region --project $ProjectId 2>$null
     $ErrorActionPreference = $prevEAP
     $action = if ($null -eq $existing) { "create" } else { "update" }
+    # `create http` takes --headers; `update http` dropped that in favor of
+    # --update-headers (a real gcloud version difference that broke a
+    # deploy - --headers on `update` now errors as an unrecognized argument
+    # instead of silently doing nothing).
+    $headerFlag = if ($action -eq "create") { "--headers" } else { "--update-headers" }
 
     & $gcloud scheduler jobs $action http $jobName `
         --location $Region `
@@ -199,7 +217,7 @@ if (-not $SkipScheduler) {
         --time-zone "Asia/Kuala_Lumpur" `
         --uri "$url/v1/internal/reminders/sweep" `
         --http-method POST `
-        --headers "X-Internal-Secret=$sweepSecret" `
+        $headerFlag "X-Internal-Secret=$sweepSecret" `
         --attempt-deadline 300s
     Write-Host "  $jobName runs every 15 minutes"
 }

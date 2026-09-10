@@ -34,6 +34,21 @@ COPY requirements.txt requirements-ml.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install --no-cache-dir -r requirements-ml.txt
 
+# Bake both PaddleOCR tiers' model weights into the image now, not at
+# runtime. Verified live: without this, a fresh container's first scan
+# downloads model files from HuggingFace mid-request - real cost, measured
+# in production logs - on top of Cloud Run's own cold start. A judge trying
+# the app after any idle period must not pay that tax. Kwargs here must
+# match app/services/ocr/paddle_engine.py's real construction exactly, or
+# this bakes the wrong model and the runtime download happens anyway.
+RUN python -c "\
+import os; \
+os.environ.setdefault('FLAGS_use_mkldnn', '0'); \
+from paddleocr import PaddleOCR; \
+common = dict(lang='en', enable_mkldnn=False, use_doc_orientation_classify=False, use_doc_unwarping=False, use_textline_orientation=False); \
+PaddleOCR(text_detection_model_name='PP-OCRv5_mobile_det', **common); \
+PaddleOCR(**common)"
+
 # --- Application code --------------------------------------------------------
 COPY app ./app
 
