@@ -116,15 +116,21 @@ async def _run_pipeline_and_persist(
     """
     started = time.perf_counter()
     try:
-        stored = await run_in_threadpool(storage.upload_scan_image, data, user_id=user_id)
-        if stored.error and storage.is_configured():
-            logger.warning("scan_image_not_stored", extra={"reason": stored.error})
-
+        # Upload, OCR and barcode lookup touch the same bytes but never each
+        # other's results - previously the Cloudinary upload ran first and
+        # blocked OCR from starting at all, for no reason. Running all three
+        # concurrently is a pure latency win with zero change to what the
+        # client ever sees: now that Vision alone can resolve a scan in under
+        # a second, a redundant 1-2s of serial upload time in front of it was
+        # a real, measured chunk of "why does this still feel slow."
         today = today_for_user(profiles_repo.get_timezone(db, user_id))
-        result, (detected_barcode, product) = await asyncio.gather(
+        stored, result, (detected_barcode, product) = await asyncio.gather(
+            run_in_threadpool(storage.upload_scan_image, data, user_id=user_id),
             run_in_threadpool(pipeline.run, data, today=today, force=force),
             _resolve_product(db, data),
         )
+        if stored.error and storage.is_configured():
+            logger.warning("scan_image_not_stored", extra={"reason": stored.error})
 
         parsed = result.parsed
         ocr_failed = result.ocr is None or not result.ocr.succeeded
