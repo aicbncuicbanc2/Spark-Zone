@@ -21,7 +21,11 @@ param(
     [switch]$SkipScheduler
 )
 
-$ErrorActionPreference = "Stop"
+# Not "Stop": gcloud writes routine status to stderr even on pure success
+# (e.g. "Updated IAM policy..."), and under Stop that becomes a terminating
+# NativeCommandError the moment stderr is redirected anywhere - so real
+# failures are instead caught explicitly via $LASTEXITCODE where it matters.
+$ErrorActionPreference = "Continue"
 
 $gcloud = "$env:LOCALAPPDATA\Google\Cloud SDK\google-cloud-sdk\bin\gcloud.cmd"
 if (-not (Test-Path $gcloud)) {
@@ -76,13 +80,23 @@ foreach ($name in $secrets.Keys) {
         Write-Host "  skipped $name (not set in .env)" -ForegroundColor Yellow
         continue
     }
+    # A native command's stderr, once redirected, becomes a terminating error
+    # under $ErrorActionPreference = "Stop" even though "not found" is the
+    # expected, normal outcome here on a first run - so this probe runs with
+    # errors relaxed, then strict mode resumes for everything after it.
+    $prevEAP = $ErrorActionPreference
+    $ErrorActionPreference = "SilentlyContinue"
     $exists = & $gcloud secrets describe $name --project $ProjectId 2>$null
+    $ErrorActionPreference = $prevEAP
     if ($null -eq $exists) {
         & $gcloud secrets create $name --replication-policy="automatic" --project $ProjectId | Out-Null
     }
     $tmp = New-TemporaryFile
     [System.IO.File]::WriteAllText($tmp.FullName, $value, [System.Text.UTF8Encoding]::new($false))
-    & $gcloud secrets versions add $name --data-file=$tmp.FullName --project $ProjectId | Out-Null
+    # "--data-file=$tmp.FullName" (unquoted) does not expand the property -
+    # PowerShell appends the literal text ".FullName" to $tmp's own string
+    # form instead, pointing gcloud at a path that never existed.
+    & $gcloud secrets versions add $name "--data-file=$($tmp.FullName)" --project $ProjectId | Out-Null
     Remove-Item $tmp.FullName -Force
     Write-Host "  stored $name"
 }
@@ -98,6 +112,30 @@ foreach ($name in $secrets.Keys) {
 }
 Write-Host "  $runtimeSa can read the secrets"
 
+# On projects created after Google tightened default service account grants,
+# the compute default SA has no storage access at all - "gcloud run deploy
+# --source" fails with a 403 reading its own just-uploaded source zip back
+# out of the run-sources-* bucket without this.
+& $gcloud projects add-iam-policy-binding $ProjectId `
+    --member="serviceAccount:$runtimeSa" `
+    --role="roles/storage.objectViewer" 2>$null | Out-Null
+Write-Host "  $runtimeSa can read Cloud Build's source bucket"
+
+# Same era of tightened default grants: without Logs Writer, Cloud Build
+# marks the whole build FAILURE for being unable to persist its own logs -
+# independent of whether the actual build steps would have succeeded.
+& $gcloud projects add-iam-policy-binding $ProjectId `
+    --member="serviceAccount:$runtimeSa" `
+    --role="roles/logging.logWriter" 2>$null | Out-Null
+Write-Host "  $runtimeSa can write build logs"
+
+# Same gap again: without this the build itself completes fine but the final
+# push of the finished image to Artifact Registry is denied.
+& $gcloud projects add-iam-policy-binding $ProjectId `
+    --member="serviceAccount:$runtimeSa" `
+    --role="roles/artifactregistry.writer" 2>$null | Out-Null
+Write-Host "  $runtimeSa can push images to Artifact Registry"
+
 Write-Host "`n=== 5. Deploying (Cloud Build; the OCR layer takes a while) ===" -ForegroundColor Cyan
 $secretFlags = ($secrets.Keys | ForEach-Object { "$($secrets[$_])=$($_):latest" }) -join ","
 
@@ -105,6 +143,7 @@ $secretFlags = ($secrets.Keys | ForEach-Object { "$($secrets[$_])=$($_):latest" 
     --source $backend `
     --project $ProjectId `
     --region $Region `
+    --quiet `
     --allow-unauthenticated `
     --memory 2Gi `
     --cpu 2 `
@@ -113,6 +152,10 @@ $secretFlags = ($secrets.Keys | ForEach-Object { "$($secrets[$_])=$($_):latest" 
     --max-instances 3 `
     --set-env-vars "ENVIRONMENT=production,LOG_LEVEL=INFO,CORS_ORIGINS=*" `
     --set-secrets $secretFlags
+
+if ($LASTEXITCODE -ne 0) {
+    throw "gcloud run deploy failed (exit $LASTEXITCODE) - see output above."
+}
 
 $url = & $gcloud run services describe $ServiceName --project $ProjectId --region $Region --format="value(status.url)"
 Write-Host "`n  URL: $url" -ForegroundColor Green
@@ -133,7 +176,10 @@ if (-not $SkipScheduler) {
     # Cloud Run scales to zero, so an in-process scheduler would never fire.
     $sweepSecret = Read-EnvValue "INTERNAL_SWEEP_SECRET"
     $jobName = "$ServiceName-sweep"
+    $prevEAP = $ErrorActionPreference
+    $ErrorActionPreference = "SilentlyContinue"
     $existing = & $gcloud scheduler jobs describe $jobName --location $Region --project $ProjectId 2>$null
+    $ErrorActionPreference = $prevEAP
     $action = if ($null -eq $existing) { "create" } else { "update" }
 
     & $gcloud scheduler jobs $action http $jobName `

@@ -18,6 +18,7 @@ import httpx
 from fastapi import APIRouter, Response
 
 from app.config import get_settings
+from app.services.ocr.vision_engine import VisionEngine
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["health"])
@@ -65,8 +66,13 @@ async def ready(response: Response) -> dict:
         },
         "optional_integrations": {
             "cloudinary": bool(settings.cloudinary_cloud_name and settings.cloudinary_api_key),
-            "google_vision": bool(settings.google_application_credentials)
-            and settings.vision_enabled,
+            # Not just "is a credentials path set" - that was only ever true
+            # for the old key-file approach. Locally this uses gcloud's
+            # Application Default Credentials, and on Cloud Run the
+            # attached runtime service account, neither of which sets
+            # GOOGLE_APPLICATION_CREDENTIALS at all. Actually try to build
+            # the client instead, so this reports what's really usable.
+            "google_vision": settings.vision_enabled and VisionEngine().is_available(),
             "fcm": bool(settings.fcm_service_account_json) and settings.fcm_enabled,
         },
     }
