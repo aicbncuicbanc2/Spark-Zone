@@ -1,4 +1,5 @@
 import { File } from 'expo-file-system';
+import { Platform } from 'react-native';
 
 import { apiRequest } from './api';
 import { USE_MOCKS } from './config';
@@ -166,12 +167,21 @@ export async function createScan(imageUri: string): Promise<ScanResponse> {
     await mockDelay();
     return mockStore.createScan();
   }
-  // expo-file-system's File is Blob-like, which native fetch's FormData
-  // requires — a plain {uri,name,type} object throws "Unsupported
-  // FormDataPart implementation" on SDK 57.
-  const file = new File(imageUri);
   const formData = new FormData();
-  formData.append('image', file);
+  if (Platform.OS === 'web') {
+    // expo-file-system's File is native-only (Android/iOS/tvOS) - it does
+    // not support web at all, so it can't wrap a browser blob: URI. The
+    // standard cross-platform way to turn an ImagePicker web URI into
+    // something FormData can send is to fetch it back into a real Blob.
+    const blob = await (await fetch(imageUri)).blob();
+    formData.append('image', blob, 'label.jpg');
+  } else {
+    // expo-file-system's File is Blob-like, which native fetch's FormData
+    // requires — a plain {uri,name,type} object throws "Unsupported
+    // FormDataPart implementation" on SDK 57.
+    const file = new File(imageUri);
+    formData.append('image', file);
+  }
   let scan = await apiRequest<ScanResponse>('/v1/scans', { method: 'POST', formData });
 
   const deadline = Date.now() + SCAN_POLL_TIMEOUT_MS;
