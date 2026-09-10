@@ -28,8 +28,8 @@ docs/       Architecture, the frontend/backend API contract, and captured
 - **Architecture**: the full system, real measured numbers, what's tested — [`docs/architecture.md`](docs/architecture.md)
 - **API contract**: every endpoint, request/response shapes — [`docs/api.md`](docs/api.md)
 - **Frontend**: from `frontend/`, `npm install` then `npx expo start` (needs
-  `frontend/.env` — copy `.env.example` and fill in the Supabase and backend
-  values from a teammate)
+  `frontend/.env` — copy `.env.example`, which already has real, safe-to-ship
+  values for the deployed backend and Supabase anon key, no teammate needed)
 
 ## Stack at a glance
 
