@@ -13,6 +13,7 @@ import type {
   Item,
   MePreferences,
   PatchItemInput,
+  ProductIdentifyResponse,
   ScanResponse,
 } from './types';
 
@@ -165,5 +166,16 @@ export const mockStore = {
     scanCount += 1;
     const sample = scanCount % 2 === 1 ? scanSucceededJson : scanNeedsReviewJson;
     return { ...(sample as ScanResponse), scan_id: `mock-scan-${Date.now()}` };
+  },
+
+  identifyProduct(): ProductIdentifyResponse {
+    // Real Logo Detection misses about as often as it hits, so the mock
+    // alternates too — the "brand: null" path needs exercising as much as
+    // the happy one.
+    scanCount += 1;
+    if (scanCount % 2 === 1) {
+      return { brand: 'Kopiko', brand_confidence: 0.99, raw_text: 'KOPIKO Coffee Candy' };
+    }
+    return { brand: null, brand_confidence: null, raw_text: 'Anessa Perfect UV Sunscreen' };
   },
 };

@@ -169,6 +169,19 @@ export interface CreateItemInput {
 
 export type PatchItemInput = Partial<CreateItemInput>;
 
+/**
+ * POST /v1/products/identify-photo response (backend/app/api/v1/routes/products.py).
+ * Synchronous — unlike /v1/scans, no polling needed. `brand` is null on a
+ * miss, which happens (Logo Detection is precise when it hits but
+ * inconsistent) — never treat a miss as an error, just let the user type
+ * the name/brand themselves.
+ */
+export interface ProductIdentifyResponse {
+  brand: string | null;
+  brand_confidence: number | null;
+  raw_text: string | null;
+}
+
 export interface ApiErrorBody {
   error: {
     code: string;

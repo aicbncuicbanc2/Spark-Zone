@@ -11,7 +11,15 @@ import {
   View,
 } from 'react-native';
 
-import { useCreateScan } from '../../../lib/queries';
+import { useCreateScan, useIdentifyProduct } from '../../lib/queries';
+
+// Two photos, zero typing (when both hit): one of the product's own
+// front/branding to identify what it is, one of the printed expiry date to
+// read when it expires. They're deliberately separate steps rather than one
+// photo run through both endpoints — the two are rarely the same side of
+// the package (branding on the front, expiry date on the back or bottom).
+
+type Step = 'brand' | 'date';
 
 async function pickImage(source: 'camera' | 'library') {
   const permission =
@@ -20,7 +28,7 @@ async function pickImage(source: 'camera' | 'library') {
       : await ImagePicker.requestMediaLibraryPermissionsAsync();
 
   if (!permission.granted) {
-    Alert.alert('Permission needed', `Allow ${source === 'camera' ? 'camera' : 'photo library'} access to scan a label.`);
+    Alert.alert('Permission needed', `Allow ${source === 'camera' ? 'camera' : 'photo library'} access to take a photo.`);
     return null;
   }
 
@@ -33,12 +41,41 @@ async function pickImage(source: 'camera' | 'library') {
   return result.assets[0];
 }
 
-export default function ScanScreen() {
+export default function ScanProductScreen() {
   const router = useRouter();
+  const [step, setStep] = useState<Step>('brand');
   const [previewUri, setPreviewUri] = useState<string | null>(null);
-  const scanMutation = useCreateScan();
+  const [brand, setBrand] = useState<string | null>(null);
 
-  async function handlePick(source: 'camera' | 'library') {
+  const identifyMutation = useIdentifyProduct();
+  const scanMutation = useCreateScan();
+  const isBusy = identifyMutation.isPending || scanMutation.isPending;
+
+  async function handleBrandPhoto(source: 'camera' | 'library') {
+    const asset = await pickImage(source);
+    if (!asset) return;
+    setPreviewUri(asset.uri);
+
+    identifyMutation.mutate(
+      { uri: asset.uri },
+      {
+        onSuccess: (result) => {
+          setPreviewUri(null);
+          // A miss is a normal result, not an error — Logo Detection is
+          // precise when it hits but genuinely inconsistent across real
+          // brands. Either way the user still confirms/types on /add.
+          setBrand(result.brand);
+          setStep('date');
+        },
+        onError: (error) => {
+          setPreviewUri(null);
+          Alert.alert('Could not read that photo', (error as Error).message);
+        },
+      }
+    );
+  }
+
+  async function handleDatePhoto(source: 'camera' | 'library') {
     const asset = await pickImage(source);
     if (!asset) return;
     setPreviewUri(asset.uri);
@@ -60,15 +97,12 @@ export default function ScanScreen() {
             return;
           }
 
-          // Prefill and hand off to the add form — never auto-save an OCR
-          // read. router params double as the "was this touched" baseline
-          // add.tsx uses to decide date_source: 'ocr' vs 'user'.
           router.push({
             pathname: '/add',
             params: {
               scan_id: scan.scan_id,
               name: scan.suggested_item?.name ?? '',
-              brand: scan.suggested_item?.brand ?? '',
+              brand: brand ?? scan.suggested_item?.brand ?? '',
               category_id: scan.suggested_item?.category_id ?? '',
               expiry_date: scan.extracted_expiry_date ?? '',
               needs_review: scan.needs_review ? '1' : '0',
@@ -85,22 +119,32 @@ export default function ScanScreen() {
     );
   }
 
+  const handlePick = step === 'brand' ? handleBrandPhoto : handleDatePhoto;
+
   return (
     <View style={styles.container}>
       {previewUri ? <Image source={{ uri: previewUri }} style={styles.preview} /> : null}
 
-      {scanMutation.isPending ? (
+      {isBusy ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" />
-          <Text style={styles.statusText}>Reading the label…</Text>
+          <Text style={styles.statusText}>
+            {step === 'brand' ? 'Identifying the product…' : 'Reading the label…'}
+          </Text>
         </View>
       ) : (
         <View style={styles.center}>
-          <Text style={styles.icon}>📷</Text>
-          <Text style={styles.title}>Scan a product label</Text>
+          <Text style={styles.stepIndicator}>Step {step === 'brand' ? '1' : '2'} of 2</Text>
+          <Text style={styles.icon}>{step === 'brand' ? '🏷️' : '📅'}</Text>
+          <Text style={styles.title}>
+            {step === 'brand' ? "Photo of the product's front" : 'Photo of the expiry date'}
+          </Text>
           <Text style={styles.body}>
-            Photograph the expiry date (and barcode, if visible, in the same shot). You'll always
-            get a chance to confirm or fix the date before it's saved.
+            {step === 'brand'
+              ? "The name and logo, not the expiry date — we'll ask for that next."
+              : brand
+                ? `Got it: ${brand}. Now the printed expiry date.`
+                : "Couldn't identify the brand, that's okay — now the printed expiry date."}
           </Text>
 
           <Pressable style={styles.button} onPress={() => handlePick('camera')}>
@@ -108,9 +152,6 @@ export default function ScanScreen() {
           </Pressable>
           <Pressable style={[styles.button, styles.secondaryButton]} onPress={() => handlePick('library')}>
             <Text style={[styles.buttonText, styles.secondaryButtonText]}>Choose from library</Text>
-          </Pressable>
-          <Pressable style={styles.manualLink} onPress={() => router.push('/scan-product')}>
-            <Text style={styles.manualLinkText}>No barcode or date on this side? Scan brand + date (2 photos)</Text>
           </Pressable>
           <Pressable style={styles.manualLink} onPress={() => router.push('/add')}>
             <Text style={styles.manualLinkText}>Or add manually</Text>
@@ -137,6 +178,12 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 220,
     backgroundColor: '#000',
+  },
+  stepIndicator: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#2e7d32',
+    marginBottom: 4,
   },
   icon: {
     fontSize: 40,
