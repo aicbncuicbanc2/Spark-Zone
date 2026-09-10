@@ -159,6 +159,25 @@ photographed in the same frame.
   source (Malaysia's MOH Return Your Medicines Programme; US EPA guidance),
   because "where does this come from?" is a question a judge can ask.
 
+### Privacy / PDPA stance
+
+Thyme collects the minimum needed to function: a login email, the product
+photos and item details a user chooses to scan or enter, and a
+push-notification token for reminders. Data isn't sold or shared with third
+parties. The Row-Level Security guarantee above is what actually enforces
+per-user isolation, not just an access-control policy on paper.
+
+Two things worth being upfront about, not glossing over:
+
+- **Cross-border storage.** Supabase (`ap-northeast-1`) and Cloud Run
+  (`asia-northeast1`) are both hosted in Tokyo, not Malaysia — a normal
+  choice for a student project, but the honest answer if asked "where's the
+  data stored" is "Google/Supabase infrastructure in Japan," not Malaysia.
+- **No self-service account deletion yet.** Individual scans and items can
+  be deleted today (`DELETE /v1/scans/{id}`, `DELETE /v1/items/{id}`), but a
+  full "delete my account and all my data" flow isn't built — a real gap,
+  tracked as future work rather than hidden.
+
 ---
 
 ## Data model
