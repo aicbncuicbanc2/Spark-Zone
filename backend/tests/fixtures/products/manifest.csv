@@ -1,0 +1,2 @@
+filename,expected_brand,notes
+kopiko-coffee-candy.jpg,Kopiko,"Real photo of a Kopiko coffee candy wrapper, held in hand. Logo Detection identifies the brand at 1.00 confidence. Plain OCR on the same photo reads the brand wrong (KOPIRO, not KOPIKO) and also picks up unrelated background text (a laptop sticker reading ASUS SUPPORT) - this fixture is the evidence that motivated using Logo Detection for brand identification instead of parsing raw OCR text."

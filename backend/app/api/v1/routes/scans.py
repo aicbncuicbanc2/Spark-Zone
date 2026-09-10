@@ -35,8 +35,7 @@ from fastapi import (
 )
 from starlette.concurrency import run_in_threadpool
 
-from app.config import get_settings
-from app.core.errors import BadRequestError, PayloadTooLargeError
+from app.core.errors import BadRequestError
 from app.db.repositories import products as products_repo
 from app.db.repositories import profiles as profiles_repo
 from app.db.repositories import scans as scans_repo
@@ -53,32 +52,10 @@ from app.services import storage
 from app.services.ocr import pipeline
 from app.services.ocr.base import OcrEngine
 from app.services.priority import today_for_user
+from app.services.uploads import read_image_upload as _read_upload
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-
-ALLOWED_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/webp", "image/heic"}
-
-
-async def _read_upload(image: UploadFile) -> bytes:
-    settings = get_settings()
-
-    if image.content_type and image.content_type.lower() not in ALLOWED_TYPES:
-        raise BadRequestError(
-            f"Unsupported image type: {image.content_type}. Send JPEG, PNG or WebP.",
-            code="UNSUPPORTED_IMAGE_TYPE",
-        )
-
-    data = await image.read()
-    if not data:
-        raise BadRequestError("The uploaded file was empty.", code="EMPTY_UPLOAD")
-    if len(data) > settings.ocr_max_image_bytes:
-        raise PayloadTooLargeError(
-            f"Image is {len(data) // 1024} KB; the limit is "
-            f"{settings.ocr_max_image_bytes // 1024} KB.",
-            details={"bytes": len(data), "limit": settings.ocr_max_image_bytes},
-        )
-    return data
 
 
 async def _resolve_product(db, image: bytes) -> tuple[str | None, dict | None]:

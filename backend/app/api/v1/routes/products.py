@@ -1,10 +1,10 @@
-"""Product identity lookup by barcode."""
+"""Product identity lookup - by barcode, or by a photo of the product itself."""
 
 from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, File, Query, UploadFile
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
@@ -12,6 +12,8 @@ from app.core.errors import NotFoundError
 from app.db.repositories import products as products_repo
 from app.deps import CurrentUserDep, UserDbDep
 from app.services import barcode as barcode_service
+from app.services.ocr import vision_engine
+from app.services.uploads import read_image_upload
 
 router = APIRouter()
 
@@ -89,3 +91,38 @@ async def lookup(
         checksum_valid=valid,
         cached=False,
     )
+
+
+class ProductPhotoResult(BaseModel):
+    brand: str | None = None
+    brand_confidence: float | None = None
+    #: Raw OCR text from the same photo, for the client to show or let the
+    #: user pick a product name from - never parsed or guessed at here.
+    raw_text: str | None = None
+
+
+@router.post(
+    "/identify-photo",
+    response_model=ProductPhotoResult,
+    summary="Identify a product's brand from a photo of its own front/branding",
+)
+async def identify_photo(
+    user: CurrentUserDep,
+    image: Annotated[UploadFile, File(description="Photo of the product's front/branding")],
+) -> ProductPhotoResult:
+    """Best-effort only - for when there is no barcode, or /lookup missed.
+
+    Uses Google Vision's Logo Detection, not OCR: verified on a real product
+    photo at 1.00 confidence, correctly naming the brand where plain OCR on
+    the same photo both misread it and picked up unrelated background text
+    with no way to tell that wasn't part of the product. But it is genuinely
+    inconsistent - a comparably well-known brand on a different real product
+    returned no logo at all. This never fails the request either way; a
+    miss just comes back with brand: null, and the client must always let
+    the user type or confirm the name/brand regardless of what comes back.
+    """
+    data = await read_image_upload(image)
+    brand, brand_confidence, raw_text = await run_in_threadpool(
+        vision_engine.identify_product, data
+    )
+    return ProductPhotoResult(brand=brand, brand_confidence=brand_confidence, raw_text=raw_text)

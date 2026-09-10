@@ -22,7 +22,7 @@ flowchart LR
         UI[React Native UI]
     end
 
-    subgraph Backend["FastAPI — 20 endpoints"]
+    subgraph Backend["FastAPI — 21 endpoints"]
         API[REST API]
         OCR["OCR Pipeline<br/>PaddleOCR fast → Vision → accurate"]
         Parser["Date Parser<br/>pure Python, no ML"]
@@ -168,7 +168,7 @@ can never send the same notification twice.
 
 ## API
 
-20 endpoints under `/v1`, documented in [`docs/api.md`](api.md) — the
+21 endpoints under `/v1`, documented in [`docs/api.md`](api.md) — the
 contract the frontend was built against, with real captured response
 samples in `docs/api-samples/` so the app could be built before the
 backend was reachable.

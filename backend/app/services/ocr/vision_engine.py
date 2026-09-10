@@ -117,3 +117,43 @@ class VisionEngine:
                 error=str(exc),
                 duration_ms=int((time.perf_counter() - started) * 1000),
             )
+
+
+def identify_product(image: bytes) -> tuple[str | None, float | None, str | None]:
+    """Best-effort brand identification from a photo of a product's own
+    front/branding - a separate concern from reading an expiry date.
+
+    Logo Detection is precise when it hits: verified on a real product photo
+    at 1.00 confidence, correctly naming the brand where plain OCR on the
+    same photo both misread it and picked up unrelated background text (a
+    laptop sticker) with no way to tell that wasn't part of the product.
+    But it is genuinely inconsistent - a comparably well-known brand on a
+    different real product returned no logo at all. Never block on this:
+    the caller must always let the user confirm or type the brand/name
+    themselves regardless of what comes back here.
+    """
+    client = _load()
+    if client is None:
+        return None, None, None
+
+    try:
+        from google.cloud import vision
+
+        request_image = vision.Image(content=prepare(image))
+
+        logo_response = client.logo_detection(image=request_image)
+        brand: str | None = None
+        brand_confidence: float | None = None
+        if logo_response.logo_annotations:
+            top = logo_response.logo_annotations[0]
+            brand = top.description
+            brand_confidence = float(top.score)
+
+        text_response = client.document_text_detection(image=request_image)
+        raw_text = (text_response.full_text_annotation.text or "").strip() or None
+
+        return brand, brand_confidence, raw_text
+
+    except Exception:
+        logger.exception("vision_identify_product_failed")
+        return None, None, None
