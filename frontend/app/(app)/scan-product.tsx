@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 
 import { useCreateScan, useIdentifyProduct } from '../../lib/queries';
+import { colors } from '../../lib/theme';
 
 // Two photos, zero typing (when both hit): one of the product's own
 // front/branding to identify what it is, one of the printed expiry date to
@@ -39,6 +40,16 @@ async function pickImage(source: 'camera' | 'library') {
 
   if (result.canceled) return null;
   return result.assets[0];
+}
+
+function StepDots({ step }: { step: Step }) {
+  return (
+    <View style={styles.stepDots}>
+      <View style={[styles.stepDot, styles.stepDotFilled]} />
+      <View style={[styles.stepDotTrack, step === 'date' && styles.stepDotTrackFilled]} />
+      <View style={[styles.stepDot, step === 'date' && styles.stepDotFilled]} />
+    </View>
+  );
 }
 
 export default function ScanProductScreen() {
@@ -131,11 +142,17 @@ export default function ScanProductScreen() {
 
   return (
     <View style={styles.container}>
-      {previewUri ? <Image source={{ uri: previewUri }} style={styles.preview} /> : null}
+      <StepDots step={step} />
+
+      {previewUri ? (
+        <View style={styles.previewWrap}>
+          <Image source={{ uri: previewUri }} style={styles.preview} />
+        </View>
+      ) : null}
 
       {isBusy ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" />
+          <ActivityIndicator size="large" color={colors.navy} />
           <Text style={styles.statusText}>
             {step === 'brand' ? 'Identifying the product…' : 'Reading the label…'}
           </Text>
@@ -161,6 +178,12 @@ export default function ScanProductScreen() {
           <Pressable style={[styles.button, styles.secondaryButton]} onPress={() => handlePick('library')}>
             <Text style={[styles.buttonText, styles.secondaryButtonText]}>Choose from library</Text>
           </Pressable>
+
+          {step === 'date' && (
+            <Pressable style={styles.manualLink} onPress={() => setStep('brand')}>
+              <Text style={styles.manualLinkText}>← Retake the product photo</Text>
+            </Pressable>
+          )}
           <Pressable style={styles.manualLink} onPress={() => router.push('/add')}>
             <Text style={styles.manualLinkText}>Or add manually</Text>
           </Pressable>
@@ -173,7 +196,7 @@ export default function ScanProductScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.cream,
   },
   center: {
     flex: 1,
@@ -182,15 +205,45 @@ const styles = StyleSheet.create({
     padding: 32,
     gap: 10,
   },
+  stepDots: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 20,
+    gap: 4,
+  },
+  stepDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.border,
+  },
+  stepDotFilled: {
+    backgroundColor: colors.navy,
+  },
+  stepDotTrack: {
+    width: 32,
+    height: 2,
+    backgroundColor: colors.border,
+  },
+  stepDotTrackFilled: {
+    backgroundColor: colors.navy,
+  },
+  previewWrap: {
+    marginHorizontal: 24,
+    marginTop: 16,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#000',
+  },
   preview: {
     width: '100%',
     height: 220,
-    backgroundColor: '#000',
   },
   stepIndicator: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#2e7d32',
+    color: colors.navy,
     marginBottom: 4,
   },
   icon: {
@@ -201,20 +254,22 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     textAlign: 'center',
+    color: colors.navy,
   },
   body: {
     fontSize: 14,
-    color: '#777',
+    color: colors.textMuted,
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 8,
   },
   statusText: {
-    color: '#777',
+    color: colors.textMuted,
     marginTop: 8,
+    textAlign: 'center',
   },
   button: {
-    backgroundColor: '#2e7d32',
+    backgroundColor: colors.navy,
     borderRadius: 10,
     paddingHorizontal: 24,
     paddingVertical: 12,
@@ -222,23 +277,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   secondaryButton: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.white,
     borderWidth: 1,
-    borderColor: '#2e7d32',
+    borderColor: colors.navy,
   },
   buttonText: {
-    color: '#fff',
+    color: colors.white,
     fontWeight: '600',
   },
   secondaryButtonText: {
-    color: '#2e7d32',
+    color: colors.navy,
   },
   manualLink: {
     marginTop: 4,
     padding: 8,
   },
   manualLinkText: {
-    color: '#888',
+    color: colors.textMuted,
     fontSize: 13,
   },
 });

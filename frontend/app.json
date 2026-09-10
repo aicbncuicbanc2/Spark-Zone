@@ -19,6 +19,7 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
+      "name": "Thyme",
       "favicon": "./assets/brand/logo.png"
     },
     "plugins": [
