@@ -169,13 +169,25 @@ export const mockStore = {
   },
 
   identifyProduct(): ProductIdentifyResponse {
-    // Real Logo Detection misses about as often as it hits, so the mock
-    // alternates too — the "brand: null" path needs exercising as much as
-    // the happy one.
+    // Real Logo/Label Detection each miss independently, so the mock
+    // alternates too — brand and category can each be null on their own,
+    // not just together.
     scanCount += 1;
     if (scanCount % 2 === 1) {
-      return { brand: 'Kopiko', brand_confidence: 0.99, raw_text: 'KOPIKO Coffee Candy' };
+      return {
+        brand: 'Kopiko',
+        brand_confidence: 0.99,
+        raw_text: 'KOPIKO Coffee Candy',
+        category_id: 'food',
+        category_confidence: 0.91,
+      };
     }
-    return { brand: null, brand_confidence: null, raw_text: 'Anessa Perfect UV Sunscreen' };
+    return {
+      brand: null,
+      brand_confidence: null,
+      raw_text: 'Anessa Perfect UV Sunscreen',
+      category_id: 'skincare',
+      category_confidence: 0.8,
+    };
   },
 };

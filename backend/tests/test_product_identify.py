@@ -34,17 +34,41 @@ def test_real_photo_identifies_the_brand(row: dict[str, str]) -> None:
     from app.services.ocr.vision_engine import identify_product
 
     image = (PRODUCTS / row["filename"]).read_bytes()
-    brand, confidence, raw_text = identify_product(image)
+    brand, confidence, raw_text, category_id, category_confidence = identify_product(image)
 
     assert brand == row["expected_brand"]
     assert confidence is not None and confidence >= 0.5
     assert raw_text  # the same photo's OCR text is still returned alongside
+    # Real Label Detection on this fixture: Food 0.907, Chocolate 0.731,
+    # Junk food 0.671 - all comfortably over the 0.6 bar, so this is a real
+    # assertion, not a rubber stamp.
+    if row["filename"] == "kopiko-coffee-candy.jpg":
+        assert category_id == "food"
+        assert category_confidence is not None and category_confidence >= 0.6
 
 
 def test_no_client_never_raises(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Missing/misconfigured Vision must degrade to (None, None, None), not
-    raise - a caller with no way to identify a brand must still work."""
+    """Missing/misconfigured Vision must degrade to all-None, not raise - a
+    caller with no way to identify a product must still work."""
     from app.services.ocr import vision_engine
 
     monkeypatch.setattr(vision_engine, "_load", lambda: None)
-    assert vision_engine.identify_product(b"not a real image") == (None, None, None)
+    assert vision_engine.identify_product(b"not a real image") == (None, None, None, None, None)
+
+
+@pytest.mark.parametrize(
+    "labels,expected_category",
+    [
+        ([("Food", 0.9), ("Chocolate", 0.7)], "food"),
+        ([("Sunscreen", 0.8)], "skincare"),
+        ([("Aerosol spray", 0.75)], "aerosol"),
+        ([("Packaging and labeling", 0.9), ("Logo", 0.8)], None),  # no real signal
+        ([("Food", 0.4)], None),  # below the confidence bar
+        ([], None),
+    ],
+)
+def test_guess_category_from_labels(labels: list[tuple[str, float]], expected_category: str | None) -> None:
+    from app.services.ocr.vision_engine import _guess_category
+
+    category_id, _confidence = _guess_category(labels)
+    assert category_id == expected_category

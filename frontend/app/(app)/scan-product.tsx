@@ -46,6 +46,7 @@ export default function ScanProductScreen() {
   const [step, setStep] = useState<Step>('brand');
   const [previewUri, setPreviewUri] = useState<string | null>(null);
   const [brand, setBrand] = useState<string | null>(null);
+  const [categoryId, setCategoryId] = useState<string | null>(null);
 
   const identifyMutation = useIdentifyProduct();
   const scanMutation = useCreateScan();
@@ -61,10 +62,12 @@ export default function ScanProductScreen() {
       {
         onSuccess: (result) => {
           setPreviewUri(null);
-          // A miss is a normal result, not an error — Logo Detection is
-          // precise when it hits but genuinely inconsistent across real
-          // brands. Either way the user still confirms/types on /add.
+          // A miss on either is a normal result, not an error — Logo/Label
+          // Detection are each precise when they hit but genuinely
+          // inconsistent, and independent of each other. Either way the
+          // user still confirms/types everything on /add.
           setBrand(result.brand);
+          setCategoryId(result.category_id);
           setStep('date');
         },
         onError: (error) => {
@@ -101,9 +104,14 @@ export default function ScanProductScreen() {
             pathname: '/add',
             params: {
               scan_id: scan.scan_id,
-              name: scan.suggested_item?.name ?? '',
+              // Name starts as just the brand (e.g. "Kopiko") rather than
+              // anything parsed from OCR text — real testing showed the
+              // most prominent OCR text block can be a misread brand or
+              // unrelated background text, so it's still always editable
+              // here, never a longer guessed-at product name.
+              name: brand ?? scan.suggested_item?.name ?? '',
               brand: brand ?? scan.suggested_item?.brand ?? '',
-              category_id: scan.suggested_item?.category_id ?? '',
+              category_id: categoryId ?? scan.suggested_item?.category_id ?? '',
               expiry_date: scan.extracted_expiry_date ?? '',
               needs_review: scan.needs_review ? '1' : '0',
               review_reason: scan.review_reason ?? '',
