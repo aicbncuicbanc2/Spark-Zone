@@ -221,6 +221,20 @@ in-process timer would simply never fire. Verified against the real Expo
 push API, including the failure path: a dead token correctly returns
 `DeviceNotRegistered` and is pruned automatically rather than retried forever.
 
+### Why someone opens Thyme on day 30, not just day 1
+
+Retention isn't a separate feature bolted on — it comes from two things
+already built above. Reminders pull the user back **passively**, at exactly
+the moment something needs attention, so re-engagement doesn't depend on
+remembering the app exists. `GET /v1/stats` (see *Guidance and stats* in
+[`docs/api.md`](api.md)) turns that into something with a visible score:
+`used_in_time` vs. `thrown_away` and a running `save_rate`, the same
+mechanic that keeps people opening fitness or habit-tracking apps —
+returning becomes about watching that number improve, not just scanning
+something new. Structurally, the app also has recurring utility for free:
+every new grocery or cosmetic purchase is a fresh reason to open it, not a
+single onboarding event.
+
 ---
 
 ## Testing
