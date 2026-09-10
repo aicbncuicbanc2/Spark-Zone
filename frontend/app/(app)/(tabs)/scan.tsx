@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -88,30 +89,29 @@ export default function ScanScreen() {
 
   return (
     <View style={styles.container}>
+      <View style={styles.header}>
+        <Image source={require('../../../assets/brand/wordmark.png')} style={styles.logo} resizeMode="contain" />
+        <Pressable style={styles.helpButton} onPress={() => router.push('/scan-product')}>
+          <Ionicons name="alert" size={18} color={colors.white} />
+        </Pressable>
+      </View>
+
       {previewUri ? <Image source={{ uri: previewUri }} style={styles.preview} /> : null}
 
       {scanMutation.isPending ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" />
+          <ActivityIndicator size="large" color={colors.navy} />
           <Text style={styles.statusText}>Reading the label…</Text>
         </View>
       ) : (
         <View style={styles.center}>
-          <Text style={styles.icon}>📷</Text>
-          <Text style={styles.title}>Scan a product label</Text>
-          <Text style={styles.body}>
-            Photograph the expiry date (and barcode, if visible, in the same shot). You'll always
-            get a chance to confirm or fix the date before it's saved.
-          </Text>
+          <Ionicons name="camera-outline" size={120} color={colors.navy} style={styles.icon} />
 
           <Pressable style={styles.button} onPress={() => handlePick('camera')}>
             <Text style={styles.buttonText}>Take photo</Text>
           </Pressable>
           <Pressable style={[styles.button, styles.secondaryButton]} onPress={() => handlePick('library')}>
             <Text style={[styles.buttonText, styles.secondaryButtonText]}>Choose from library</Text>
-          </Pressable>
-          <Pressable style={styles.manualLink} onPress={() => router.push('/scan-product')}>
-            <Text style={styles.manualLinkText}>No barcode or date on this side? Scan brand + date (2 photos)</Text>
           </Pressable>
           <Pressable style={styles.manualLink} onPress={() => router.push('/add')}>
             <Text style={styles.manualLinkText}>Or add manually</Text>
@@ -127,6 +127,25 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.cream,
   },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+  },
+  logo: {
+    width: 90,
+    height: 30,
+  },
+  helpButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.navy,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   center: {
     flex: 1,
     alignItems: 'center',
@@ -140,21 +159,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#000',
   },
   icon: {
-    fontSize: 40,
-    marginBottom: 4,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '700',
-    textAlign: 'center',
-    color: colors.navy,
-  },
-  body: {
-    fontSize: 14,
-    color: colors.textMuted,
-    textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 8,
+    marginBottom: 24,
   },
   statusText: {
     color: colors.textMuted,

@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
@@ -10,9 +11,18 @@ type Props = {
   isLoading?: boolean;
   selectedId: string | undefined;
   onSelect: (id: string) => void;
+  /** 'pill' (default) is the dashed "+ New" chip used on the add-item form;
+   * 'square' is the bordered icon-only "+" button used in filter contexts. */
+  newButtonVariant?: 'pill' | 'square';
 };
 
-export function CategoryPicker({ categories, isLoading, selectedId, onSelect }: Props) {
+export function CategoryPicker({
+  categories,
+  isLoading,
+  selectedId,
+  onSelect,
+  newButtonVariant = 'pill',
+}: Props) {
   const [isCreating, setIsCreating] = useState(false);
   const [newLabel, setNewLabel] = useState('');
   const createMutation = useCreateCategory();
@@ -55,12 +65,15 @@ export function CategoryPicker({ categories, isLoading, selectedId, onSelect }: 
             </Text>
           </Pressable>
         ))}
-        <Pressable
-          style={[styles.chip, styles.newChip]}
-          onPress={() => setIsCreating((v) => !v)}
-        >
-          <Text style={styles.newChipText}>{isCreating ? '× Cancel' : '+ New'}</Text>
-        </Pressable>
+        {newButtonVariant === 'square' ? (
+          <Pressable style={styles.squareNewButton} onPress={() => setIsCreating((v) => !v)}>
+            <Ionicons name={isCreating ? 'close' : 'add'} size={18} color={colors.navy} />
+          </Pressable>
+        ) : (
+          <Pressable style={[styles.chip, styles.newChip]} onPress={() => setIsCreating((v) => !v)}>
+            <Text style={styles.newChipText}>{isCreating ? '× Cancel' : '+ New'}</Text>
+          </Pressable>
+        )}
       </ScrollView>
 
       {isCreating && (
@@ -129,6 +142,16 @@ const styles = StyleSheet.create({
   newChip: {
     borderStyle: 'dashed',
     borderColor: colors.navy,
+  },
+  squareNewButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.navy,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.white,
   },
   newChipText: {
     fontSize: 13,
