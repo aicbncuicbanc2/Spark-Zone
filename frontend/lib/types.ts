@@ -169,6 +169,25 @@ export interface CreateItemInput {
 
 export type PatchItemInput = Partial<CreateItemInput>;
 
+/**
+ * POST /v1/products/identify-photo response (backend/app/api/v1/routes/products.py).
+ * Synchronous — unlike /v1/scans, no polling needed. `brand` and
+ * `category_id` are each independently null on a miss, which happens (Logo
+ * Detection and Label Detection are both precise when they hit but
+ * inconsistent) — never treat a miss as an error, just let the user
+ * type/confirm the name, brand, and category themselves. `raw_text` is
+ * intentionally not a name suggestion — the backend found that the most
+ * prominent OCR text block on a real test photo was a misread brand, so
+ * parsing a name out of it here would risk the same silently-wrong guess.
+ */
+export interface ProductIdentifyResponse {
+  brand: string | null;
+  brand_confidence: number | null;
+  raw_text: string | null;
+  category_id: string | null;
+  category_confidence: number | null;
+}
+
 export interface ApiErrorBody {
   error: {
     code: string;

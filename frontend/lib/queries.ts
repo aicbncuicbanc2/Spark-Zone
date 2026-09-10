@@ -9,6 +9,7 @@ import {
   getDashboard,
   getItem,
   getItems,
+  identifyProduct,
   patchItem,
 } from './dataSource';
 import type { CreateItemInput, PatchItemInput } from './types';
@@ -84,5 +85,11 @@ export function useDiscardItem(id: string) {
 export function useCreateScan() {
   return useMutation({
     mutationFn: ({ uri }: { uri: string }) => createScan(uri),
+  });
+}
+
+export function useIdentifyProduct() {
+  return useMutation({
+    mutationFn: ({ uri }: { uri: string }) => identifyProduct(uri),
   });
 }

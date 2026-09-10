@@ -99,12 +99,18 @@ class ProductPhotoResult(BaseModel):
     #: Raw OCR text from the same photo, for the client to show or let the
     #: user pick a product name from - never parsed or guessed at here.
     raw_text: str | None = None
+    #: Best-effort guess at one of the app's fixed category ids (see
+    #: GET /v1/categories), from Vision's Label Detection - a different,
+    #: more reliable signal for this narrower job than the raw OCR text.
+    #: Null whenever no label clears the confidence bar; never a hard fail.
+    category_id: str | None = None
+    category_confidence: float | None = None
 
 
 @router.post(
     "/identify-photo",
     response_model=ProductPhotoResult,
-    summary="Identify a product's brand from a photo of its own front/branding",
+    summary="Identify a product's brand and category from a photo of its own front/branding",
 )
 async def identify_photo(
     user: CurrentUserDep,
@@ -112,17 +118,27 @@ async def identify_photo(
 ) -> ProductPhotoResult:
     """Best-effort only - for when there is no barcode, or /lookup missed.
 
-    Uses Google Vision's Logo Detection, not OCR: verified on a real product
-    photo at 1.00 confidence, correctly naming the brand where plain OCR on
-    the same photo both misread it and picked up unrelated background text
-    with no way to tell that wasn't part of the product. But it is genuinely
-    inconsistent - a comparably well-known brand on a different real product
-    returned no logo at all. This never fails the request either way; a
-    miss just comes back with brand: null, and the client must always let
-    the user type or confirm the name/brand regardless of what comes back.
+    Brand uses Google Vision's Logo Detection, not OCR: verified on a real
+    product photo at 1.00 confidence, correctly naming the brand where plain
+    OCR on the same photo both misread it and picked up unrelated background
+    text with no way to tell that wasn't part of the product. But it is
+    genuinely inconsistent - a comparably well-known brand on a different
+    real product returned no logo at all. Category uses Label Detection,
+    mapped onto this app's fixed category ids - see
+    `vision_engine.identify_product`'s docstring for why that signal is used
+    for category but deliberately not for guessing a product name. This
+    never fails the request either way; a miss just comes back null, and the
+    client must always let the user type or confirm the name/brand/category
+    regardless of what comes back.
     """
     data = await read_image_upload(image)
-    brand, brand_confidence, raw_text = await run_in_threadpool(
+    brand, brand_confidence, raw_text, category_id, category_confidence = await run_in_threadpool(
         vision_engine.identify_product, data
     )
-    return ProductPhotoResult(brand=brand, brand_confidence=brand_confidence, raw_text=raw_text)
+    return ProductPhotoResult(
+        brand=brand,
+        brand_confidence=brand_confidence,
+        raw_text=raw_text,
+        category_id=category_id,
+        category_confidence=category_confidence,
+    )

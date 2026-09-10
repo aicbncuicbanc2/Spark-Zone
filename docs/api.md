@@ -300,15 +300,25 @@ Upcoming schedule, so the app can show "we'll remind you on Friday".
   unknown, which is normal for cosmetics and medicine. Returns `country` from the
   GS1 prefix and `cached` so you can tell a fresh lookup from a cached one.
 - ✅ `POST /v1/products/identify-photo` — for when there's no barcode, or `/lookup`
-  missed: identifies the **brand** from a photo of the product's own front/branding
-  (multipart `image`, same as `/v1/scans`). Synchronous, not async like scans — it
-  only calls Vision, no local PaddleOCR, so it's consistently fast (~1-2s), never
-  the 2-40s+ that motivated scans being async. Returns `{brand, brand_confidence,
-  raw_text}`; `brand` is `null` on a miss, which happens — Logo Detection is precise
-  when it hits (verified at 1.00 confidence on a real product) but inconsistent
-  (a comparably well-known brand on a different real product returned nothing).
-  **Never treat a miss as an error** — always let the user type/confirm the name
-  and brand regardless of what comes back.
+  missed: identifies the **brand** and **category** from a photo of the product's
+  own front/branding (multipart `image`, same as `/v1/scans`). Synchronous, not
+  async like scans — it only calls Vision, no local PaddleOCR, so it's
+  consistently fast (~1-2s), never the 2-40s+ that motivated scans being async.
+  Returns `{brand, brand_confidence, raw_text, category_id, category_confidence}`.
+  `brand` uses Logo Detection: precise when it hits (verified at 1.00 confidence
+  on a real product) but inconsistent (a comparably well-known brand on a
+  different real product returned nothing). `category_id` is one of the ids from
+  `GET /v1/categories`, guessed from Label Detection — a real, different signal
+  from the brand/OCR path, verified on a real product photo (`Food`/`Chocolate`/
+  `Junk food` all over 0.6 confidence, correctly mapped to `food`). Both are
+  `null` on a miss, which happens for either independently.
+  **`raw_text` is deliberately never parsed into a suggested product name** — on
+  the one real test photo, the most prominent text block was a misread brand
+  (`"KOPIRO"` for `"KOPIKO"`) and the second-most-prominent was unrelated
+  background text (a laptop sticker in the shot), so guessing a name from OCR
+  text would silently offer a wrong or nonsense value. **Never treat a brand or
+  category miss as an error** — always let the user type/confirm the name,
+  brand, and category regardless of what comes back.
 - ✅ `GET /v1/categories` — populate pickers. Includes `label_ms` and `label_zh`, plus
   `default_pao_months` to prefill period-after-opening.
 - ✅ `GET /v1/stats` — the impact screen. `used_in_time` vs `thrown_away` and a

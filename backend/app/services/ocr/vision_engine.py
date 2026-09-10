@@ -119,22 +119,68 @@ class VisionEngine:
             )
 
 
-def identify_product(image: bytes) -> tuple[str | None, float | None, str | None]:
-    """Best-effort brand identification from a photo of a product's own
-    front/branding - a separate concern from reading an expiry date.
+# Maps Vision's generic Label Detection vocabulary onto this app's fixed
+# category ids (see the `categories` table). Deliberately keyword-based
+# rather than a model: these seven buckets are the entire target space, so a
+# small lookup is both simpler and more auditable than anything fancier.
+# Checked in this order because a photo can trip several at once (e.g. a
+# sunscreen photo can say "Skin" and "Bottle") - more specific buckets are
+# listed before the more general "food" catch-all.
+_CATEGORY_KEYWORDS: list[tuple[str, tuple[str, ...]]] = [
+    ("medicine", ("medicine", "pill", "tablet", "capsule", "pharmaceutical drug", "syrup", "medication")),
+    ("supplement", ("dietary supplement", "vitamin", "nutritional supplement", "protein powder")),
+    ("aerosol", ("aerosol spray", "aerosol", "spray", "air freshener", "deodorant spray")),
+    ("skincare", ("skin care", "sunscreen", "moisturizer", "lotion", "serum", "toner", "cleanser", "skin")),
+    ("cosmetic", ("cosmetics", "make-up", "makeup", "lipstick", "foundation", "mascara", "nail polish", "perfume", "fragrance")),
+    ("household", ("detergent", "cleaning", "household supply", "disinfectant", "dish soap", "laundry")),
+    ("food", ("food", "chocolate", "candy", "snack", "junk food", "confectionery", "baked goods",
+              "beverage", "drink", "bread", "fruit", "vegetable", "meat", "dairy", "cheese",
+              "ingredient", "sauce", "seasoning", "cereal", "noodle", "rice", "coffee", "tea")),
+]
+# Below this, a label is treated as too weak to act on - left for the user
+# to pick a category themselves rather than risk a wrong-looking guess.
+_CATEGORY_MIN_SCORE = 0.6
+
+
+def _guess_category(labels: list[tuple[str, float]]) -> tuple[str | None, float | None]:
+    for description, score in labels:
+        if score < _CATEGORY_MIN_SCORE:
+            continue
+        lowered = description.lower()
+        for category_id, keywords in _CATEGORY_KEYWORDS:
+            if any(keyword in lowered for keyword in keywords):
+                return category_id, score
+    return None, None
+
+
+def identify_product(
+    image: bytes,
+) -> tuple[str | None, float | None, str | None, str | None, float | None]:
+    """Best-effort brand + category identification from a photo of a
+    product's own front/branding - a separate concern from reading an
+    expiry date. Returns (brand, brand_confidence, raw_text, category_id,
+    category_confidence).
 
     Logo Detection is precise when it hits: verified on a real product photo
     at 1.00 confidence, correctly naming the brand where plain OCR on the
-    same photo both misread it and picked up unrelated background text (a
-    laptop sticker) with no way to tell that wasn't part of the product.
-    But it is genuinely inconsistent - a comparably well-known brand on a
-    different real product returned no logo at all. Never block on this:
-    the caller must always let the user confirm or type the brand/name
-    themselves regardless of what comes back here.
+    same photo both misread it (a different real photo misread "KOPIKO" as
+    "KOPIRO") and picked up unrelated background text (a laptop, an "ASUS
+    SUPPORT" sticker, in one real test shot) with no way to tell that wasn't
+    part of the product. That inconsistency is why `raw_text`'s largest text
+    block is deliberately NOT used to guess a product name here - it would
+    silently offer a misread brand or background noise as if it were the
+    name. Category, by contrast, comes from Label Detection, which is a
+    genuinely different and more reliable signal for this narrower job: on
+    the one real product photo tested, it correctly scored "Food"/
+    "Chocolate"/"Junk food" all above 0.6 confidence. Logo Detection is also
+    genuinely inconsistent brand-to-brand - a comparably well-known brand on
+    a different real product returned no logo at all. Never block on any of
+    this: the caller must always let the user confirm or type the name,
+    brand, and category themselves regardless of what comes back here.
     """
     client = _load()
     if client is None:
-        return None, None, None
+        return None, None, None, None, None
 
     try:
         from google.cloud import vision
@@ -152,8 +198,12 @@ def identify_product(image: bytes) -> tuple[str | None, float | None, str | None
         text_response = client.document_text_detection(image=request_image)
         raw_text = (text_response.full_text_annotation.text or "").strip() or None
 
-        return brand, brand_confidence, raw_text
+        label_response = client.label_detection(image=request_image)
+        labels = [(label.description, float(label.score)) for label in label_response.label_annotations]
+        category_id, category_confidence = _guess_category(labels)
+
+        return brand, brand_confidence, raw_text, category_id, category_confidence
 
     except Exception:
         logger.exception("vision_identify_product_failed")
-        return None, None, None
+        return None, None, None, None, None

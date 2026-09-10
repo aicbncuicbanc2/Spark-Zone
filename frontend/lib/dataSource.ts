@@ -14,6 +14,7 @@ import type {
   ItemsListResponse,
   MePreferences,
   PatchItemInput,
+  ProductIdentifyResponse,
   ScanResponse,
 } from './types';
 
@@ -154,6 +155,30 @@ export async function getScan(scanId: string): Promise<ScanResponse> {
 }
 
 /**
+ * Wraps a local file:// (native) or blob:/data: (web) image URI from
+ * expo-image-picker into a FormData part named "image", the shape every
+ * multipart endpoint here (/v1/scans, /v1/products/identify-photo) expects.
+ */
+async function buildImageFormData(imageUri: string): Promise<FormData> {
+  const formData = new FormData();
+  if (Platform.OS === 'web') {
+    // expo-file-system's File is native-only (Android/iOS/tvOS) - it does
+    // not support web at all, so it can't wrap a browser blob: URI. The
+    // standard cross-platform way to turn an ImagePicker web URI into
+    // something FormData can send is to fetch it back into a real Blob.
+    const blob = await (await fetch(imageUri)).blob();
+    formData.append('image', blob, 'photo.jpg');
+  } else {
+    // expo-file-system's File is Blob-like, which native fetch's FormData
+    // requires — a plain {uri,name,type} object throws "Unsupported
+    // FormDataPart implementation" on SDK 57.
+    const file = new File(imageUri);
+    formData.append('image', file);
+  }
+  return formData;
+}
+
+/**
  * POST /v1/scans. `imageUri` is a local file:// URI from expo-image-picker.
  *
  * The backend replies 202 immediately with status "processing" — OCR runs
@@ -167,21 +192,7 @@ export async function createScan(imageUri: string): Promise<ScanResponse> {
     await mockDelay();
     return mockStore.createScan();
   }
-  const formData = new FormData();
-  if (Platform.OS === 'web') {
-    // expo-file-system's File is native-only (Android/iOS/tvOS) - it does
-    // not support web at all, so it can't wrap a browser blob: URI. The
-    // standard cross-platform way to turn an ImagePicker web URI into
-    // something FormData can send is to fetch it back into a real Blob.
-    const blob = await (await fetch(imageUri)).blob();
-    formData.append('image', blob, 'label.jpg');
-  } else {
-    // expo-file-system's File is Blob-like, which native fetch's FormData
-    // requires — a plain {uri,name,type} object throws "Unsupported
-    // FormDataPart implementation" on SDK 57.
-    const file = new File(imageUri);
-    formData.append('image', file);
-  }
+  const formData = await buildImageFormData(imageUri);
   let scan = await apiRequest<ScanResponse>('/v1/scans', { method: 'POST', formData });
 
   const deadline = Date.now() + SCAN_POLL_TIMEOUT_MS;
@@ -200,4 +211,20 @@ export async function createScan(imageUri: string): Promise<ScanResponse> {
     }
   }
   return scan;
+}
+
+/**
+ * POST /v1/products/identify-photo — a photo of the product's own
+ * front/branding (not the expiry date). Unlike createScan, this is
+ * synchronous: Vision-only, no local PaddleOCR, so it resolves in ~1-2s
+ * with no polling needed. `brand` is null on a miss — that's a normal
+ * result, not an error, so always still let the user type/confirm it.
+ */
+export async function identifyProduct(imageUri: string): Promise<ProductIdentifyResponse> {
+  if (USE_MOCKS) {
+    await mockDelay();
+    return mockStore.identifyProduct();
+  }
+  const formData = await buildImageFormData(imageUri);
+  return apiRequest<ProductIdentifyResponse>('/v1/products/identify-photo', { method: 'POST', formData });
 }
