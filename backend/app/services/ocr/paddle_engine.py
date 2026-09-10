@@ -19,16 +19,17 @@ from app.services.ocr.preprocess import prepare
 
 logger = logging.getLogger(__name__)
 
-# PaddlePaddle 3.x on Windows CPU raises
-#   NotImplementedError: ConvertPirAttribute2RuntimeAttribute not support
-# from its oneDNN path, so oneDNN has to be turned off there.
-#
-# ONLY on Windows. oneDNN is a large speed win on Linux, which is where the
-# container actually runs - disabling it everywhere would slow production down
-# to work around a local development problem.
-_IS_WINDOWS = os.name == "nt"
-if _IS_WINDOWS:
-    os.environ.setdefault("FLAGS_use_mkldnn", "0")
+# PaddlePaddle 3.x raises
+#   (Unimplemented) ConvertPirAttribute2RuntimeAttribute not support
+#   [pir::ArrayAttribute<pir::DoubleAttribute>]
+# from its oneDNN path. This was assumed to be a Windows-only issue - it
+# is not. Verified live on Cloud Run (Linux): every single real scan hit
+# this exact error on both tiers, failing in ~250ms having done no work at
+# all, silently masked because Vision then succeeded right after. A tier
+# that actually runs (even slower, without oneDNN) beats one that always
+# fails instantly and contributes nothing - so this is unconditional now,
+# not Windows-only.
+os.environ.setdefault("FLAGS_use_mkldnn", "0")
 
 # Two tiers, measured on the real label fixtures:
 #
@@ -67,7 +68,9 @@ def _load(variant: str = FAST) -> Any | None:
         started = time.perf_counter()
         engine = PaddleOCR(
             lang="en",
-            enable_mkldnn=not _IS_WINDOWS,
+            # See the FLAGS_use_mkldnn note above - this constructor flag
+            # controls the same oneDNN path and must agree with it.
+            enable_mkldnn=False,
             # Each of these loads another model and adds seconds per scan. The
             # detector already copes with the rotations in our fixtures.
             use_doc_orientation_classify=False,

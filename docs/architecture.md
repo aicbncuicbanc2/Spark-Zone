@@ -118,6 +118,16 @@ per-request, not asserted.
   embossed, no-ink toothpaste-tube date) is a documented, currently-unsolved
   OCR limitation, kept as an `xfail` rather than hidden or excluded
 
+The ~3.5s fast-tier figure above is a local Windows-dev-machine measurement.
+PaddlePaddle's oneDNN path turned out to be broken on Linux too, not just
+Windows as first assumed — verified live on Cloud Run, every real scan hit
+`(Unimplemented) ConvertPirAttribute2RuntimeAttribute not support` on both
+tiers and silently fell back to Vision every time. Disabling oneDNN fixed
+it (confirmed: fast tier now genuinely succeeds in production), but costs
+real speed — measured at ~17s on Cloud Run for the same fixture that took
+~3.5s locally. A tier that works at 17s is still strictly better than one
+that always failed in 250ms and contributed nothing.
+
 **The parser never guesses.** A six-digit date with no separator
 (`EXP:210827`) is genuinely ambiguous between DD-MM-YY and YY-MM-DD — both
 conventions exist in the wild — so it's returned with both readings and
