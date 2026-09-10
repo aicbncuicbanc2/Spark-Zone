@@ -1,14 +1,14 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 
 import { colors } from '../lib/theme';
 import type { Item } from '../lib/types';
 
 const WEEKDAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 const MONTH_NAMES = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
 type Props = {
@@ -18,10 +18,10 @@ type Props = {
 };
 
 /**
- * A simple hand-built month calendar (no date library) — marks any day
- * that has at least one active item's effective_expiry_date on it. There's
- * no month/year picker wheel, just the prev/next arrows; the mockup showed
- * dropdown chevrons but a full picker is extra scope for a v1.
+ * A hand-built month calendar (no date library) — 7 even columns spanning
+ * the full card width like a real calendar app, not a small fixed-size
+ * cluster. Marks any day with at least one active item's
+ * effective_expiry_date on it.
  */
 export function ExpiryCalendar({ items, onSelectDate }: Props) {
   const [viewDate, setViewDate] = useState(() => {
@@ -47,6 +47,9 @@ export function ExpiryCalendar({ items, onSelectDate }: Props) {
     ...Array(firstWeekday).fill(null),
     ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
   ];
+  // Pad to a whole number of weeks so every row has 7 cells, like a real
+  // calendar grid (not a ragged last row).
+  while (cells.length % 7 !== 0) cells.push(null);
 
   function isoFor(day: number) {
     return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -55,28 +58,22 @@ export function ExpiryCalendar({ items, onSelectDate }: Props) {
   return (
     <View style={styles.card}>
       <View style={styles.header}>
-        <Pressable
-          hitSlop={10}
-          onPress={() => setViewDate(new Date(year, month - 1, 1))}
-        >
+        <Pressable hitSlop={10} onPress={() => setViewDate(new Date(year, month - 1, 1))}>
           <Ionicons name="chevron-back" size={20} color={colors.navy} />
         </Pressable>
         <Text style={styles.headerText}>
           {MONTH_NAMES[month]} {year}
         </Text>
-        <Pressable
-          hitSlop={10}
-          onPress={() => setViewDate(new Date(year, month + 1, 1))}
-        >
+        <Pressable hitSlop={10} onPress={() => setViewDate(new Date(year, month + 1, 1))}>
           <Ionicons name="chevron-forward" size={20} color={colors.navy} />
         </Pressable>
       </View>
 
       <View style={styles.weekRow}>
         {WEEKDAYS.map((d) => (
-          <Text key={d} style={styles.weekday}>
-            {d}
-          </Text>
+          <View key={d} style={styles.cell}>
+            <Text style={styles.weekday}>{d}</Text>
+          </View>
         ))}
       </View>
 
@@ -87,23 +84,18 @@ export function ExpiryCalendar({ items, onSelectDate }: Props) {
           const isMarked = markedDays.has(iso);
           const isToday = iso === todayIso;
           return (
-            <Pressable
-              key={iso}
-              style={styles.cell}
-              onPress={() => onSelectDate?.(iso)}
-            >
-              <View style={[styles.dayCircle, isMarked && styles.dayCircleMarked]}>
-                <Text
-                  style={[
-                    styles.dayText,
-                    isMarked && styles.dayTextMarked,
-                    isToday && !isMarked && styles.dayTextToday,
-                  ]}
-                >
-                  {day}
-                </Text>
-              </View>
-            </Pressable>
+            <View key={iso} style={styles.cell}>
+              <Pressable
+                style={[
+                  styles.dayCircle,
+                  isMarked && styles.dayCircleMarked,
+                  isToday && !isMarked && styles.dayCircleToday,
+                ]}
+                onPress={() => onSelectDate?.(iso)}
+              >
+                <Text style={[styles.dayText, isMarked && styles.dayTextMarked]}>{day}</Text>
+              </Pressable>
+            </View>
           );
         })}
       </View>
@@ -111,59 +103,61 @@ export function ExpiryCalendar({ items, onSelectDate }: Props) {
   );
 }
 
-const CELL_SIZE = 36;
-
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.white,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 8,
     marginHorizontal: 16,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 16,
-    marginBottom: 8,
+    justifyContent: 'space-between',
+    paddingHorizontal: 8,
+    marginBottom: 10,
   },
   headerText: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
     color: colors.navy,
-    minWidth: 90,
-    textAlign: 'center',
   },
   weekRow: {
     flexDirection: 'row',
-  },
-  weekday: {
-    width: CELL_SIZE,
-    textAlign: 'center',
-    fontSize: 12,
-    color: colors.textMuted,
   },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
   },
   cell: {
-    width: CELL_SIZE,
-    height: CELL_SIZE,
+    width: `${100 / 7}%`,
+    aspectRatio: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  weekday: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textMuted,
+  },
   dayCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: '78%',
+    height: '78%',
+    maxWidth: 36,
+    maxHeight: 36,
+    borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
   },
   dayCircleMarked: {
     backgroundColor: colors.navy,
+  },
+  dayCircleToday: {
+    borderWidth: 1.5,
+    borderColor: colors.navy,
   },
   dayText: {
     fontSize: 14,
@@ -172,9 +166,5 @@ const styles = StyleSheet.create({
   dayTextMarked: {
     color: colors.white,
     fontWeight: '700',
-  },
-  dayTextToday: {
-    fontWeight: '700',
-    textDecorationLine: 'underline',
   },
 });

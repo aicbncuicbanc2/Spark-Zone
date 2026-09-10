@@ -1,13 +1,25 @@
 import { StyleSheet, Text, View } from 'react-native';
 
+import { urgencyColors } from '../lib/theme';
 import type { Urgency } from '../lib/types';
 
-const CONFIG: Record<Urgency, { label: string; bg: string; fg: string }> = {
-  expired: { label: 'Expired', bg: '#fdecea', fg: '#c0392b' },
-  critical: { label: 'Critical', bg: '#fdecea', fg: '#d35400' },
-  soon: { label: 'Soon', bg: '#fef5e7', fg: '#b9770e' },
-  upcoming: { label: 'Upcoming', bg: '#fef9e7', fg: '#9a7d0a' },
-  ok: { label: 'OK', bg: '#eafaf1', fg: '#1e8449' },
+const LABELS: Record<Urgency, string> = {
+  expired: 'Expired',
+  critical: 'Critical',
+  soon: 'Soon',
+  upcoming: 'Upcoming',
+  ok: 'Good',
+};
+
+// Light tints of the same urgencyColors used everywhere else (bucket cards,
+// tip card date text) — kept as one pairing here rather than computed, so
+// bg/fg always read as a matched pair.
+const BG: Record<Urgency, string> = {
+  expired: '#F8E2E2',
+  critical: '#FBE0DD',
+  soon: '#FBE7D3',
+  upcoming: '#EAF0DA',
+  ok: '#DFF3E7',
 };
 
 export function urgencyLabel(urgency: Urgency, daysRemaining: number): string {
@@ -21,10 +33,9 @@ export function urgencyLabel(urgency: Urgency, daysRemaining: number): string {
 }
 
 export function UrgencyBadge({ urgency }: { urgency: Urgency }) {
-  const { label, bg, fg } = CONFIG[urgency];
   return (
-    <View style={[styles.badge, { backgroundColor: bg }]}>
-      <Text style={[styles.text, { color: fg }]}>{label}</Text>
+    <View style={[styles.badge, { backgroundColor: BG[urgency] }]}>
+      <Text style={[styles.text, { color: urgencyColors[urgency] }]}>{LABELS[urgency]}</Text>
     </View>
   );
 }

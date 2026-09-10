@@ -15,14 +15,16 @@ export const colors = {
   calendarFill: '#E4E6EA',
 };
 
-// Per-urgency colors, matching the mockups' bucket cards and status chips
-// (Expired/Critical red, Soon/Upcoming amber, ok/active green).
+// Per-urgency colors, per exact spec: Expired-Dark Red, Critical-Red,
+// Soon-Orange, Upcoming-Dirty green, Good-Healthy green. Single source of
+// truth for UrgencyBadge, the dashboard bucket cards, and the tip card's
+// date text — all three should always agree on what each urgency looks like.
 export const urgencyColors = {
-  expired: '#C0392B',
-  critical: '#D35400',
-  soon: '#B9770E',
-  upcoming: '#9A7D0A',
-  ok: '#1E8449',
+  expired: '#7A0C0C',
+  critical: '#D62828',
+  soon: '#E07A1F',
+  upcoming: '#6B8E23',
+  ok: '#2E8B57',
 };
 
 export const statusColors = {

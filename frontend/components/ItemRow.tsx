@@ -4,7 +4,16 @@ import { colors } from '../lib/theme';
 import type { Item } from '../lib/types';
 import { UrgencyBadge, urgencyLabel } from './UrgencyBadge';
 
-export function ItemRow({ item, onPress }: { item: Item; onPress: () => void }) {
+type Props = {
+  item: Item;
+  onPress: () => void;
+  /** False on lists that are already scoped to one urgency (e.g. a
+   * dashboard "Expired" list) — repeating the same badge on every row there
+   * is just noise. The "Xd left/ago" text still shows either way. */
+  showBadge?: boolean;
+};
+
+export function ItemRow({ item, onPress, showBadge = true }: Props) {
   return (
     <Pressable style={styles.row} onPress={onPress}>
       <View style={styles.main}>
@@ -16,7 +25,7 @@ export function ItemRow({ item, onPress }: { item: Item; onPress: () => void }) 
         </Text>
       </View>
       <View style={styles.right}>
-        <UrgencyBadge urgency={item.urgency} />
+        {showBadge && <UrgencyBadge urgency={item.urgency} />}
         <Text style={styles.days}>{urgencyLabel(item.urgency, item.days_remaining)}</Text>
       </View>
     </Pressable>

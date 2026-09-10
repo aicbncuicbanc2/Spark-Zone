@@ -1,13 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 
@@ -18,7 +22,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { iconForCategory } from '../../../lib/categoryIcons';
 import { useCategories, useDashboard, useItems } from '../../../lib/queries';
 import { colors, urgencyColors } from '../../../lib/theme';
-import type { DashboardResponse } from '../../../lib/types';
+import type { DashboardResponse, Item } from '../../../lib/types';
 
 const BUCKETS: { key: keyof DashboardResponse['counts']; label: string; color: string }[] = [
   { key: 'expired', label: 'Expired', color: urgencyColors.expired },
@@ -33,13 +37,58 @@ function formatShortDate(iso: string): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+function TipCarousel({ items }: { items: Item[] }) {
+  const { width: windowWidth } = useWindowDimensions();
+  const pageWidth = windowWidth - 32; // matches the 16px screen padding each side
+  const [pageIndex, setPageIndex] = useState(0);
+
+  function handleScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
+    const idx = Math.round(e.nativeEvent.contentOffset.x / pageWidth);
+    if (idx !== pageIndex) setPageIndex(idx);
+  }
+
+  if (items.length === 0) return null;
+
+  return (
+    <View>
+      <ScrollView
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onMomentumScrollEnd={handleScroll}
+        style={styles.tipScroll}
+      >
+        {items.map((item) => (
+          <View key={item.id} style={[styles.tipCard, { width: pageWidth }]}>
+            <Text style={styles.tipTitle}>Use {item.name} while it's at its best!</Text>
+            <Text style={styles.tipBody}>
+              Enjoy by{' '}
+              <Text style={{ color: urgencyColors[item.urgency], fontWeight: '700' }}>
+                {formatShortDate(item.effective_expiry_date)}
+              </Text>
+            </Text>
+          </View>
+        ))}
+      </ScrollView>
+      {items.length > 1 && (
+        <View style={styles.dots}>
+          {items.map((item, i) => (
+            <View key={item.id} style={[styles.dot, i === pageIndex && styles.dotActive]} />
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
 export default function DashboardScreen() {
   const router = useRouter();
   const { signOut } = useAuth();
   const { data, isLoading, isRefetching, refetch, error } = useDashboard();
   const { data: categories } = useCategories();
   // The dashboard response only carries the top-10 expiring_soon items;
-  // the calendar needs every active item's date to mark the full month.
+  // the calendar and the "Expired" list below both need every active
+  // item, not just that capped top 10.
   const { data: activeItems } = useItems({ status: 'active' });
 
   if (isLoading) {
@@ -60,7 +109,7 @@ export default function DashboardScreen() {
     );
   }
 
-  const featuredItem = data.expiring_soon[0];
+  const expiredItems = (activeItems?.items ?? []).filter((item) => item.urgency === 'expired');
 
   return (
     <ScrollView
@@ -83,14 +132,7 @@ export default function DashboardScreen() {
         ))}
       </ScrollView>
 
-      {featuredItem && (
-        <View style={styles.tipCard}>
-          <Text style={styles.tipTitle}>Use {featuredItem.name} while it's at its best!</Text>
-          <Text style={styles.tipBody}>
-            Enjoy by <Text style={styles.tipDate}>{formatShortDate(featuredItem.effective_expiry_date)}</Text>
-          </Text>
-        </View>
-      )}
+      <TipCarousel items={data.expiring_soon} />
 
       <Pressable style={styles.sectionHeader} onPress={() => router.push('/pantry')}>
         <Text style={styles.sectionTitle}>Categories</Text>
@@ -116,18 +158,21 @@ export default function DashboardScreen() {
       <View style={styles.calendarWrap}>
         <ExpiryCalendar
           items={activeItems?.items ?? []}
-          onSelectDate={(iso) =>
-            router.push({ pathname: '/pantry', params: { expiryDate: iso } })
-          }
+          onSelectDate={(iso) => router.push({ pathname: '/pantry', params: { expiryDate: iso } })}
         />
       </View>
 
-      <Text style={styles.sectionTitle2}>Expiring soon</Text>
-      {data.expiring_soon.length === 0 ? (
-        <Text style={styles.empty}>Nothing urgent — nice.</Text>
+      <Text style={styles.sectionTitle2}>Expired</Text>
+      {expiredItems.length === 0 ? (
+        <Text style={styles.empty}>Nothing expired — nice.</Text>
       ) : (
-        data.expiring_soon.map((item) => (
-          <ItemRow key={item.id} item={item} onPress={() => router.push(`/item/${item.id}`)} />
+        expiredItems.map((item) => (
+          <ItemRow
+            key={item.id}
+            item={item}
+            showBadge={false}
+            onPress={() => router.push(`/item/${item.id}`)}
+          />
         ))
       )}
     </ScrollView>
@@ -169,23 +214,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     marginRight: 10,
-    alignItems: 'flex-start',
+    alignItems: 'center',
     backgroundColor: colors.white,
   },
   bucketLabel: {
     fontSize: 14,
     fontWeight: '700',
+    textAlign: 'center',
   },
   bucketCount: {
     fontSize: 22,
     fontWeight: '700',
     marginTop: 4,
+    textAlign: 'center',
+  },
+  tipScroll: {
+    marginTop: 16,
   },
   tipCard: {
     backgroundColor: colors.tipCard,
     borderRadius: 16,
     marginHorizontal: 16,
-    marginTop: 16,
     padding: 18,
     gap: 6,
   },
@@ -199,9 +248,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textMuted,
   },
-  tipDate: {
-    color: urgencyColors.soon,
-    fontWeight: '700',
+  dots: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 8,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.border,
+  },
+  dotActive: {
+    backgroundColor: colors.navy,
   },
   sectionHeader: {
     flexDirection: 'row',
