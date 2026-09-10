@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 
+import { ErrorState } from '../../../components/ErrorState';
 import { ItemRow } from '../../../components/ItemRow';
 import { useCategories, useItems } from '../../../lib/queries';
 import { colors } from '../../../lib/theme';
@@ -77,12 +78,10 @@ export default function PantryScreen() {
 
       {isLoading ? (
         <View style={styles.center}>
-          <ActivityIndicator />
+          <ActivityIndicator color={colors.navy} />
         </View>
       ) : error ? (
-        <View style={styles.center}>
-          <Text>Couldn't load items.</Text>
-        </View>
+        <ErrorState title="Couldn't load items." message={(error as Error).message} onRetry={refetch} />
       ) : (
         <FlatList
           data={data?.items ?? []}
@@ -92,7 +91,15 @@ export default function PantryScreen() {
           )}
           refreshing={isRefetching}
           onRefresh={refetch}
-          ListEmptyComponent={<Text style={styles.empty}>No items here.</Text>}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Text style={styles.empty}>
+                {status === 'active' && !category
+                  ? "No items yet — tap + Add or Scan to add your first one."
+                  : `No ${status} items${category ? ' in this category' : ''}.`}
+              </Text>
+            </View>
+          }
         />
       )}
     </View>
@@ -168,9 +175,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  emptyState: {
+    paddingHorizontal: 32,
+    marginTop: 40,
+  },
   empty: {
     textAlign: 'center',
     color: colors.textMuted,
-    marginTop: 40,
   },
 });

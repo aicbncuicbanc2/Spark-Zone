@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { ErrorState } from '../../../components/ErrorState';
 import { UrgencyBadge, urgencyLabel } from '../../../components/UrgencyBadge';
 import { useCategories, useConsumeItem, useDiscardItem, useItem, usePatchItem } from '../../../lib/queries';
 import { colors } from '../../../lib/theme';
@@ -17,7 +18,7 @@ function Row({ label, value }: { label: string; value: string }) {
 export default function ItemDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { data: item, isLoading, error } = useItem(id);
+  const { data: item, isLoading, error, refetch } = useItem(id);
   const { data: categories } = useCategories();
   const patchMutation = usePatchItem(id);
   const consumeMutation = useConsumeItem(id);
@@ -26,16 +27,14 @@ export default function ItemDetailScreen() {
   if (isLoading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator />
+        <ActivityIndicator color={colors.navy} />
       </View>
     );
   }
 
   if (error || !item) {
     return (
-      <View style={styles.center}>
-        <Text>Couldn't load this item.</Text>
-      </View>
+      <ErrorState title="Couldn't load this item." message={(error as Error)?.message} onRetry={refetch} />
     );
   }
 

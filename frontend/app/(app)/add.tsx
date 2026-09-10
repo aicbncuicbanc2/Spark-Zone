@@ -30,7 +30,7 @@ type ScanParams = {
 export default function AddItemScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<ScanParams>();
-  const { data: categories } = useCategories();
+  const { data: categories, isLoading: categoriesLoading } = useCategories();
   const createMutation = useCreateItem();
 
   const scanId = params.scan_id || null;
@@ -97,7 +97,12 @@ export default function AddItemScreen() {
       <TextInput style={styles.input} value={brand} onChangeText={setBrand} placeholder="Haleon" />
 
       <Text style={styles.label}>Category</Text>
-      <CategoryPicker categories={categories} selectedId={categoryId} onSelect={setCategoryId} />
+      <CategoryPicker
+        categories={categories}
+        isLoading={categoriesLoading}
+        selectedId={categoryId}
+        onSelect={setCategoryId}
+      />
 
       <Text style={styles.label}>Expiry date * (YYYY-MM-DD)</Text>
       <TextInput

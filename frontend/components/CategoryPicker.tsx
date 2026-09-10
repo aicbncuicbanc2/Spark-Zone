@@ -7,11 +7,12 @@ import type { Category } from '../lib/types';
 
 type Props = {
   categories: Category[] | undefined;
+  isLoading?: boolean;
   selectedId: string | undefined;
   onSelect: (id: string) => void;
 };
 
-export function CategoryPicker({ categories, selectedId, onSelect }: Props) {
+export function CategoryPicker({ categories, isLoading, selectedId, onSelect }: Props) {
   const [isCreating, setIsCreating] = useState(false);
   const [newLabel, setNewLabel] = useState('');
   const createMutation = useCreateCategory();
@@ -28,6 +29,15 @@ export function CategoryPicker({ categories, selectedId, onSelect }: Props) {
         },
         onError: (error) => Alert.alert("Couldn't create category", (error as Error).message),
       }
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingRow}>
+        <ActivityIndicator size="small" color={colors.navy} />
+        <Text style={styles.loadingText}>Loading categories…</Text>
+      </View>
     );
   }
 
@@ -82,6 +92,16 @@ export function CategoryPicker({ categories, selectedId, onSelect }: Props) {
 }
 
 const styles = StyleSheet.create({
+  loadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 8,
+  },
+  loadingText: {
+    fontSize: 13,
+    color: colors.textMuted,
+  },
   chipRow: {
     flexGrow: 0,
   },

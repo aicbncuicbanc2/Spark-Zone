@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { ErrorState } from '../../../components/ErrorState';
 import { ItemRow } from '../../../components/ItemRow';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useDashboard } from '../../../lib/queries';
@@ -30,10 +31,11 @@ export default function DashboardScreen() {
 
   if (error || !data) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>Couldn't load the dashboard.</Text>
-        <Text style={styles.errorDetail}>{(error as Error)?.message}</Text>
-      </View>
+      <ErrorState
+        title="Couldn't load the dashboard."
+        message={(error as Error)?.message}
+        onRetry={refetch}
+      />
     );
   }
 
@@ -83,16 +85,6 @@ const styles = StyleSheet.create({
     gap: 8,
     padding: 24,
     backgroundColor: colors.cream,
-  },
-  errorText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.navy,
-  },
-  errorDetail: {
-    fontSize: 13,
-    color: colors.textMuted,
-    textAlign: 'center',
   },
   header: {
     flexDirection: 'row',
