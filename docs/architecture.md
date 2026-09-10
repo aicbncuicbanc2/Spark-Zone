@@ -237,22 +237,50 @@ automatically, so adding a new photo adds coverage with no code change.
 
 ## Deployment — the honest version
 
-Currently served over a **Cloudflare Tunnel** from a development machine,
-not Cloud Run — GCP billing is now active on the project, but Cloud Run
-itself hasn't been deployed yet. `backend/scripts/deploy.ps1` is written,
-idempotent, and moves secrets into Secret Manager rather than environment
-flags — ready to run. Until it's actually deployed, `serve-public.ps1` runs
-the same container image logic locally and exposes it publicly, including
-the 15-minute reminder sweep.
+Live on **Cloud Run** at a permanent URL
+(`https://expiry-guardian-api-joepgih4la-an.a.run.app`), not a dev-machine
+tunnel — `backend/scripts/deploy.ps1` moves secrets into Secret Manager and
+runs this. Getting here surfaced two real production bugs, both fixed and
+verified against live traffic, not just assumed fixed: a missing
+`.gcloudignore` was silently uploading the local 3.3GB `venv/` as build
+source on every earlier deploy attempt, and Cloud Run's default CPU
+throttling (freezing CPU the instant an HTTP response is sent) meant
+background OCR tasks never ran at all until `--no-cpu-throttling` was set.
+The service runs at 4GiB memory / concurrency 1 — bumped up from an initial
+2GiB / concurrency 4 after a real scan got OOM-killed and stuck retrying
+mid-request, confirmed fixed by rerunning the same kind of scan afterward
+with zero memory errors.
 
-**Google Cloud touchpoints:** Cloud Run (scripted, not yet deployed), Cloud
-Scheduler (scripted, not yet deployed — a local loop stands in for now),
-Cloud Vision (live — see the OCR pipeline section above), Firebase Cloud
-Messaging (live, via Expo's push service).
+**Google Cloud touchpoints, all live:** Cloud Run (the API itself), Cloud
+Scheduler (`expiry-guardian-api-sweep`, every 15 minutes, hitting
+`POST /v1/internal/reminders/sweep` — no local loop involved), Cloud Vision
+(see the OCR pipeline section above), Firebase Cloud Messaging (via Expo's
+push service).
 
 ---
 
 ## What's next
 
-The one feature not yet built end-to-end is the camera screen on the
-frontend — every backend endpoint it needs already exists and is tested.
+The two-photo product identification flow (photo of the product's front for
+brand + category, then a photo of the expiry date) has a functional starting
+point on the frontend (`feat/product-photo-identify`, not yet merged) —
+plain styling, no camera-preview polish, meant to be redesigned rather than
+shipped as-is. Every backend endpoint it needs is already live and tested.
+
+### Offline resilience — a stated design intent, not yet built
+
+Today Thyme genuinely requires a network connection: a scan with no
+connectivity fails outright, the same as any request to a backend that can't
+be reached. There's no local queue-and-sync built — worth being upfront
+about rather than implying otherwise.
+
+The intended design, for when this gets built: label photos taken while
+offline are queued in local device storage rather than dropped, with a
+placeholder pantry entry ("scanned, not yet processed") so the user's action
+still feels acknowledged; the queue drains automatically the moment
+connectivity returns, running each photo through the same
+`POST /v1/scans` flow it would have hit immediately online. Reads (the
+dashboard, the pantry list) would similarly serve the last-fetched data from
+local cache rather than an error screen, clearly marked as possibly stale.
+This is deliberately scoped as a stated intent for now, not a commitment to
+build before the hackathon deadline — it's honest roadmap, not a hidden gap.
