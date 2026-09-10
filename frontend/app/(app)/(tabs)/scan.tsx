@@ -11,6 +11,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useCreateScan } from '../../../lib/queries';
 import { colors } from '../../../lib/theme';
@@ -37,7 +38,9 @@ async function pickImage(source: 'camera' | 'library') {
 
 export default function ScanScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [previewUri, setPreviewUri] = useState<string | null>(null);
+  const [infoOpen, setInfoOpen] = useState(false);
   const scanMutation = useCreateScan();
 
   async function handlePick(source: 'camera' | 'library') {
@@ -89,12 +92,31 @@ export default function ScanScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <Image source={require('../../../assets/brand/wordmark.png')} style={styles.logo} resizeMode="contain" />
-        <Pressable style={styles.helpButton} onPress={() => router.push('/scan-product')}>
-          <Ionicons name="alert" size={18} color={colors.white} />
+        <Pressable style={styles.helpButton} onPress={() => setInfoOpen((v) => !v)}>
+          <Ionicons name={infoOpen ? 'close' : 'alert'} size={18} color={colors.white} />
         </Pressable>
       </View>
+
+      {infoOpen && (
+        <View style={[styles.infoPopover, { top: insets.top + 56 }]}>
+          <Text style={styles.infoText}>
+            Photograph the expiry date and barcode together. You can verify or edit the date
+            before saving.
+          </Text>
+          <Text style={styles.infoText}>If neither is visible, take two photos: brand + date.</Text>
+          <Pressable
+            style={styles.infoLink}
+            onPress={() => {
+              setInfoOpen(false);
+              router.push('/scan-product');
+            }}
+          >
+            <Text style={styles.infoLinkText}>Scan brand + date instead →</Text>
+          </Pressable>
+        </View>
+      )}
 
       {previewUri ? <Image source={{ uri: previewUri }} style={styles.preview} /> : null}
 
@@ -132,7 +154,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 16,
   },
   logo: {
     width: 90,
@@ -145,6 +166,36 @@ const styles = StyleSheet.create({
     backgroundColor: colors.navy,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  infoPopover: {
+    position: 'absolute',
+    right: 16,
+    maxWidth: 280,
+    backgroundColor: colors.white,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 14,
+    gap: 8,
+    zIndex: 10,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  infoText: {
+    fontSize: 13,
+    color: colors.navy,
+    lineHeight: 18,
+  },
+  infoLink: {
+    marginTop: 2,
+  },
+  infoLinkText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.navy,
   },
   center: {
     flex: 1,

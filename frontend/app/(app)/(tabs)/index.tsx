@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -14,6 +14,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ErrorState } from '../../../components/ErrorState';
 import { ExpiryCalendar } from '../../../components/ExpiryCalendar';
@@ -32,26 +33,65 @@ const BUCKETS: { key: keyof DashboardResponse['counts']; label: string; color: s
   { key: 'ok', label: 'Good', color: urgencyColors.ok },
 ];
 
+const AUTO_SWIPE_MS = 10_000;
+
 function formatShortDate(iso: string): string {
   const d = new Date(iso + 'T00:00:00');
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function TipCardBody({ item }: { item: Item }) {
+  const dateText = formatShortDate(item.effective_expiry_date);
+  const dateSpan = <Text style={{ color: urgencyColors[item.urgency], fontWeight: '700' }}>{dateText}</Text>;
+
+  if (item.urgency === 'expired') {
+    return (
+      <>
+        <Text style={styles.tipTitle}>
+          {item.name} reached its end date on {dateSpan}.
+        </Text>
+        <Text style={styles.tipBody}>Please replace with a fresh one!</Text>
+      </>
+    );
+  }
+  return (
+    <>
+      <Text style={styles.tipTitle}>Time to finish {item.name}!</Text>
+      <Text style={styles.tipBody}>Best used before {dateSpan}</Text>
+    </>
+  );
 }
 
 function TipCarousel({ items }: { items: Item[] }) {
   const { width: windowWidth } = useWindowDimensions();
   const pageWidth = windowWidth - 32; // matches the 16px screen padding each side
   const [pageIndex, setPageIndex] = useState(0);
+  const scrollRef = useRef<ScrollView>(null);
+  const pageIndexRef = useRef(0);
 
   function handleScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
     const idx = Math.round(e.nativeEvent.contentOffset.x / pageWidth);
-    if (idx !== pageIndex) setPageIndex(idx);
+    pageIndexRef.current = idx;
+    setPageIndex(idx);
   }
+
+  useEffect(() => {
+    if (items.length < 2) return;
+    const timer = setInterval(() => {
+      const next = (pageIndexRef.current + 1) % items.length;
+      pageIndexRef.current = next;
+      scrollRef.current?.scrollTo({ x: next * pageWidth, animated: true });
+      setPageIndex(next);
+    }, AUTO_SWIPE_MS);
+    return () => clearInterval(timer);
+  }, [items.length, pageWidth]);
 
   if (items.length === 0) return null;
 
   return (
     <View>
       <ScrollView
+        ref={scrollRef}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
@@ -60,13 +100,7 @@ function TipCarousel({ items }: { items: Item[] }) {
       >
         {items.map((item) => (
           <View key={item.id} style={[styles.tipCard, { width: pageWidth }]}>
-            <Text style={styles.tipTitle}>Use {item.name} while it's at its best!</Text>
-            <Text style={styles.tipBody}>
-              Enjoy by{' '}
-              <Text style={{ color: urgencyColors[item.urgency], fontWeight: '700' }}>
-                {formatShortDate(item.effective_expiry_date)}
-              </Text>
-            </Text>
+            <TipCardBody item={item} />
           </View>
         ))}
       </ScrollView>
@@ -83,6 +117,7 @@ function TipCarousel({ items }: { items: Item[] }) {
 
 export default function DashboardScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { signOut } = useAuth();
   const { data, isLoading, isRefetching, refetch, error } = useDashboard();
   const { data: categories } = useCategories();
@@ -110,13 +145,19 @@ export default function DashboardScreen() {
   }
 
   const expiredItems = (activeItems?.items ?? []).filter((item) => item.urgency === 'expired');
+  // expiring_soon is already sorted ascending by days_remaining, so expired
+  // (negative days) naturally sort before critical (0-1 days) — filtering
+  // preserves that "all expired, then critical" order without re-sorting.
+  const bannerItems = data.expiring_soon.filter(
+    (item) => item.urgency === 'expired' || item.urgency === 'critical'
+  );
 
   return (
     <ScrollView
       style={styles.container}
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
     >
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <Image source={require('../../../assets/brand/wordmark.png')} style={styles.logo} resizeMode="contain" />
         <Pressable hitSlop={10} onPress={signOut}>
           <Ionicons name="log-out-outline" size={22} color={colors.textMuted} />
@@ -125,14 +166,18 @@ export default function DashboardScreen() {
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bucketRow}>
         {BUCKETS.map(({ key, label, color }) => (
-          <View key={key} style={[styles.bucketCard, { borderColor: color }]}>
+          <Pressable
+            key={key}
+            style={[styles.bucketCard, { borderColor: color }]}
+            onPress={() => router.push({ pathname: '/pantry', params: { urgency: key } })}
+          >
             <Text style={[styles.bucketLabel, { color }]}>{label}</Text>
             <Text style={[styles.bucketCount, { color }]}>{data.counts[key]}</Text>
-          </View>
+          </Pressable>
         ))}
       </ScrollView>
 
-      <TipCarousel items={data.expiring_soon} />
+      <TipCarousel items={bannerItems} />
 
       <Pressable style={styles.sectionHeader} onPress={() => router.push('/pantry')}>
         <Text style={styles.sectionTitle}>Categories</Text>
@@ -197,7 +242,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 16,
   },
   logo: {
     width: 110,
@@ -233,26 +277,28 @@ const styles = StyleSheet.create({
   },
   tipCard: {
     backgroundColor: colors.tipCard,
-    borderRadius: 16,
+    borderRadius: 20,
     marginHorizontal: 16,
-    padding: 18,
-    gap: 6,
+    padding: 24,
+    minHeight: 130,
+    justifyContent: 'center',
+    gap: 8,
   },
   tipTitle: {
-    fontSize: 17,
+    fontSize: 19,
     fontWeight: '700',
     color: colors.navy,
-    lineHeight: 22,
+    lineHeight: 25,
   },
   tipBody: {
-    fontSize: 13,
+    fontSize: 15,
     color: colors.textMuted,
   },
   dots: {
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 6,
-    marginTop: 8,
+    marginTop: 10,
   },
   dot: {
     width: 6,

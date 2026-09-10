@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   consumeItem,
@@ -13,8 +13,10 @@ import {
   identifyProduct,
   patchItem,
 } from './dataSource';
-import type { CreateCategoryInput, CreateItemInput, PatchItemInput } from './types';
+import type { CreateCategoryInput, CreateItemInput, Item, ItemStatus, PatchItemInput } from './types';
 import type { ItemsQuery } from './dataSource';
+
+const ALL_ITEM_STATUSES: ItemStatus[] = ['active', 'consumed', 'discarded', 'expired'];
 
 export const queryKeys = {
   dashboard: ['dashboard'] as const,
@@ -29,6 +31,39 @@ export function useDashboard() {
 
 export function useItems(query: ItemsQuery = {}) {
   return useQuery({ queryKey: queryKeys.items(query), queryFn: () => getItems(query) });
+}
+
+/**
+ * There's no "all statuses" value on the real GET /v1/items — omitting
+ * `status` defaults server-side to "active" only (see api.md), not
+ * everything. So "show all together" means firing one request per status
+ * and merging them client-side, not a single call.
+ */
+export function useAllStatusItems(query: Omit<ItemsQuery, 'status'> = {}) {
+  const results = useQueries({
+    queries: ALL_ITEM_STATUSES.map((status) => ({
+      queryKey: queryKeys.items({ ...query, status }),
+      queryFn: () => getItems({ ...query, status }),
+    })),
+  });
+
+  const isLoading = results.some((r) => r.isLoading);
+  const error = results.find((r) => r.error)?.error;
+  const refetch = () => results.forEach((r) => r.refetch());
+  const isRefetching = results.some((r) => r.isRefetching);
+
+  let items: Item[] = [];
+  if (!isLoading && !error) {
+    items = results.flatMap((r) => r.data?.items ?? []);
+    const sort = query.sort ?? 'expiry';
+    items.sort((a, b) => {
+      if (sort === 'name') return a.name.localeCompare(b.name);
+      if (sort === 'created') return b.created_at.localeCompare(a.created_at);
+      return a.days_remaining - b.days_remaining;
+    });
+  }
+
+  return { items, isLoading, error, refetch, isRefetching };
 }
 
 export function useItem(id: string) {
