@@ -6,6 +6,7 @@ import {
   Alert,
   Image,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -187,7 +188,13 @@ export default function ScanProductScreen() {
     return (
       <View style={styles.container}>
         <StepDots step={step} />
-        <View style={styles.center}>
+        {/* A tall portrait photo (very common - phones default to it) can
+            easily be taller than the screen once sized by its own real
+            aspect ratio. A plain View here left the confirm/retake buttons
+            genuinely unreachable below the fold, with nothing to scroll -
+            this must be a ScrollView so the buttons are always reachable
+            regardless of the photo's proportions. */}
+        <ScrollView contentContainerStyle={styles.confirmScrollContent}>
           <Text style={styles.stepIndicator}>Step 1 of 2</Text>
           <Text style={styles.title}>Is this the brand?</Text>
           <Text style={styles.body}>We found "{brand}" in the highlighted area.</Text>
@@ -218,7 +225,7 @@ export default function ScanProductScreen() {
           <Pressable style={[styles.button, styles.secondaryButton]} onPress={handleRetakeBrand}>
             <Text style={[styles.buttonText, styles.secondaryButtonText]}>No, retake the photo</Text>
           </Pressable>
-        </View>
+        </ScrollView>
       </View>
     );
   }
@@ -298,6 +305,13 @@ const styles = StyleSheet.create({
   },
   center: {
     flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+    gap: 10,
+  },
+  confirmScrollContent: {
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 32,
