@@ -136,6 +136,14 @@ also records that PaddleOCR ran before Google Vision — useful evidence for jud
 
 ## Deploy to Cloud Run
 
+**`--set-env-vars` and `--set-secrets` each *replace the entire set*, not
+merge with what's already deployed.** A command that lists only some of the
+variables below wipes out every other one on that revision — this has
+actually happened (`SUPABASE_URL` and six others silently disappeared from
+production because a deploy only passed two of these ten). Always pass the
+full list, every time, even when the change you're deploying only touches
+one of them:
+
 ```powershell
 gcloud run deploy expiry-guardian-api `
   --source . `
@@ -144,9 +152,13 @@ gcloud run deploy expiry-guardian-api `
   --memory 2Gi `
   --cpu 2 `
   --timeout 300 `
-  --set-env-vars "ENVIRONMENT=production" `
-  --set-secrets "SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest"
+  --set-env-vars "ENVIRONMENT=production,LOG_LEVEL=INFO,CORS_ORIGINS=*,OCR_PRIMARY_ENGINE=google_vision" `
+  --set-secrets "SUPABASE_URL=supabase-url:latest,SUPABASE_ANON_KEY=supabase-anon-key:latest,SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest,CLOUDINARY_API_KEY=cloudinary-api-key:latest,CLOUDINARY_API_SECRET=cloudinary-api-secret:latest,CLOUDINARY_CLOUD_NAME=cloudinary-cloud-name:latest,INTERNAL_SWEEP_SECRET=internal-sweep-secret:latest"
 ```
+
+Before trusting this list again, cross-check it against what's actually live:
+`gcloud run services describe expiry-guardian-api --region asia-northeast1
+--format "yaml(spec.template.spec.containers[0].env)"`.
 
 **Region: `asia-northeast1` (Tokyo), to match the Supabase project's
 `ap-northeast-1`.** A single API request makes several database round trips, so
