@@ -1,3 +1,18 @@
 [build]
   command = "npx expo export --platform web"
   publish = "dist"
+
+# This is a client-side-routed single page app (Expo Router in "single"
+# output mode: one index.html, all navigation handled by JS). In-app
+# navigation (tapping a button) never triggers a real page load so it
+# always worked, but a hard refresh or a direct/bookmarked URL like
+# /scan-product sends Netlify a real request for a path with no matching
+# file - without this, that correctly 404s. Falling through to index.html
+# for anything that isn't a real file lets the client-side router take it
+# from there. Real static assets (the JS bundles, images) still resolve
+# to their own files first; this only catches paths with nothing else to
+# serve.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
