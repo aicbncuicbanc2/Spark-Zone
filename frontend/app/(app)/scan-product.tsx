@@ -17,6 +17,7 @@ import {
 import { CropFrame, type CropRect } from '../../components/CropFrame';
 import { useCreateScan, useIdentifyProduct } from '../../lib/queries';
 import { colors } from '../../lib/theme';
+import type { ScanResponse } from '../../lib/types';
 
 // Two photos, zero typing (when both hit): one of the product's own
 // front/branding to identify what it is, one of the printed expiry date to
@@ -131,6 +132,37 @@ export default function ScanProductScreen() {
     setFrameTarget(null);
   }
 
+  function goToAddScreen(scan: ScanResponse) {
+    // extracted_expiry_date is deliberately null whenever the OCR reading
+    // can't be confirmed as an expiry (no EXP/MFG keyword found near it at
+    // all - common once the crop step above is tight around just the
+    // digits). That's still a real date the backend found, just not one
+    // it will silently promote - fall back to it here (never to a
+    // "manufacture" one, which is a confirmed non-expiry) so the field
+    // isn't left blank, with needs_review carrying the "please confirm
+    // this" flag through.
+    const fallbackDate = scan.alternatives.find((a) => a.date_type !== 'manufacture')?.value;
+
+    router.push({
+      pathname: '/add',
+      params: {
+        scan_id: scan.scan_id,
+        // Name starts as just the brand (e.g. "Kopiko") rather than
+        // anything parsed from OCR text — real testing showed the most
+        // prominent OCR text block can be a misread brand or unrelated
+        // background text, so it's still always editable here, never a
+        // longer guessed-at product name.
+        name: brand ?? scan.suggested_item?.name ?? '',
+        brand: brand ?? scan.suggested_item?.brand ?? '',
+        category_id: categoryId ?? scan.suggested_item?.category_id ?? '',
+        expiry_date: scan.extracted_expiry_date ?? fallbackDate ?? '',
+        needs_review: scan.needs_review ? '1' : '0',
+        review_reason: scan.review_reason ?? '',
+        alternatives: JSON.stringify(scan.alternatives.map((a) => a.value)),
+      },
+    });
+  }
+
   function applyBrandResult(result: { brand: string | null; category_id: string | null; raw_text: string | null }) {
     // A miss is a normal result, not an error — Logo/Label Detection are
     // each precise when they hit but genuinely inconsistent. Either way
@@ -177,34 +209,31 @@ export default function ScanProductScreen() {
               return;
             }
 
-            // extracted_expiry_date is deliberately null whenever the OCR
-            // reading can't be confirmed as an expiry (no EXP/MFG keyword
-            // found near it at all - common once the crop step above is
-            // tight around just the digits). That's still a real date the
-            // backend found, just not one it will silently promote - fall
-            // back to it here (never to a "manufacture" one, which is a
-            // confirmed non-expiry) so the field isn't left blank, with
-            // needs_review carrying the "please confirm this" flag through.
-            const fallbackDate = scan.alternatives.find((a) => a.date_type !== 'manufacture')?.value;
+            // Nothing else stops someone scanning one product's brand in
+            // step 1 and a completely different product's date in step 2,
+            // silently combining the two into one wrong item. This can't
+            // be proven with certainty - a genuine date sticker often
+            // doesn't print the brand name at all - so it's a warning the
+            // user can override, not a hard block. It fires again on every
+            // mismatched attempt (there's no "already warned" bookkeeping
+            // here) rather than only once, since dismissing the warning
+            // once isn't the same as actually fixing the photo.
+            const brandMismatch =
+              !!brand && !!scan.raw_text && !scan.raw_text.toLowerCase().includes(brand.toLowerCase());
 
-            router.push({
-              pathname: '/add',
-              params: {
-                scan_id: scan.scan_id,
-                // Name starts as just the brand (e.g. "Kopiko") rather than
-                // anything parsed from OCR text — real testing showed the
-                // most prominent OCR text block can be a misread brand or
-                // unrelated background text, so it's still always editable
-                // here, never a longer guessed-at product name.
-                name: brand ?? scan.suggested_item?.name ?? '',
-                brand: brand ?? scan.suggested_item?.brand ?? '',
-                category_id: categoryId ?? scan.suggested_item?.category_id ?? '',
-                expiry_date: scan.extracted_expiry_date ?? fallbackDate ?? '',
-                needs_review: scan.needs_review ? '1' : '0',
-                review_reason: scan.review_reason ?? '',
-                alternatives: JSON.stringify(scan.alternatives.map((a) => a.value)),
-              },
-            });
+            if (brandMismatch) {
+              Alert.alert(
+                'Does this match?',
+                `This photo doesn't seem to mention "${brand}" — make sure it's the expiry date from the same product.`,
+                [
+                  { text: 'Retake photo', onPress: () => setStep('date') },
+                  { text: 'Continue anyway', style: 'cancel', onPress: () => goToAddScreen(scan) },
+                ]
+              );
+              return;
+            }
+
+            goToAddScreen(scan);
           },
           onError: (error) => {
             setPreviewUri(null);
