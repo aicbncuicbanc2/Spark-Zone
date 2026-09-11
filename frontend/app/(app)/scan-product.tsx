@@ -132,7 +132,7 @@ export default function ScanProductScreen() {
     setFrameTarget(null);
   }
 
-  function goToAddScreen(scan: ScanResponse) {
+  function goToAddScreen(scan: ScanResponse, options?: { mismatchWarning?: boolean }) {
     // extracted_expiry_date is deliberately null whenever the OCR reading
     // can't be confirmed as an expiry (no EXP/MFG keyword found near it at
     // all - common once the crop step above is tight around just the
@@ -159,6 +159,13 @@ export default function ScanProductScreen() {
         needs_review: scan.needs_review ? '1' : '0',
         review_reason: scan.review_reason ?? '',
         alternatives: JSON.stringify(scan.alternatives.map((a) => a.value)),
+        // A separate flag from needs_review - that one is about how
+        // confidently the date itself was read; this one is about whether
+        // the two photos even seem to be the same product. Carried through
+        // as a banner on /add rather than just the one-time alert, so
+        // choosing "Continue anyway" doesn't make the concern disappear
+        // the moment the dialog closes.
+        brand_mismatch: options?.mismatchWarning ? '1' : '0',
       },
     });
   }
@@ -227,7 +234,11 @@ export default function ScanProductScreen() {
                 `This photo doesn't seem to mention "${brand}" — make sure it's the expiry date from the same product.`,
                 [
                   { text: 'Retake photo', onPress: () => setStep('date') },
-                  { text: 'Continue anyway', style: 'cancel', onPress: () => goToAddScreen(scan) },
+                  {
+                    text: 'Continue anyway',
+                    style: 'cancel',
+                    onPress: () => goToAddScreen(scan, { mismatchWarning: true }),
+                  },
                 ]
               );
               return;
