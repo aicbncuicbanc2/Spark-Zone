@@ -1,9 +1,11 @@
+import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Dimensions,
   Image,
   Pressable,
   ScrollView,
@@ -12,9 +14,9 @@ import {
   View,
 } from 'react-native';
 
+import { CropFrame, type CropRect } from '../../components/CropFrame';
 import { useCreateScan, useIdentifyProduct } from '../../lib/queries';
 import { colors } from '../../lib/theme';
-import type { BrandBox } from '../../lib/types';
 
 // Two photos, zero typing (when both hit): one of the product's own
 // front/branding to identify what it is, one of the printed expiry date to
@@ -22,17 +24,47 @@ import type { BrandBox } from '../../lib/types';
 // photo run through both endpoints — the two are rarely the same side of
 // the package (branding on the front, expiry date on the back or bottom).
 //
-// Between them sits a "confirm" step whenever Vision found the logo: the
-// photo is shown again with a frame drawn over the exact region Vision
-// detected, so the user confirms the *real* detection rather than trusting
-// it blindly. There's deliberately no equivalent frame for "the product
-// name" — Vision detects text, not what that text means, so there's no
-// reliable region to point to the way there is for a logo (see
-// backend/app/services/ocr/vision_engine.py's ProductIdentification).
+// Before each photo is sent to the backend, the user drags/resizes a frame
+// over the exact region that matters (name+logo, or the printed date) and
+// only that cropped region is analyzed. This is what real testing showed
+// was needed: OCR/logo detection run over a whole front-of-package photo
+// can pick up an unrelated brand elsewhere in frame or background clutter
+// from other shelf products, and the user is in a far better position than
+// either engine to say "the date is right here."
+//
+// After a brand crop that identifies something, a lightweight "confirm"
+// step shows the cropped photo again so the user can retake if the crop
+// missed — no box overlay needed there since the whole shown image already
+// *is* the region the user selected.
 
-type Step = 'brand' | 'confirm' | 'date';
+type Step = 'brand' | 'frame' | 'confirm' | 'date';
+type FrameTarget = 'brand' | 'date';
 
 const FALLBACK_ASPECT_RATIO = 4 / 3;
+
+function computeDisplayBox(imageWidth: number, imageHeight: number) {
+  const window = Dimensions.get('window');
+  const maxWidth = window.width - 64;
+  const maxHeight = window.height * 0.5;
+  const aspectRatio = imageWidth / imageHeight;
+  let width = maxWidth;
+  let height = width / aspectRatio;
+  if (height > maxHeight) {
+    height = maxHeight;
+    width = height * aspectRatio;
+  }
+  return { width, height };
+}
+
+function initialCropRect(displayWidth: number, displayHeight: number, target: FrameTarget): CropRect {
+  // A printed expiry date is usually one short line, so start wide and
+  // short; product name/branding usually needs more of the front panel.
+  const widthFraction = 0.85;
+  const heightFraction = target === 'date' ? 0.25 : 0.5;
+  const width = displayWidth * widthFraction;
+  const height = displayHeight * heightFraction;
+  return { x: (displayWidth - width) / 2, y: (displayHeight - height) / 2, width, height };
+}
 
 async function pickImage(source: 'camera' | 'library') {
   const permission =
@@ -54,13 +86,12 @@ async function pickImage(source: 'camera' | 'library') {
   return result.assets[0];
 }
 
-function StepDots({ step }: { step: Step }) {
-  const onDateStep = step === 'date';
+function StepDots({ stageTwo }: { stageTwo: boolean }) {
   return (
     <View style={styles.stepDots}>
       <View style={[styles.stepDot, styles.stepDotFilled]} />
-      <View style={[styles.stepDotTrack, onDateStep && styles.stepDotTrackFilled]} />
-      <View style={[styles.stepDot, onDateStep && styles.stepDotFilled]} />
+      <View style={[styles.stepDotTrack, stageTwo && styles.stepDotTrackFilled]} />
+      <View style={[styles.stepDot, stageTwo && styles.stepDotFilled]} />
     </View>
   );
 }
@@ -71,52 +102,176 @@ export default function ScanProductScreen() {
   const [previewUri, setPreviewUri] = useState<string | null>(null);
   const [previewAspectRatio, setPreviewAspectRatio] = useState(FALLBACK_ASPECT_RATIO);
   const [brand, setBrand] = useState<string | null>(null);
-  const [brandBox, setBrandBox] = useState<BrandBox | null>(null);
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [rawText, setRawText] = useState<string | null>(null);
+
+  // The frame step's working state: the just-picked photo awaiting a crop
+  // decision, its real pixel size (needed to convert the on-screen frame
+  // into a real crop rectangle), the on-screen box it's displayed at, the
+  // frame itself, which stage it's for, and whether a crop is in flight.
+  const [pendingUri, setPendingUri] = useState<string | null>(null);
+  const [pendingSize, setPendingSize] = useState<{ width: number; height: number } | null>(null);
+  const [displaySize, setDisplaySize] = useState<{ width: number; height: number } | null>(null);
+  const [cropRect, setCropRect] = useState<CropRect | null>(null);
+  const [frameTarget, setFrameTarget] = useState<FrameTarget | null>(null);
+  const [isCropping, setIsCropping] = useState(false);
 
   const identifyMutation = useIdentifyProduct();
   const scanMutation = useCreateScan();
   const isBusy = identifyMutation.isPending || scanMutation.isPending;
 
+  function resetFrameState() {
+    setPendingUri(null);
+    setPendingSize(null);
+    setDisplaySize(null);
+    setCropRect(null);
+    setFrameTarget(null);
+  }
+
+  function runIdentifyOrScan(uri: string, target: FrameTarget) {
+    setPreviewUri(uri);
+    if (target === 'brand') {
+      identifyMutation.mutate(
+        { uri },
+        {
+          onSuccess: (result) => {
+            // A miss is a normal result, not an error — Logo/Label
+            // Detection are each precise when they hit but genuinely
+            // inconsistent. Either way the user still confirms/types
+            // everything on /add.
+            setBrand(result.brand);
+            setCategoryId(result.category_id);
+            setRawText(result.raw_text);
+            if (result.brand) {
+              setStep('confirm');
+            } else {
+              setPreviewUri(null);
+              setStep('date');
+            }
+          },
+          onError: (error) => {
+            setPreviewUri(null);
+            Alert.alert('Could not read that photo', (error as Error).message);
+          },
+        }
+      );
+    } else {
+      scanMutation.mutate(
+        { uri },
+        {
+          onSuccess: (scan) => {
+            setPreviewUri(null);
+            if (scan.status === 'failed') {
+              Alert.alert(
+                'Could not read that label',
+                scan.error_detail ?? 'Try a clearer, well-lit photo, or add the item manually.',
+                [
+                  { text: 'Try again', style: 'cancel' },
+                  { text: 'Add manually', onPress: () => router.push('/add') },
+                ]
+              );
+              return;
+            }
+
+            router.push({
+              pathname: '/add',
+              params: {
+                scan_id: scan.scan_id,
+                // Name starts as just the brand (e.g. "Kopiko") rather than
+                // anything parsed from OCR text — real testing showed the
+                // most prominent OCR text block can be a misread brand or
+                // unrelated background text, so it's still always editable
+                // here, never a longer guessed-at product name.
+                name: brand ?? scan.suggested_item?.name ?? '',
+                brand: brand ?? scan.suggested_item?.brand ?? '',
+                category_id: categoryId ?? scan.suggested_item?.category_id ?? '',
+                expiry_date: scan.extracted_expiry_date ?? '',
+                needs_review: scan.needs_review ? '1' : '0',
+                review_reason: scan.review_reason ?? '',
+                alternatives: JSON.stringify(scan.alternatives.map((a) => a.value)),
+              },
+            });
+          },
+          onError: (error) => {
+            setPreviewUri(null);
+            Alert.alert('Scan failed', (error as Error).message);
+          },
+        }
+      );
+    }
+  }
+
+  function startFrameStep(asset: ImagePicker.ImagePickerAsset, target: FrameTarget) {
+    if (!asset.width || !asset.height) {
+      // Some pickers/platforms genuinely can't report dimensions - without
+      // real pixels there's no reliable way to convert an on-screen frame
+      // into a crop rectangle, so fall back to sending the whole photo.
+      setPreviewAspectRatio(FALLBACK_ASPECT_RATIO);
+      runIdentifyOrScan(asset.uri, target);
+      return;
+    }
+    const display = computeDisplayBox(asset.width, asset.height);
+    setPendingUri(asset.uri);
+    setPendingSize({ width: asset.width, height: asset.height });
+    setDisplaySize(display);
+    setCropRect(initialCropRect(display.width, display.height, target));
+    setFrameTarget(target);
+    setStep('frame');
+  }
+
   async function handleBrandPhoto(source: 'camera' | 'library') {
     const asset = await pickImage(source);
     if (!asset) return;
-    setPreviewUri(asset.uri);
-    // Some pickers/platforms genuinely can't report dimensions (0x0) - fall
-    // back to a plausible default rather than an invalid aspect ratio.
-    setPreviewAspectRatio(
-      asset.width && asset.height ? asset.width / asset.height : FALLBACK_ASPECT_RATIO
-    );
+    startFrameStep(asset, 'brand');
+  }
 
-    identifyMutation.mutate(
-      { uri: asset.uri },
-      {
-        onSuccess: (result) => {
-          // A miss on either is a normal result, not an error — Logo/Label
-          // Detection are each precise when they hit but genuinely
-          // inconsistent, and independent of each other. Either way the
-          // user still confirms/types everything on /add.
-          setBrand(result.brand);
-          setBrandBox(result.brand_box);
-          setCategoryId(result.category_id);
-          setRawText(result.raw_text);
-          if (result.brand_box) {
-            // Something real to show the user - keep the photo on screen
-            // and let them confirm the actual detected region, rather than
-            // silently trusting it and moving straight on.
-            setStep('confirm');
-          } else {
-            setPreviewUri(null);
-            setStep('date');
-          }
-        },
-        onError: (error) => {
-          setPreviewUri(null);
-          Alert.alert('Could not read that photo', (error as Error).message);
-        },
-      }
-    );
+  async function handleDatePhoto(source: 'camera' | 'library') {
+    const asset = await pickImage(source);
+    if (!asset) return;
+    startFrameStep(asset, 'date');
+  }
+
+  async function handleUseCrop() {
+    if (!pendingUri || !pendingSize || !displaySize || !cropRect || !frameTarget) return;
+    const target = frameTarget;
+    const scaleX = pendingSize.width / displaySize.width;
+    const scaleY = pendingSize.height / displaySize.height;
+    const originX = Math.round(cropRect.x * scaleX);
+    const originY = Math.round(cropRect.y * scaleY);
+    const width = Math.round(cropRect.width * scaleX);
+    const height = Math.round(cropRect.height * scaleY);
+
+    setIsCropping(true);
+    try {
+      const context = ImageManipulator.ImageManipulator.manipulate(pendingUri);
+      context.crop({ originX, originY, width, height });
+      const rendered = await context.renderAsync();
+      const result = await rendered.saveAsync();
+      setPreviewAspectRatio(width / height);
+      resetFrameState();
+      setStep(target);
+      runIdentifyOrScan(result.uri, target);
+    } catch (error) {
+      Alert.alert('Could not crop that photo', (error as Error).message);
+    } finally {
+      setIsCropping(false);
+    }
+  }
+
+  function handleUseWholePhoto() {
+    if (!pendingUri || !frameTarget) return;
+    const target = frameTarget;
+    const uri = pendingUri;
+    if (pendingSize) setPreviewAspectRatio(pendingSize.width / pendingSize.height);
+    resetFrameState();
+    setStep(target);
+    runIdentifyOrScan(uri, target);
+  }
+
+  function handleRetakeFromFrame() {
+    const target = frameTarget ?? 'brand';
+    resetFrameState();
+    setStep(target);
   }
 
   function handleConfirmBrand() {
@@ -127,67 +282,60 @@ export default function ScanProductScreen() {
   function handleRetakeBrand() {
     setPreviewUri(null);
     setBrand(null);
-    setBrandBox(null);
     setCategoryId(null);
     setRawText(null);
     setStep('brand');
   }
 
-  async function handleDatePhoto(source: 'camera' | 'library') {
-    const asset = await pickImage(source);
-    if (!asset) return;
-    setPreviewUri(asset.uri);
+  const handlePick = step === 'brand' ? handleBrandPhoto : handleDatePhoto;
 
-    scanMutation.mutate(
-      { uri: asset.uri },
-      {
-        onSuccess: (scan) => {
-          setPreviewUri(null);
-          if (scan.status === 'failed') {
-            Alert.alert(
-              'Could not read that label',
-              scan.error_detail ?? 'Try a clearer, well-lit photo, or add the item manually.',
-              [
-                { text: 'Try again', style: 'cancel' },
-                { text: 'Add manually', onPress: () => router.push('/add') },
-              ]
-            );
-            return;
-          }
+  if (step === 'frame' && pendingUri && displaySize && cropRect) {
+    const isDate = frameTarget === 'date';
+    return (
+      <View style={styles.container}>
+        <StepDots stageTwo={isDate} />
+        <ScrollView contentContainerStyle={styles.confirmScrollContent}>
+          <Text style={styles.stepIndicator}>Step {isDate ? '2' : '1'} of 2</Text>
+          <Text style={styles.title}>
+            {isDate ? 'Drag the frame over the expiry date' : 'Drag the frame over the name and brand'}
+          </Text>
+          <Text style={styles.body}>
+            Move and resize it so it covers just {isDate ? 'the printed date' : 'the product name and logo'} —
+            only what's inside gets scanned.
+          </Text>
 
-          router.push({
-            pathname: '/add',
-            params: {
-              scan_id: scan.scan_id,
-              // Name starts as just the brand (e.g. "Kopiko") rather than
-              // anything parsed from OCR text — real testing showed the
-              // most prominent OCR text block can be a misread brand or
-              // unrelated background text, so it's still always editable
-              // here, never a longer guessed-at product name.
-              name: brand ?? scan.suggested_item?.name ?? '',
-              brand: brand ?? scan.suggested_item?.brand ?? '',
-              category_id: categoryId ?? scan.suggested_item?.category_id ?? '',
-              expiry_date: scan.extracted_expiry_date ?? '',
-              needs_review: scan.needs_review ? '1' : '0',
-              review_reason: scan.review_reason ?? '',
-              alternatives: JSON.stringify(scan.alternatives.map((a) => a.value)),
-            },
-          });
-        },
-        onError: (error) => {
-          setPreviewUri(null);
-          Alert.alert('Scan failed', (error as Error).message);
-        },
-      }
+          <View style={[styles.frameImageWrap, { width: displaySize.width, height: displaySize.height }]}>
+            <Image source={{ uri: pendingUri }} style={styles.confirmImage} resizeMode="contain" />
+            <CropFrame
+              displayWidth={displaySize.width}
+              displayHeight={displaySize.height}
+              rect={cropRect}
+              onChange={setCropRect}
+            />
+          </View>
+
+          <Pressable style={styles.button} onPress={handleUseCrop} disabled={isCropping}>
+            {isCropping ? (
+              <ActivityIndicator color={colors.white} />
+            ) : (
+              <Text style={styles.buttonText}>Use this area</Text>
+            )}
+          </Pressable>
+          <Pressable style={[styles.button, styles.secondaryButton]} onPress={handleUseWholePhoto} disabled={isCropping}>
+            <Text style={[styles.buttonText, styles.secondaryButtonText]}>Use the whole photo instead</Text>
+          </Pressable>
+          <Pressable style={styles.manualLink} onPress={handleRetakeFromFrame} disabled={isCropping}>
+            <Text style={styles.manualLinkText}>← Retake the photo</Text>
+          </Pressable>
+        </ScrollView>
+      </View>
     );
   }
-
-  const handlePick = step === 'brand' ? handleBrandPhoto : handleDatePhoto;
 
   if (step === 'confirm') {
     return (
       <View style={styles.container}>
-        <StepDots step={step} />
+        <StepDots stageTwo={false} />
         {/* A tall portrait photo (very common - phones default to it) can
             easily be taller than the screen once sized by its own real
             aspect ratio. A plain View here left the confirm/retake buttons
@@ -197,25 +345,11 @@ export default function ScanProductScreen() {
         <ScrollView contentContainerStyle={styles.confirmScrollContent}>
           <Text style={styles.stepIndicator}>Step 1 of 2</Text>
           <Text style={styles.title}>Is this the brand?</Text>
-          <Text style={styles.body}>We found "{brand}" in the highlighted area.</Text>
+          <Text style={styles.body}>We found "{brand}" in this area.</Text>
 
           {previewUri && (
             <View style={[styles.confirmImageWrap, { aspectRatio: previewAspectRatio }]}>
               <Image source={{ uri: previewUri }} style={styles.confirmImage} resizeMode="contain" />
-              {brandBox && (
-                <View
-                  pointerEvents="none"
-                  style={[
-                    styles.brandFrame,
-                    {
-                      left: `${brandBox.x * 100}%`,
-                      top: `${brandBox.y * 100}%`,
-                      width: `${brandBox.width * 100}%`,
-                      height: `${brandBox.height * 100}%`,
-                    },
-                  ]}
-                />
-              )}
             </View>
           )}
 
@@ -232,7 +366,7 @@ export default function ScanProductScreen() {
 
   return (
     <View style={styles.container}>
-      <StepDots step={step} />
+      <StepDots stageTwo={step === 'date'} />
 
       {previewUri ? (
         <View style={styles.previewWrap}>
@@ -366,11 +500,15 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  brandFrame: {
-    position: 'absolute',
-    borderWidth: 3,
-    borderColor: colors.danger,
-    borderRadius: 4,
+  frameImageWrap: {
+    position: 'relative',
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#000',
+    marginVertical: 8,
+    // Explicit pixel width/height (not aspectRatio) since the frame step
+    // already computed the exact contain-fit box size for this photo —
+    // CropFrame's coordinates are relative to this exact box.
   },
   stepIndicator: {
     fontSize: 13,
