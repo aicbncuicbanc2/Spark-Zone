@@ -16,7 +16,8 @@
         "foregroundImage": "./assets/brand/logo.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": ["READ_CALENDAR", "WRITE_CALENDAR"]
     },
     "web": {
       "name": "Thyme",
@@ -42,7 +43,13 @@
           "cameraPermission": "Let Thyme use your camera to photograph a product label."
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Let Thyme add an item's expiry date directly to your calendar."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
