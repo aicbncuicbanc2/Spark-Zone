@@ -173,6 +173,21 @@ def test_trailing_line_code_is_not_absorbed_as_a_year() -> None:
     assert result.expiry_date == date(2027, 12, 22)
 
 
+def test_ocr_dropped_digit_does_not_produce_a_wrong_year() -> None:
+    """Real scan: a dog food packet printed 'EXP 10.09.2027', but Vision
+    dropped the final digit, reading 'EXP 10.09.202'. The old _expand_year
+    treated any value under 1000 as a 2-digit year needing century math, so
+    202 silently became 1900 + 202 = 2102 - stated with full confidence.
+    A 3-digit fragment must be rejected, not guessed into a wrong year.
+    """
+    result = parse(
+        "MFG 11.03.2026\nEXP 10.09.202\nB070J2E24", today=date(2026, 9, 11)
+    )
+    if result.best is not None:
+        assert result.best.value.year != 2102
+        assert 1900 <= result.best.value.year <= 2099
+
+
 # --- Ambiguity ----------------------------------------------------------------
 
 

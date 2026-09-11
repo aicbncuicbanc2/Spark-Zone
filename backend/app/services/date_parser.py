@@ -199,9 +199,19 @@ class ParseResult:
 # --- Helpers ------------------------------------------------------------------
 
 
-def _expand_year(value: int) -> int:
+def _expand_year(value: int) -> int | None:
+    """Turn a 2-digit year into a 4-digit one - but only when it genuinely
+    is one. A real scan hit "EXP 10.09.2027" where OCR dropped the final
+    digit, leaving "202" (3 digits). The old version treated anything under
+    1000 as a 2-digit year needing century math, so 202 silently became
+    1900 + 202 = 2102 - a wrong answer stated with total confidence. A
+    3-digit fragment is neither a real 2-digit year nor a real 4-digit one;
+    it's evidence something was dropped, so it must be rejected, not guessed.
+    """
     if value >= 1000:
         return value
+    if value > 99:
+        return None
     return 2000 + value if value <= _CENTURY_PIVOT else 1900 + value
 
 
@@ -209,7 +219,9 @@ def _last_day(year: int, month: int) -> int:
     return calendar.monthrange(year, month)[1]
 
 
-def _safe_date(year: int, month: int, day: int) -> date | None:
+def _safe_date(year: int | None, month: int, day: int) -> date | None:
+    if year is None:
+        return None
     try:
         return date(year, month, day)
     except ValueError:
@@ -398,6 +410,8 @@ def _extract(text: str) -> list[DateCandidate]:
         if month is None:
             continue
         year = _expand_year(int(year_raw))
+        if year is None:
+            continue
         if day_raw:
             add(_safe_date(year, month, int(day_raw)), match.group(0), *match.span(), 0.80)
         else:
@@ -413,6 +427,17 @@ def _extract(text: str) -> list[DateCandidate]:
     for match in _DMY.finditer(text):
         first, second, year_raw = (int(g) for g in match.groups())
         year = _expand_year(year_raw)
+        if year is None:
+            # A real scan hit "EXP 10.09.202" (OCR dropped the year's final
+            # digit) - rejecting just the year isn't enough. Left alone,
+            # "10.09" is still sitting there unconsumed, and the MM/YY
+            # pattern below reinterprets it as month=10/year=2009: a
+            # different, equally wrong, and *unflagged* answer, confidently
+            # built on digits already known to be corrupted. The whole
+            # matched span has to be consumed here so nothing downstream
+            # gets a second, worse guess at the same broken fragment.
+            consumed.append(match.span())
+            continue
         notes: tuple[str, ...] = ()
         day, month = first, second
         if first > 12 and second <= 12:
@@ -456,6 +481,8 @@ def _extract(text: str) -> list[DateCandidate]:
         if not 1 <= month <= 12:
             continue
         year = _expand_year(year_raw)
+        if year is None:
+            continue
         label = _label_before(text, match.start())
         is_manufacture = label is not None and label[0] is DateType.MANUFACTURE
         # A month-only EXPIRY runs to the end of the month; a month-only
@@ -481,6 +508,8 @@ def _extract(text: str) -> list[DateCandidate]:
         if not 1 <= month <= 12:
             continue
         year = _expand_year(year_raw)
+        if year is None:
+            continue
         label = _label_before(text, match.start())
         is_manufacture = label is not None and label[0] is DateType.MANUFACTURE
         day = 1 if is_manufacture else _last_day(year, month)
