@@ -39,7 +39,7 @@ from app.core.errors import BadRequestError
 from app.db.repositories import products as products_repo
 from app.db.repositories import profiles as profiles_repo
 from app.db.repositories import scans as scans_repo
-from app.deps import CurrentUserDep, UserDbDep
+from app.deps import CurrentUserDep, UserDbDep, VisionRateLimitDep
 from app.schemas.scan import (
     DateCandidateOut,
     OcrEngineName,
@@ -48,6 +48,7 @@ from app.schemas.scan import (
     SuggestedItem,
 )
 from app.services import barcode as barcode_service
+from app.services import date_parser
 from app.services import storage
 from app.services.ocr import pipeline
 from app.services.ocr.base import OcrEngine
@@ -133,6 +134,17 @@ async def _run_pipeline_and_persist(
             logger.warning("scan_image_not_stored", extra={"reason": stored.error})
 
         parsed = result.parsed
+        if parsed is not None:
+            # A barcode is a fixed product identifier, not a date source -
+            # a "date" built entirely from digits that belong to the
+            # detected barcode is noise (a real barcode-only test image
+            # produced a false 2039-02-01 this way), not a genuine reading.
+            # Barcode detection runs concurrently with OCR/date parsing
+            # (see the gather above), so this can only be applied once
+            # both are in, not inside pipeline.run() itself.
+            parsed = date_parser.discard_barcode_digits(
+                parsed, detected_barcode, today=today
+            )
         ocr_failed = result.ocr is None or not result.ocr.succeeded
 
         if ocr_failed:
@@ -146,9 +158,15 @@ async def _run_pipeline_and_persist(
         date_type = parsed.best.date_type.value if parsed and parsed.best else None
 
         alternatives: list[dict] = []
-        if parsed and parsed.needs_review and len(parsed.candidates) > 1:
-            # Only worth persisting when there is a real choice to show -
-            # otherwise every scan would carry a redundant one-item list.
+        if parsed and parsed.needs_review and parsed.candidates:
+            # Populated even for a single candidate: an unlabelled date (no
+            # EXP/MFG keyword nearby - common once a client crops tightly to
+            # just the printed digits) is deliberately kept out of
+            # extracted_expiry_date, since it can't be told apart from a
+            # manufacture date. Without this, that reading was completely
+            # invisible to the client even though OCR genuinely found it -
+            # surfacing it here lets the app prefill /add with a value the
+            # user still has to confirm, instead of leaving the field blank.
             alternatives = [
                 {
                     "value": c.value.isoformat(),
@@ -286,6 +304,7 @@ def _to_response(row: dict) -> ScanOut:
 async def create_scan(
     user: CurrentUserDep,
     db: UserDbDep,
+    _rate_limit: VisionRateLimitDep,
     background_tasks: BackgroundTasks,
     image: Annotated[UploadFile, File(description="Photo of the label")],
 ) -> ScanOut:
@@ -349,6 +368,7 @@ async def retry_scan(
     scan_id: str,
     user: CurrentUserDep,
     db: UserDbDep,
+    _rate_limit: VisionRateLimitDep,
     background_tasks: BackgroundTasks,
     engine: Annotated[
         OcrEngineName | None,

@@ -20,7 +20,9 @@ import { ErrorState } from '../../../components/ErrorState';
 import { ExpiryCalendar } from '../../../components/ExpiryCalendar';
 import { ItemRow } from '../../../components/ItemRow';
 import { useAuth } from '../../../contexts/AuthContext';
+import { alert } from '../../../lib/alert';
 import { iconForCategory } from '../../../lib/categoryIcons';
+import { exportToCalendar } from '../../../lib/ics';
 import { useCategories, useDashboard, useItems } from '../../../lib/queries';
 import { colors, urgencyColors } from '../../../lib/theme';
 import type { DashboardResponse, Item } from '../../../lib/types';
@@ -244,7 +246,20 @@ export default function DashboardScreen() {
         />
       </View>
 
-      <Text style={styles.sectionTitle2}>Expired</Text>
+      <View style={styles.sectionHeaderRow}>
+        <Text style={styles.sectionTitle}>Expired</Text>
+        {expiredItems.length > 0 && (
+          <Pressable
+            onPress={() =>
+              exportToCalendar(expiredItems, 'expired-items').catch((error) =>
+                alert('Could not export', (error as Error).message)
+              )
+            }
+          >
+            <Text style={styles.sectionAction}>Add all to Calendar</Text>
+          </Pressable>
+        )}
+      </View>
       {expiredItems.length === 0 ? (
         <Text style={styles.empty}>Nothing expired — nice.</Text>
       ) : (
@@ -356,18 +371,23 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     paddingHorizontal: 16,
   },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 24,
+    marginBottom: 8,
+    paddingHorizontal: 16,
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: colors.navy,
   },
-  sectionTitle2: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginTop: 24,
-    marginBottom: 8,
-    paddingHorizontal: 16,
+  sectionAction: {
+    fontSize: 13,
     color: colors.navy,
+    fontWeight: '600',
   },
   categoryRow: {
     flexGrow: 0,

@@ -220,6 +220,92 @@ def test_manufacture_only_returns_needs_review_and_no_expiry(
     assert "manufacture" in body["review_reason"].lower()
 
 
+def test_a_date_built_from_the_scanned_barcode_is_discarded(
+    client, auth, monkeypatch, _cleanup
+) -> None:
+    """End-to-end regression for a real bug: scanning an image containing
+    only a barcode (no printed date at all) produced a false expiry date
+    built from digits inside the barcode's own OCR text. Stubs both the OCR
+    pipeline (returning a "date" whose raw text is a barcode-digit
+    fragment) and barcode detection (returning that same barcode) so the
+    two run concurrently exactly as they do for a real request, then checks
+    the route's post-processing actually drops it."""
+    from app.services import barcode as barcode_service
+    from app.services.date_parser import DateCandidate
+
+    barcode = "1321412341239"
+    candidate = DateCandidate(
+        value=date(2039, 2, 1),
+        date_type=DateType.UNKNOWN,
+        confidence=0.75,
+        raw="1 2 39",
+        start=0,
+        end=6,
+        notes=("day and month both <= 12; assumed DD/MM", "no keyword found near this date"),
+    )
+    result = pipeline.PipelineResult(
+        ocr=OcrResult(
+            engine=OcrEngine.PADDLEOCR,
+            blocks=[TextBlock("13 21 4 1 2 3 4 1 2 39", 0.97, (0, 0, 10, 10))],
+            duration_ms=12,
+        ),
+        parsed=ParseResult(
+            best=candidate,
+            candidates=[candidate],
+            needs_review=True,
+            review_reason="A date was found but it is not labelled as an expiry date. Please confirm it.",
+        ),
+        attempts=[
+            pipeline.Attempt(
+                engine=OcrEngine.PADDLEOCR, succeeded=True, ocr_confidence=0.97,
+                date_found=True, duration_ms=12,
+            )
+        ],
+    )
+    monkeypatch.setattr(pipeline, "run", lambda *a, **k: result)
+    monkeypatch.setattr(
+        barcode_service, "best_product_code",
+        lambda *a, **k: barcode_service.DecodedBarcode(value=barcode, symbology="EAN13"),
+    )
+    async def _no_lookup(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr(barcode_service, "lookup_open_food_facts", _no_lookup)
+
+    body = _scan(client, auth)
+    _cleanup.append(body["scan_id"])
+
+    assert body["detected_barcode"] == barcode
+    assert body["extracted_expiry_date"] is None
+    assert body["alternatives"] == []
+    assert "No date could be found" in (body["review_reason"] or "")
+
+
+def test_unlabelled_date_is_prefillable_via_alternatives(
+    client, auth, monkeypatch, _cleanup
+) -> None:
+    """A date with no EXP/MFG keyword nearby (e.g. a tightly-cropped photo of
+    just the digits) is a real reading the OCR found, just not one the
+    backend will silently promote to extracted_expiry_date - it must still
+    reach the client through alternatives so the app can prefill it as an
+    unconfirmed value rather than leaving the field blank."""
+    _stub(
+        monkeypatch,
+        value=date(2027, 12, 22),
+        date_type=DateType.UNKNOWN,
+        needs_review=True,
+        reason="A date was found but it is not labelled as an expiry date. Please confirm it.",
+    )
+    body = _scan(client, auth)
+    _cleanup.append(body["scan_id"])
+
+    assert body["status"] == "needs_review"
+    assert body["extracted_expiry_date"] is None
+    assert len(body["alternatives"]) == 1
+    assert body["alternatives"][0]["value"] == "2027-12-22"
+    assert body["alternatives"][0]["date_type"] == "unknown"
+
+
 def test_ambiguous_date_returns_alternatives(client, auth, monkeypatch, _cleanup) -> None:
     _stub(
         monkeypatch,
@@ -374,3 +460,35 @@ def test_retry_also_returns_202_processing_immediately(
     resp = client.post(f"/v1/scans/{created['scan_id']}/retry", headers=auth)
     assert resp.status_code == 202
     assert resp.json()["status"] == "processing"
+
+
+# --- rate limiting --------------------------------------------------------
+
+
+def test_create_scan_is_rate_limited_per_user(client, auth, monkeypatch) -> None:
+    """Real, end-to-end proof (not just the unit tests in
+    test_rate_limit.py) that a real request hits a real 429 once a real
+    user's limit is reached - this endpoint calls billed Vision APIs, so
+    this is the one thing standing between a scripted loop and a real bill.
+    """
+    import jwt as pyjwt
+
+    from app.services import rate_limit
+
+    token = auth["Authorization"].removeprefix("Bearer ")
+    user_id = pyjwt.decode(token, options={"verify_signature": False})["sub"]
+    key = f"vision:{user_id}"
+
+    original = list(rate_limit._recent_calls.get(key, []))
+    try:
+        # Fill the bucket directly rather than firing 20 real requests -
+        # the limiter itself is already unit-tested; this only needs to
+        # prove the dependency is actually wired into the real route.
+        rate_limit._recent_calls[key] = [rate_limit.time.monotonic()] * rate_limit.MAX_REQUESTS_PER_WINDOW
+        resp = client.post(
+            "/v1/scans", headers=auth, files={"image": ("l.jpg", _jpeg(), "image/jpeg")}
+        )
+        assert resp.status_code == 429
+        assert resp.json()["error"]["code"] == "RATE_LIMITED"
+    finally:
+        rate_limit._recent_calls[key] = original

@@ -199,9 +199,19 @@ class ParseResult:
 # --- Helpers ------------------------------------------------------------------
 
 
-def _expand_year(value: int) -> int:
+def _expand_year(value: int) -> int | None:
+    """Turn a 2-digit year into a 4-digit one - but only when it genuinely
+    is one. A real scan hit "EXP 10.09.2027" where OCR dropped the final
+    digit, leaving "202" (3 digits). The old version treated anything under
+    1000 as a 2-digit year needing century math, so 202 silently became
+    1900 + 202 = 2102 - a wrong answer stated with total confidence. A
+    3-digit fragment is neither a real 2-digit year nor a real 4-digit one;
+    it's evidence something was dropped, so it must be rejected, not guessed.
+    """
     if value >= 1000:
         return value
+    if value > 99:
+        return None
     return 2000 + value if value <= _CENTURY_PIVOT else 1900 + value
 
 
@@ -209,7 +219,9 @@ def _last_day(year: int, month: int) -> int:
     return calendar.monthrange(year, month)[1]
 
 
-def _safe_date(year: int, month: int, day: int) -> date | None:
+def _safe_date(year: int | None, month: int, day: int) -> date | None:
+    if year is None:
+        return None
     try:
         return date(year, month, day)
     except ValueError:
@@ -398,6 +410,8 @@ def _extract(text: str) -> list[DateCandidate]:
         if month is None:
             continue
         year = _expand_year(int(year_raw))
+        if year is None:
+            continue
         if day_raw:
             add(_safe_date(year, month, int(day_raw)), match.group(0), *match.span(), 0.80)
         else:
@@ -413,6 +427,17 @@ def _extract(text: str) -> list[DateCandidate]:
     for match in _DMY.finditer(text):
         first, second, year_raw = (int(g) for g in match.groups())
         year = _expand_year(year_raw)
+        if year is None:
+            # A real scan hit "EXP 10.09.202" (OCR dropped the year's final
+            # digit) - rejecting just the year isn't enough. Left alone,
+            # "10.09" is still sitting there unconsumed, and the MM/YY
+            # pattern below reinterprets it as month=10/year=2009: a
+            # different, equally wrong, and *unflagged* answer, confidently
+            # built on digits already known to be corrupted. The whole
+            # matched span has to be consumed here so nothing downstream
+            # gets a second, worse guess at the same broken fragment.
+            consumed.append(match.span())
+            continue
         notes: tuple[str, ...] = ()
         day, month = first, second
         if first > 12 and second <= 12:
@@ -456,6 +481,8 @@ def _extract(text: str) -> list[DateCandidate]:
         if not 1 <= month <= 12:
             continue
         year = _expand_year(year_raw)
+        if year is None:
+            continue
         label = _label_before(text, match.start())
         is_manufacture = label is not None and label[0] is DateType.MANUFACTURE
         # A month-only EXPIRY runs to the end of the month; a month-only
@@ -481,6 +508,8 @@ def _extract(text: str) -> list[DateCandidate]:
         if not 1 <= month <= 12:
             continue
         year = _expand_year(year_raw)
+        if year is None:
+            continue
         label = _label_before(text, match.start())
         is_manufacture = label is not None and label[0] is DateType.MANUFACTURE
         day = 1 if is_manufacture else _last_day(year, month)
@@ -540,16 +569,13 @@ def _score(candidate: DateCandidate, today: date) -> float:
     return score
 
 
-def parse(text: str, *, today: date | None = None) -> ParseResult:
-    """Extract the most likely expiry date from OCR output."""
-    if not text or not text.strip():
-        return ParseResult(needs_review=True, review_reason="No text was recognised.")
+def _finalize(candidates: list[DateCandidate], today: date) -> ParseResult:
+    """Pick the best candidate and decide whether it needs review.
 
-    # Callers pass the user's local date; UTC is only a safety net.
-    today = today or datetime.now(timezone.utc).date()
-    prepared = mask_times(normalise(text))
-    candidates = _extract(prepared)
-
+    Shared by parse() and discard_barcode_digits(), which re-runs this same
+    selection after removing candidates that turned out to be noise from a
+    detected barcode rather than the label's own printed text.
+    """
     if not candidates:
         return ParseResult(
             candidates=[],
@@ -585,3 +611,47 @@ def parse(text: str, *, today: date | None = None) -> ParseResult:
         result.review_reason = "The date was read with low confidence. Please confirm it."
 
     return result
+
+
+def parse(text: str, *, today: date | None = None) -> ParseResult:
+    """Extract the most likely expiry date from OCR output."""
+    if not text or not text.strip():
+        return ParseResult(needs_review=True, review_reason="No text was recognised.")
+
+    # Callers pass the user's local date; UTC is only a safety net.
+    today = today or datetime.now(timezone.utc).date()
+    prepared = mask_times(normalise(text))
+    return _finalize(_extract(prepared), today)
+
+
+def discard_barcode_digits(
+    result: ParseResult, barcode: str | None, *, today: date | None = None
+) -> ParseResult:
+    """Re-derive `result` after dropping any candidate built entirely from
+    digits that belong to the detected barcode, not the label's own printed
+    text.
+
+    A retail barcode (EAN-13/UPC-A) is a fixed product identifier - country/
+    manufacturer prefix, product code, check digit - it structurally cannot
+    encode an expiry date. But OCR reads its printed digits like any other
+    text, and a long run of them can accidentally contain a day/month-shaped
+    pair (a real barcode-only test image turned "...341239" into a "date" of
+    2039-02-01). Barcode detection runs as a separate step from date parsing
+    (concurrently, for latency - see scans.py), so the barcode isn't known
+    yet when `parse()` first runs; this is applied afterwards, once both
+    results are in.
+    """
+    if not barcode or not result.candidates:
+        return result
+    barcode_digits = re.sub(r"\D", "", barcode)
+    if not barcode_digits:
+        return result
+
+    def _is_barcode_noise(candidate: DateCandidate) -> bool:
+        digits = re.sub(r"\D", "", candidate.raw)
+        return bool(digits) and digits in barcode_digits
+
+    kept = [c for c in result.candidates if not _is_barcode_noise(c)]
+    if len(kept) == len(result.candidates):
+        return result
+    return _finalize(kept, today or datetime.now(timezone.utc).date())

@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import * as SplashScreen from 'expo-splash-screen';
 import { Stack } from 'expo-router';
 
+import { AppAlertHost } from '../components/AppAlertHost';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 
 SplashScreen.preventAutoHideAsync();
@@ -13,6 +14,7 @@ export default function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <RootNavigator />
+        <AppAlertHost />
       </AuthProvider>
     </QueryClientProvider>
   );

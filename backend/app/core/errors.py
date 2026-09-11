@@ -65,6 +65,10 @@ class UnprocessableError(AppError):
     status_code, code, message = 422, "UNPROCESSABLE", "The request could not be processed."
 
 
+class TooManyRequestsError(AppError):
+    status_code, code, message = 429, "RATE_LIMITED", "Too many requests. Please wait a moment and try again."
+
+
 class UpstreamError(AppError):
     """A third party (Cloudinary, Vision, FCM, Open Food Facts) failed us."""
 

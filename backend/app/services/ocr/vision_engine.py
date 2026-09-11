@@ -12,11 +12,12 @@ from __future__ import annotations
 
 import logging
 import time
+from dataclasses import dataclass
 from typing import Any
 
 from app.config import get_settings
 from app.services.ocr.base import OcrEngine, OcrResult, TextBlock
-from app.services.ocr.preprocess import prepare
+from app.services.ocr.preprocess import describe, prepare
 
 logger = logging.getLogger(__name__)
 
@@ -153,13 +154,84 @@ def _guess_category(labels: list[tuple[str, float]]) -> tuple[str | None, float 
     return None, None
 
 
-def identify_product(
-    image: bytes,
-) -> tuple[str | None, float | None, str | None, str | None, float | None]:
+# Real, legitimate brands confirmed missing from Google's own Logo Detection
+# database during testing - its training data skews toward globally
+# prominent brands, so a real local/regional brand can return zero logo
+# matches even printed clearly (MR DIY, a Malaysian retailer; Roma, an
+# Indonesian biscuit brand). This is a plain text fallback, not a
+# replacement for Logo Detection - it only ever fires when Logo Detection
+# already came up empty, and only ever matches a name someone has actually
+# added here after seeing it fail for real. Extend this list as more real
+# misses turn up; there's no way to grow it automatically.
+KNOWN_BRANDS: tuple[str, ...] = (
+    "MR DIY",
+    "Sunlight",
+    "Roma",
+)
+
+#: Lower than a real Logo Detection hit (which can reach 1.0) - this is a
+#: plain substring match against OCR text, not a verified visual detection,
+#: so callers that gate on confidence should treat it as a weaker signal.
+_KNOWN_BRAND_CONFIDENCE = 0.5
+
+
+def _match_known_brand(raw_text: str | None) -> tuple[str | None, float | None]:
+    if not raw_text:
+        return None, None
+    lowered = raw_text.lower()
+    for brand in KNOWN_BRANDS:
+        if brand.lower() in lowered:
+            return brand, _KNOWN_BRAND_CONFIDENCE
+    return None, None
+
+
+@dataclass
+class BoundingBox:
+    """A detected region, as fractions (0-1) of the image's width/height -
+    not pixels - so the client can position an overlay on the displayed
+    photo at any size/zoom without needing to know the original resolution.
+    """
+
+    x: float
+    y: float
+    width: float
+    height: float
+
+
+@dataclass
+class ProductIdentification:
+    brand: str | None = None
+    brand_confidence: float | None = None
+    raw_text: str | None = None
+    category_id: str | None = None
+    category_confidence: float | None = None
+    #: Where the detected logo actually sits in the photo, so the client can
+    #: draw a frame around it for the user to confirm. None whenever brand
+    #: is None - there is nothing to frame. Deliberately never populated for
+    #: "the product name": Vision detects text, not what that text means, so
+    #: there is no reliable region to point to the way there is for a logo.
+    brand_box: BoundingBox | None = None
+
+
+def _bounding_box(vertices: list[Any], image_width: int, image_height: int) -> BoundingBox | None:
+    if not vertices or not image_width or not image_height:
+        return None
+    xs = [v.x for v in vertices]
+    ys = [v.y for v in vertices]
+    x_min, x_max = min(xs), max(xs)
+    y_min, y_max = min(ys), max(ys)
+    return BoundingBox(
+        x=max(x_min / image_width, 0.0),
+        y=max(y_min / image_height, 0.0),
+        width=min((x_max - x_min) / image_width, 1.0),
+        height=min((y_max - y_min) / image_height, 1.0),
+    )
+
+
+def identify_product(image: bytes) -> ProductIdentification:
     """Best-effort brand + category identification from a photo of a
     product's own front/branding - a separate concern from reading an
-    expiry date. Returns (brand, brand_confidence, raw_text, category_id,
-    category_confidence).
+    expiry date.
 
     Logo Detection is precise when it hits: verified on a real product photo
     at 1.00 confidence, correctly naming the brand where plain OCR on the
@@ -180,30 +252,48 @@ def identify_product(
     """
     client = _load()
     if client is None:
-        return None, None, None, None, None
+        return ProductIdentification()
 
     try:
         from google.cloud import vision
 
-        request_image = vision.Image(content=prepare(image))
+        prepared = prepare(image)
+        request_image = vision.Image(content=prepared)
+        dimensions = describe(prepared)
+        image_width = int(dimensions.get("width") or 0)
+        image_height = int(dimensions.get("height") or 0)
 
         logo_response = client.logo_detection(image=request_image)
         brand: str | None = None
         brand_confidence: float | None = None
+        brand_box: BoundingBox | None = None
         if logo_response.logo_annotations:
             top = logo_response.logo_annotations[0]
             brand = top.description
             brand_confidence = float(top.score)
+            brand_box = _bounding_box(
+                list(top.bounding_poly.vertices), image_width, image_height
+            )
 
         text_response = client.document_text_detection(image=request_image)
         raw_text = (text_response.full_text_annotation.text or "").strip() or None
+
+        if brand is None:
+            brand, brand_confidence = _match_known_brand(raw_text)
 
         label_response = client.label_detection(image=request_image)
         labels = [(label.description, float(label.score)) for label in label_response.label_annotations]
         category_id, category_confidence = _guess_category(labels)
 
-        return brand, brand_confidence, raw_text, category_id, category_confidence
+        return ProductIdentification(
+            brand=brand,
+            brand_confidence=brand_confidence,
+            raw_text=raw_text,
+            category_id=category_id,
+            category_confidence=category_confidence,
+            brand_box=brand_box,
+        )
 
     except Exception:
         logger.exception("vision_identify_product_failed")
-        return None, None, None, None, None
+        return ProductIdentification()

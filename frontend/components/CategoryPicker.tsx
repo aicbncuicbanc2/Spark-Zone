@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { alert } from '../lib/alert';
 import { useCreateCategory } from '../lib/queries';
 import { colors } from '../lib/theme';
 import type { Category } from '../lib/types';
@@ -37,7 +38,7 @@ export function CategoryPicker({
           setNewLabel('');
           setIsCreating(false);
         },
-        onError: (error) => Alert.alert("Couldn't create category", (error as Error).message),
+        onError: (error) => alert("Couldn't create category", (error as Error).message),
       }
     );
   }

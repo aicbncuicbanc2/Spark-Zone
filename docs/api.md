@@ -37,7 +37,10 @@ backend verifies it against the project's public keys; there is no separate back
 
 Common codes: `AUTH_MISSING`, `AUTH_SCHEME`, `TOKEN_EXPIRED` (refresh and retry),
 `TOKEN_INVALID`, `VALIDATION_ERROR` (`details.fields` lists the offenders),
-`NOT_FOUND`, `PAYLOAD_TOO_LARGE`, `UPSTREAM_ERROR`, `INTERNAL_ERROR`.
+`NOT_FOUND`, `PAYLOAD_TOO_LARGE`, `UPSTREAM_ERROR`, `INTERNAL_ERROR`, `RATE_LIMITED`
+(429 — `POST /v1/scans`, its retry, and `POST /v1/products/identify-photo` only, since
+those are the endpoints that call billed Google Vision APIs; `details.limit` and
+`details.window_seconds` say the actual threshold. Wait a moment and retry.).
 
 **Request tracing.** Every response carries `X-Request-ID`. Send one and we echo it;
 include it when reporting a bug and it can be found in the server logs.
@@ -228,10 +231,15 @@ manufacture date. In the second case `extracted_expiry_date` is `null` even
 though a date was found — reporting a manufacture date as an expiry would tell
 the user their item expired months ago.
 
-When there is a genuine choice, `alternatives[]` carries the other readings with
-their confidence and an explanation, so the app can offer options instead of a
-guess. This is only ever populated once `status` has left `processing` — poll
-first, then read it.
+`alternatives[]` carries other candidate readings with their confidence and an
+explanation, so the app can offer options instead of a guess. It is also
+populated with a single entry when there is no genuine choice but
+`extracted_expiry_date` is still `null` for a reading that isn't a confirmed
+manufacture date (e.g. no EXP/MFG keyword was found near the date at all) —
+the app should offer that entry as a prefilled-but-unconfirmed value rather
+than leaving the field blank, filtering out any entry whose `date_type` is
+`"manufacture"` first. This is only ever populated once `status` has left
+`processing` — poll first, then read it.
 
 `DELETE /v1/scans/{id}` removes a scan and its stored image. Items created from
 it survive.
@@ -304,10 +312,28 @@ Upcoming schedule, so the app can show "we'll remind you on Friday".
   own front/branding (multipart `image`, same as `/v1/scans`). Synchronous, not
   async like scans — it only calls Vision, no local PaddleOCR, so it's
   consistently fast (~1-2s), never the 2-40s+ that motivated scans being async.
-  Returns `{brand, brand_confidence, raw_text, category_id, category_confidence}`.
+  Returns `{brand, brand_confidence, raw_text, category_id, category_confidence,
+  brand_box}`. `brand_box` is `{x, y, width, height}` as **fractions (0-1)** of
+  the photo's width/height, not pixels — multiply by the displayed image's
+  rendered size to draw a frame over the logo for the user to confirm. It is
+  `null` whenever `brand` is `null` (nothing to frame), and is never populated
+  for the product name itself — Vision detects text, not what that text means,
+  so there's no reliable region to point to the way there is for a logo.
   `brand` uses Logo Detection: precise when it hits (verified at 1.00 confidence
   on a real product) but inconsistent (a comparably well-known brand on a
-  different real product returned nothing). `category_id` is one of the ids from
+  different real product returned nothing) — Vision's logo database skews
+  toward globally prominent brands, so a real, legitimate local/regional one
+  (confirmed with MR DIY, a Malaysian retailer, and Roma, an Indonesian
+  biscuit brand) can return zero logo matches even printed clearly, with no
+  way to expand that database from our side. When Logo Detection misses,
+  `identify_product` falls back to a plain substring match of `raw_text`
+  against `vision_engine.KNOWN_BRANDS` — a short, manually curated list of
+  brands confirmed missing this way. A hit from this fallback reports
+  `brand_confidence: 0.5` (never as high as a real Logo Detection hit, since
+  it's a text match, not a verified visual one) and no `brand_box` (no
+  coordinates to frame). This only ever fixes a brand already added to that
+  list — extend it as more real misses turn up.
+  `category_id` is one of the ids from
   `GET /v1/categories`, guessed from Label Detection — a real, different signal
   from the brand/OCR path, verified on a real product photo (`Food`/`Chocolate`/
   `Junk food` all over 0.6 confidence, correctly mapped to `food`). Both are
@@ -331,5 +357,15 @@ Upcoming schedule, so the app can show "we'll remind you on Friday".
 
 Retail barcodes (EAN-13/UPC) **do not contain expiry dates**. The barcode gives us
 product identity (name, brand, category); the expiry date always comes from OCR of
-the printed text. Design the scan UI so both are captured in one photo where possible,
-and never promise "scan the barcode, get the expiry".
+the printed text. Never promise "scan the barcode, get the expiry" - the scan
+screen's copy deliberately doesn't ask the user to frame the barcode alongside the
+date either, since that's not what finds the date and only invites a photo of the
+barcode alone with no date in frame at all.
+
+Barcode detection and date parsing run concurrently against the same photo (see
+`_run_pipeline_and_persist` in `scans.py`), so a long run of barcode digits can
+occasionally get OCR'd and misread by the date parser as a day/month-shaped
+number - confirmed with a real barcode-only test image, which produced a false
+`2039-02-01` built from digits inside the barcode itself. `date_parser.
+discard_barcode_digits()` runs once both results are in and drops any date
+candidate built entirely from the detected barcode's own digits.

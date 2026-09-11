@@ -193,12 +193,29 @@ export type PatchItemInput = Partial<CreateItemInput>;
  * prominent OCR text block on a real test photo was a misread brand, so
  * parsing a name out of it here would risk the same silently-wrong guess.
  */
+/**
+ * Where the detected logo sits in the photo, as fractions (0-1) of its
+ * width/height — not pixels — so a frame can be drawn over the displayed
+ * image at any size without knowing the original resolution. Multiply by
+ * the rendered <Image>'s width/height to get on-screen position/size.
+ */
+export interface BrandBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface ProductIdentifyResponse {
   brand: string | null;
   brand_confidence: number | null;
   raw_text: string | null;
   category_id: string | null;
   category_confidence: number | null;
+  /** Null whenever brand is null — nothing to frame. Never populated for
+   * the product name itself; see backend/app/services/ocr/vision_engine.py
+   * for why that's not a reliable region to point to. */
+  brand_box: BrandBox | null;
 }
 
 export interface ApiErrorBody {
