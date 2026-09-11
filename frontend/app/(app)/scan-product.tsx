@@ -58,6 +58,7 @@ export default function ScanProductScreen() {
   const [previewUri, setPreviewUri] = useState<string | null>(null);
   const [brand, setBrand] = useState<string | null>(null);
   const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [rawText, setRawText] = useState<string | null>(null);
 
   const identifyMutation = useIdentifyProduct();
   const scanMutation = useCreateScan();
@@ -79,6 +80,7 @@ export default function ScanProductScreen() {
           // user still confirms/types everything on /add.
           setBrand(result.brand);
           setCategoryId(result.category_id);
+          setRawText(result.raw_text);
           setStep('date');
         },
         onError: (error) => {
@@ -171,6 +173,21 @@ export default function ScanProductScreen() {
                 ? `Got it: ${brand}. Now the printed expiry date.`
                 : "Couldn't identify the brand, that's okay — now the printed expiry date."}
           </Text>
+
+          {step === 'date' && !brand && rawText && (
+            // Brand detection misses often enough (it depends on Google's
+            // logo database, which doesn't cover every brand) that leaving
+            // the user with nothing is worse than a raw hint they can read
+            // and copy themselves — this is shown as-is, never auto-filled,
+            // since the same photo can also pick up unrelated background
+            // text from other products in frame.
+            <View style={styles.hintBox}>
+              <Text style={styles.hintLabel}>We also saw this text on the photo:</Text>
+              <Text style={styles.hintText} numberOfLines={4}>
+                {rawText}
+              </Text>
+            </View>
+          )}
 
           <Pressable style={styles.button} onPress={() => handlePick('camera')}>
             <Text style={styles.buttonText}>Take photo</Text>
@@ -267,6 +284,25 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginTop: 8,
     textAlign: 'center',
+  },
+  hintBox: {
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    padding: 12,
+    width: '100%',
+    marginBottom: 4,
+  },
+  hintLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textMuted,
+    marginBottom: 4,
+  },
+  hintText: {
+    fontSize: 13,
+    color: colors.navy,
   },
   button: {
     backgroundColor: colors.navy,
