@@ -1,7 +1,7 @@
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
-import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
@@ -102,6 +102,7 @@ function StepDots({ stageTwo }: { stageTwo: boolean }) {
 
 export default function ScanProductScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ source?: string }>();
   const [step, setStep] = useState<Step>('brand');
   const [previewUri, setPreviewUri] = useState<string | null>(null);
   const [previewAspectRatio, setPreviewAspectRatio] = useState(FALLBACK_ASPECT_RATIO);
@@ -243,6 +244,20 @@ export default function ScanProductScreen() {
     if (!asset) return;
     startFrameStep(asset, 'brand');
   }
+
+  // The Scan tab's "Take photo"/"Upload photo" buttons pass which source
+  // the user already chose, so tapping one opens the camera/library
+  // immediately instead of landing here and asking the same question
+  // again. Only ever fires once per visit - autoStartedRef survives
+  // re-renders without itself triggering one, unlike state.
+  const autoStartedRef = useRef(false);
+  useEffect(() => {
+    if (autoStartedRef.current) return;
+    if (params.source !== 'camera' && params.source !== 'library') return;
+    autoStartedRef.current = true;
+    handleBrandPhoto(params.source);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.source]);
 
   async function handleDatePhoto(source: 'camera' | 'library') {
     const asset = await pickImage(source);
