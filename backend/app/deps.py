@@ -10,6 +10,7 @@ from app.config import Settings, get_settings
 from app.core.errors import ForbiddenError, UnauthorizedError
 from app.core.security import CurrentUser, user_from_token
 from app.db.client import user_client
+from app.services import rate_limit
 from supabase import Client
 
 
@@ -64,6 +65,18 @@ async def require_internal_caller(
         raise ForbiddenError("Invalid internal secret.", code="INTERNAL_FORBIDDEN")
 
 
+async def enforce_vision_rate_limit(
+    current_user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> None:
+    """Guards every endpoint that calls Google Vision (a billed API):
+    POST /v1/scans, its retry, and /v1/products/identify-photo. Keyed by
+    user id, not IP - this is an authenticated API, and IP-keying would
+    unfairly throttle multiple real users behind the same NAT/campus wifi.
+    """
+    rate_limit.enforce(f"vision:{current_user.id}")
+
+
 CurrentUserDep = Annotated[CurrentUser, Depends(get_current_user)]
 UserDbDep = Annotated[Client, Depends(get_user_db)]
 SettingsDep = Annotated[Settings, Depends(settings_dep)]
+VisionRateLimitDep = Annotated[None, Depends(enforce_vision_rate_limit)]

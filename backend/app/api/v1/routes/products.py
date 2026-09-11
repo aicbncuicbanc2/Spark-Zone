@@ -10,7 +10,7 @@ from starlette.concurrency import run_in_threadpool
 
 from app.core.errors import NotFoundError
 from app.db.repositories import products as products_repo
-from app.deps import CurrentUserDep, UserDbDep
+from app.deps import CurrentUserDep, UserDbDep, VisionRateLimitDep
 from app.services import barcode as barcode_service
 from app.services.ocr import vision_engine
 from app.services.uploads import read_image_upload
@@ -114,6 +114,7 @@ class ProductPhotoResult(BaseModel):
 )
 async def identify_photo(
     user: CurrentUserDep,
+    _rate_limit: VisionRateLimitDep,
     image: Annotated[UploadFile, File(description="Photo of the product's front/branding")],
 ) -> ProductPhotoResult:
     """Best-effort only - for when there is no barcode, or /lookup missed.

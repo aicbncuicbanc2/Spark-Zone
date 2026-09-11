@@ -39,7 +39,7 @@ from app.core.errors import BadRequestError
 from app.db.repositories import products as products_repo
 from app.db.repositories import profiles as profiles_repo
 from app.db.repositories import scans as scans_repo
-from app.deps import CurrentUserDep, UserDbDep
+from app.deps import CurrentUserDep, UserDbDep, VisionRateLimitDep
 from app.schemas.scan import (
     DateCandidateOut,
     OcrEngineName,
@@ -286,6 +286,7 @@ def _to_response(row: dict) -> ScanOut:
 async def create_scan(
     user: CurrentUserDep,
     db: UserDbDep,
+    _rate_limit: VisionRateLimitDep,
     background_tasks: BackgroundTasks,
     image: Annotated[UploadFile, File(description="Photo of the label")],
 ) -> ScanOut:
@@ -349,6 +350,7 @@ async def retry_scan(
     scan_id: str,
     user: CurrentUserDep,
     db: UserDbDep,
+    _rate_limit: VisionRateLimitDep,
     background_tasks: BackgroundTasks,
     engine: Annotated[
         OcrEngineName | None,

@@ -37,7 +37,10 @@ backend verifies it against the project's public keys; there is no separate back
 
 Common codes: `AUTH_MISSING`, `AUTH_SCHEME`, `TOKEN_EXPIRED` (refresh and retry),
 `TOKEN_INVALID`, `VALIDATION_ERROR` (`details.fields` lists the offenders),
-`NOT_FOUND`, `PAYLOAD_TOO_LARGE`, `UPSTREAM_ERROR`, `INTERNAL_ERROR`.
+`NOT_FOUND`, `PAYLOAD_TOO_LARGE`, `UPSTREAM_ERROR`, `INTERNAL_ERROR`, `RATE_LIMITED`
+(429 — `POST /v1/scans`, its retry, and `POST /v1/products/identify-photo` only, since
+those are the endpoints that call billed Google Vision APIs; `details.limit` and
+`details.window_seconds` say the actual threshold. Wait a moment and retry.).
 
 **Request tracing.** Every response carries `X-Request-ID`. Send one and we echo it;
 include it when reporting a bug and it can be found in the server logs.

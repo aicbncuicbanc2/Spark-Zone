@@ -374,3 +374,35 @@ def test_retry_also_returns_202_processing_immediately(
     resp = client.post(f"/v1/scans/{created['scan_id']}/retry", headers=auth)
     assert resp.status_code == 202
     assert resp.json()["status"] == "processing"
+
+
+# --- rate limiting --------------------------------------------------------
+
+
+def test_create_scan_is_rate_limited_per_user(client, auth, monkeypatch) -> None:
+    """Real, end-to-end proof (not just the unit tests in
+    test_rate_limit.py) that a real request hits a real 429 once a real
+    user's limit is reached - this endpoint calls billed Vision APIs, so
+    this is the one thing standing between a scripted loop and a real bill.
+    """
+    import jwt as pyjwt
+
+    from app.services import rate_limit
+
+    token = auth["Authorization"].removeprefix("Bearer ")
+    user_id = pyjwt.decode(token, options={"verify_signature": False})["sub"]
+    key = f"vision:{user_id}"
+
+    original = list(rate_limit._recent_calls.get(key, []))
+    try:
+        # Fill the bucket directly rather than firing 20 real requests -
+        # the limiter itself is already unit-tested; this only needs to
+        # prove the dependency is actually wired into the real route.
+        rate_limit._recent_calls[key] = [rate_limit.time.monotonic()] * rate_limit.MAX_REQUESTS_PER_WINDOW
+        resp = client.post(
+            "/v1/scans", headers=auth, files={"image": ("l.jpg", _jpeg(), "image/jpeg")}
+        )
+        assert resp.status_code == 429
+        assert resp.json()["error"]["code"] == "RATE_LIMITED"
+    finally:
+        rate_limit._recent_calls[key] = original
