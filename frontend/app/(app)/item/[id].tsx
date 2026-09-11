@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 
 import { UrgencyBadge, urgencyLabel } from '../../../components/UrgencyBadge';
 import { alert } from '../../../lib/alert';
+import { exportToCalendar } from '../../../lib/ics';
 import { useCategories, useConsumeItem, useDiscardItem, useItem, usePatchItem } from '../../../lib/queries';
 import { colors } from '../../../lib/theme';
 
@@ -97,6 +98,17 @@ export default function ItemDetailScreen() {
           <Text style={styles.notes}>{item.notes}</Text>
         </View>
       )}
+
+      <Pressable
+        style={styles.calendarButton}
+        onPress={() =>
+          exportToCalendar([item], item.name).catch((error) =>
+            alert('Could not export', (error as Error).message)
+          )
+        }
+      >
+        <Text style={styles.calendarButtonText}>Add to Calendar</Text>
+      </Pressable>
 
       {item.status === 'active' ? (
         <View style={styles.actionRow}>
@@ -208,6 +220,18 @@ const styles = StyleSheet.create({
   notes: {
     fontStyle: 'italic',
     color: colors.textMuted,
+  },
+  calendarButton: {
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.navy,
+  },
+  calendarButtonText: {
+    color: colors.navy,
+    fontWeight: '600',
   },
   actionRow: {
     flexDirection: 'row',

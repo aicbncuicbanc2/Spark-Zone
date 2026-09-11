@@ -3,6 +3,8 @@ import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, T
 
 import { ItemRow } from '../../../components/ItemRow';
 import { useAuth } from '../../../contexts/AuthContext';
+import { alert } from '../../../lib/alert';
+import { exportToCalendar } from '../../../lib/ics';
 import { useDashboard } from '../../../lib/queries';
 import { colors } from '../../../lib/theme';
 import type { DashboardResponse } from '../../../lib/types';
@@ -59,7 +61,20 @@ export default function DashboardScreen() {
       </View>
       <Text style={styles.totalLabel}>{data.counts.total_active} active items</Text>
 
-      <Text style={styles.sectionTitle}>Expiring soon</Text>
+      <View style={styles.sectionHeaderRow}>
+        <Text style={styles.sectionTitle}>Expiring soon</Text>
+        {data.expiring_soon.length > 0 && (
+          <Pressable
+            onPress={() =>
+              exportToCalendar(data.expiring_soon, 'expiring-soon').catch((error) =>
+                alert('Could not export', (error as Error).message)
+              )
+            }
+          >
+            <Text style={styles.sectionAction}>Add all to Calendar</Text>
+          </Pressable>
+        )}
+      </View>
       {data.expiring_soon.length === 0 ? (
         <Text style={styles.empty}>Nothing urgent — nice.</Text>
       ) : (
@@ -134,13 +149,23 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 8,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginTop: 24,
     marginBottom: 8,
     paddingHorizontal: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
     color: colors.navy,
+  },
+  sectionAction: {
+    fontSize: 13,
+    color: colors.navy,
+    fontWeight: '600',
   },
   empty: {
     color: colors.textMuted,

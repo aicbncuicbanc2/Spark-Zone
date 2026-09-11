@@ -41,7 +41,8 @@
           "photosPermission": "Let Thyme access your photos so you can add a label photo.",
           "cameraPermission": "Let Thyme use your camera to photograph a product label."
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true
