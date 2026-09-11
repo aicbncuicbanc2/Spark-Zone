@@ -145,7 +145,7 @@ gcloud run deploy expiry-guardian-api `
   --cpu 2 `
   --timeout 300 `
   --set-env-vars "ENVIRONMENT=production" `
-  --set-secrets "SUPABASE_SERVICE_ROLE_KEY=supabase-service-role:latest"
+  --set-secrets "SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest"
 ```
 
 **Region: `asia-northeast1` (Tokyo), to match the Supabase project's
