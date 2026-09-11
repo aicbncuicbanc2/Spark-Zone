@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import hmac
 from typing import Annotated
 
-from fastapi import Depends, Header, Request
+from fastapi import Depends, Header
 
 from app.config import Settings, get_settings
 from app.core.errors import ForbiddenError, UnauthorizedError
@@ -41,27 +42,33 @@ async def get_user_db(
 
 
 async def require_internal_caller(
-    request: Request,
     x_internal_secret: Annotated[str | None, Header()] = None,
 ) -> None:
     """Guards /v1/internal/* routes.
 
-    In production these are called by Cloud Scheduler with an OIDC token, which
-    Cloud Run verifies before the request ever reaches us. The shared secret is a
-    second belt for local testing and for any non-GCP caller.
+    Cloud Scheduler is configured to send X-Internal-Secret directly (see the
+    job's httpTarget.headers) - this is the only real check. An earlier
+    version of this function also trusted a request carrying an
+    "x-goog-authenticated-user-email" header, reasoning that Cloud Run
+    attaches it after verifying an OIDC token. That reasoning only holds for
+    a service that requires authentication at the Cloud Run/IAM layer; this
+    one is deployed with `--allow-unauthenticated` (roles/run.invoker granted
+    to allUsers), so every request reaches this code directly from the
+    internet with no Google-verified identity in front of it - meaning that
+    header was never actually verified by anything and any external caller
+    could set it themselves to skip the secret check entirely. Removed
+    rather than fixed differently, since Cloud Scheduler doesn't rely on it.
     """
     settings = get_settings()
-
-    # Cloud Run puts the verified OIDC identity here after it validates the token.
-    if request.headers.get("x-goog-authenticated-user-email"):
-        return
 
     if not settings.internal_sweep_secret:
         raise ForbiddenError(
             "INTERNAL_SWEEP_SECRET is not configured; refusing internal call.",
             code="INTERNAL_NOT_CONFIGURED",
         )
-    if x_internal_secret != settings.internal_sweep_secret:
+    if not x_internal_secret or not hmac.compare_digest(
+        x_internal_secret, settings.internal_sweep_secret
+    ):
         raise ForbiddenError("Invalid internal secret.", code="INTERNAL_FORBIDDEN")
 
 

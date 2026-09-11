@@ -291,6 +291,20 @@ def test_sweep_requires_the_internal_secret(client) -> None:
 
 
 @api
+def test_sweep_ignores_a_spoofed_google_header(client) -> None:
+    """The service is deployed with --allow-unauthenticated (roles/run.invoker
+    granted to allUsers - confirmed against the live Cloud Run IAM policy),
+    so nothing upstream ever verifies or strips this header before a request
+    reaches the app. Any external caller can set it themselves; it must never
+    substitute for the real secret."""
+    resp = client.post(
+        "/v1/internal/reminders/sweep",
+        headers={"X-Goog-Authenticated-User-Email": "accounts.google.com:attacker@example.com"},
+    )
+    assert resp.status_code == 403
+
+
+@api
 def test_sweep_runs_and_reports(client) -> None:
     if not settings.internal_sweep_secret:
         pytest.skip("INTERNAL_SWEEP_SECRET not configured")
