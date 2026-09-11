@@ -25,7 +25,6 @@ type ScanParams = {
   needs_review?: string;
   review_reason?: string;
   alternatives?: string;
-  brand_mismatch?: string;
 };
 
 export default function AddItemScreen() {
@@ -82,17 +81,6 @@ export default function AddItemScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {params.brand_mismatch === '1' && (
-        <View style={styles.warningBanner}>
-          <Text style={styles.warningBannerTitle}>Check this is the right product</Text>
-          <Text style={styles.warningBannerText}>
-            {params.brand
-              ? `The expiry date photo didn't seem to mention "${params.brand}" — make sure it's from the same product before saving.`
-              : "The expiry date photo didn't seem to match the product you scanned — make sure it's from the same product before saving."}
-          </Text>
-        </View>
-      )}
-
       {params.needs_review === '1' && (
         <View style={styles.reviewBanner}>
           <Text style={styles.reviewBannerTitle}>Confirm this date</Text>
@@ -188,23 +176,6 @@ const styles = StyleSheet.create({
   reviewBannerText: {
     fontSize: 13,
     color: '#7a6108',
-  },
-  warningBanner: {
-    backgroundColor: '#fdecea',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 8,
-    gap: 4,
-    borderWidth: 1,
-    borderColor: colors.danger,
-  },
-  warningBannerTitle: {
-    fontWeight: '700',
-    color: colors.danger,
-  },
-  warningBannerText: {
-    fontSize: 13,
-    color: '#8a2e24',
   },
   label: {
     fontSize: 13,

@@ -70,28 +70,6 @@ function initialCropRect(displayWidth: number, displayHeight: number, target: Fr
   return { x: (displayWidth - width) / 2, y: (displayHeight - height) / 2, width, height };
 }
 
-/**
- * Whether the date photo's OCR text plausibly mentions the identified
- * brand. Deliberately loose, not an exact match: real testing on a genuine
- * Sunlight bottle returned raw_text starting "Su\n120726..." - OCR had
- * truncated "Sunlight" down to "Su" - so requiring the full brand name as
- * a substring flagged an honest, correctly-matched scan as a mismatch.
- * Treating any sufficiently-long word in the text that is a prefix of the
- * brand (or vice versa) as a match absorbs that kind of truncation. This
- * is deliberately generous toward "probably fine" - the check exists to
- * catch an honest wrong-product mix-up, not to defeat a determined
- * prankster, and a false "retake this" on a real, correct scan is worse
- * than an occasional false negative.
- */
-function looksLikeSameProduct(rawText: string, brandName: string): boolean {
-  const brand = brandName.trim().toLowerCase();
-  if (!brand) return true;
-  const text = rawText.toLowerCase();
-  if (text.includes(brand)) return true;
-  const words = text.split(/[^a-z0-9]+/).filter((word) => word.length >= 2);
-  return words.some((word) => brand.startsWith(word) || word.startsWith(brand));
-}
-
 async function pickImage(source: 'camera' | 'library') {
   const permission =
     source === 'camera'
@@ -154,7 +132,7 @@ export default function ScanProductScreen() {
     setFrameTarget(null);
   }
 
-  function goToAddScreen(scan: ScanResponse, options?: { mismatchWarning?: boolean }) {
+  function goToAddScreen(scan: ScanResponse) {
     // extracted_expiry_date is deliberately null whenever the OCR reading
     // can't be confirmed as an expiry (no EXP/MFG keyword found near it at
     // all - common once the crop step above is tight around just the
@@ -181,13 +159,6 @@ export default function ScanProductScreen() {
         needs_review: scan.needs_review ? '1' : '0',
         review_reason: scan.review_reason ?? '',
         alternatives: JSON.stringify(scan.alternatives.map((a) => a.value)),
-        // A separate flag from needs_review - that one is about how
-        // confidently the date itself was read; this one is about whether
-        // the two photos even seem to be the same product. Carried through
-        // as a banner on /add rather than just the one-time alert, so
-        // choosing "Continue anyway" doesn't make the concern disappear
-        // the moment the dialog closes.
-        brand_mismatch: options?.mismatchWarning ? '1' : '0',
       },
     });
   }
@@ -233,33 +204,6 @@ export default function ScanProductScreen() {
                 [
                   { text: 'Try again', style: 'cancel' },
                   { text: 'Add manually', onPress: () => router.push('/add') },
-                ]
-              );
-              return;
-            }
-
-            // Nothing else stops someone scanning one product's brand in
-            // step 1 and a completely different product's date in step 2,
-            // silently combining the two into one wrong item. This can't
-            // be proven with certainty - a genuine date sticker often
-            // doesn't print the brand name at all - so it's a warning the
-            // user can override, not a hard block. It fires again on every
-            // mismatched attempt (there's no "already warned" bookkeeping
-            // here) rather than only once, since dismissing the warning
-            // once isn't the same as actually fixing the photo.
-            const brandMismatch = !!brand && !!scan.raw_text && !looksLikeSameProduct(scan.raw_text, brand);
-
-            if (brandMismatch) {
-              alert(
-                'Does this match?',
-                `This photo doesn't seem to mention "${brand}" — make sure it's the expiry date from the same product.`,
-                [
-                  { text: 'Retake photo', onPress: () => setStep('date') },
-                  {
-                    text: 'Continue anyway',
-                    style: 'cancel',
-                    onPress: () => goToAddScreen(scan, { mismatchWarning: true }),
-                  },
                 ]
               );
               return;
