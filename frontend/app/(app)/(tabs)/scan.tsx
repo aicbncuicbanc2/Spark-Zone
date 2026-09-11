@@ -111,7 +111,7 @@ export default function ScanScreen() {
             <Text style={[styles.buttonText, styles.secondaryButtonText]}>Choose from library</Text>
           </Pressable>
           <Pressable style={styles.manualLink} onPress={() => router.push('/scan-product')}>
-            <Text style={styles.manualLinkText}>No barcode or date on this side? Scan brand + date (2 photos)</Text>
+            <Text style={styles.manualLinkText}>No date on this side? Scan brand + date (2 photos)</Text>
           </Pressable>
           <Pressable style={styles.manualLink} onPress={() => router.push('/add')}>
             <Text style={styles.manualLinkText}>Or add manually</Text>
