@@ -57,10 +57,13 @@ function computeDisplayBox(imageWidth: number, imageHeight: number) {
 }
 
 function initialCropRect(displayWidth: number, displayHeight: number, target: FrameTarget): CropRect {
-  // A printed expiry date is usually one short line, so start wide and
-  // short; product name/branding usually needs more of the front panel.
+  // A printed date line usually reads "EXP 22/12/2027" or similar - the
+  // label and the digits together, not just the digits. Starting the date
+  // frame taller than a single tight text line leaves room for that label
+  // to already be inside it, since a date read with no label at all can't
+  // be told apart from a manufacture date and won't auto-fill the form.
   const widthFraction = 0.85;
-  const heightFraction = target === 'date' ? 0.25 : 0.5;
+  const heightFraction = target === 'date' ? 0.35 : 0.5;
   const width = displayWidth * widthFraction;
   const height = displayHeight * heightFraction;
   return { x: (displayWidth - width) / 2, y: (displayHeight - height) / 2, width, height };
@@ -173,6 +176,16 @@ export default function ScanProductScreen() {
               return;
             }
 
+            // extracted_expiry_date is deliberately null whenever the OCR
+            // reading can't be confirmed as an expiry (no EXP/MFG keyword
+            // found near it at all - common once the crop step above is
+            // tight around just the digits). That's still a real date the
+            // backend found, just not one it will silently promote - fall
+            // back to it here (never to a "manufacture" one, which is a
+            // confirmed non-expiry) so the field isn't left blank, with
+            // needs_review carrying the "please confirm this" flag through.
+            const fallbackDate = scan.alternatives.find((a) => a.date_type !== 'manufacture')?.value;
+
             router.push({
               pathname: '/add',
               params: {
@@ -185,7 +198,7 @@ export default function ScanProductScreen() {
                 name: brand ?? scan.suggested_item?.name ?? '',
                 brand: brand ?? scan.suggested_item?.brand ?? '',
                 category_id: categoryId ?? scan.suggested_item?.category_id ?? '',
-                expiry_date: scan.extracted_expiry_date ?? '',
+                expiry_date: scan.extracted_expiry_date ?? fallbackDate ?? '',
                 needs_review: scan.needs_review ? '1' : '0',
                 review_reason: scan.review_reason ?? '',
                 alternatives: JSON.stringify(scan.alternatives.map((a) => a.value)),
@@ -300,8 +313,9 @@ export default function ScanProductScreen() {
             {isDate ? 'Drag the frame over the expiry date' : 'Drag the frame over the name and brand'}
           </Text>
           <Text style={styles.body}>
-            Move and resize it so it covers just {isDate ? 'the printed date' : 'the product name and logo'} —
-            only what's inside gets scanned.
+            {isDate
+              ? "Move and resize it so it covers the date together with any label next to it, like \"EXP\" or \"MFG\" — not just the digits. Only what's inside gets scanned."
+              : "Move and resize it so it covers just the product name and logo — only what's inside gets scanned."}
           </Text>
 
           <View style={[styles.frameImageWrap, { width: displaySize.width, height: displaySize.height }]}>

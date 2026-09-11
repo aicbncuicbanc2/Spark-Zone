@@ -231,10 +231,15 @@ manufacture date. In the second case `extracted_expiry_date` is `null` even
 though a date was found — reporting a manufacture date as an expiry would tell
 the user their item expired months ago.
 
-When there is a genuine choice, `alternatives[]` carries the other readings with
-their confidence and an explanation, so the app can offer options instead of a
-guess. This is only ever populated once `status` has left `processing` — poll
-first, then read it.
+`alternatives[]` carries other candidate readings with their confidence and an
+explanation, so the app can offer options instead of a guess. It is also
+populated with a single entry when there is no genuine choice but
+`extracted_expiry_date` is still `null` for a reading that isn't a confirmed
+manufacture date (e.g. no EXP/MFG keyword was found near the date at all) —
+the app should offer that entry as a prefilled-but-unconfirmed value rather
+than leaving the field blank, filtering out any entry whose `date_type` is
+`"manufacture"` first. This is only ever populated once `status` has left
+`processing` — poll first, then read it.
 
 `DELETE /v1/scans/{id}` removes a scan and its stored image. Items created from
 it survive.

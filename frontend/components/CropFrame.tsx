@@ -11,9 +11,12 @@ export interface CropRect {
 }
 
 const HANDLE_SIZE = 28;
+// A corner is "grabbed" if the touch lands within this radius of it - bigger
+// than the visible dot so a finger doesn't need pixel-perfect placement.
+const HANDLE_HIT_RADIUS = 34;
 const MIN_SIZE = 40;
 
-type Corner = 'tl' | 'tr' | 'bl' | 'br' | 'body';
+type Mode = 'move' | 'tl' | 'tr' | 'bl' | 'br';
 
 /**
  * A draggable, resizable rectangle over an already-sized image display area.
@@ -21,10 +24,13 @@ type Corner = 'tl' | 'tr' | 'bl' | 'br' | 'body';
  * (not the original photo's pixels, and not a percentage) - the caller
  * converts to/from the original photo's resolution when it actually crops.
  *
- * Everything the pan handlers read (bounds, the live rect, onChange) comes
- * through refs rather than closure captures: each PanResponder is built once
- * via useRef so a fast drag can never act on a stale value from the render
- * that first created it.
+ * One PanResponder covers the whole display box, rather than one per corner
+ * handle nested inside a moveable body view: real device testing found that
+ * a child handle's own PanResponder, nested inside a parent view that also
+ * has one, doesn't reliably win the touch over the parent - resize never
+ * fired, only move did. A single responder that decides "move a corner or
+ * move the whole box" from where the gesture *started* (see pickMode below)
+ * has no parent/child to negotiate between, so it can't lose that fight.
  */
 export function CropFrame({
   displayWidth,
@@ -44,6 +50,7 @@ export function CropFrame({
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   const startRef = useRef<CropRect>(rect);
+  const modeRef = useRef<Mode>('move');
 
   function clamp(next: CropRect): CropRect {
     const { displayWidth, displayHeight } = boundsRef.current;
@@ -54,51 +61,69 @@ export function CropFrame({
     return { x, y, width, height };
   }
 
-  function makeResponder(corner: Corner) {
-    return useRef(
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder: () => true,
-        onPanResponderGrant: () => {
-          startRef.current = rectRef.current;
-        },
-        onPanResponderMove: (_evt: GestureResponderEvent, gesture: PanResponderGestureState) => {
-          const start = startRef.current;
-          let { x, y, width, height } = start;
-          if (corner === 'body') {
-            x = start.x + gesture.dx;
-            y = start.y + gesture.dy;
-          } else if (corner === 'tl') {
-            x = start.x + gesture.dx;
-            y = start.y + gesture.dy;
-            width = start.width - gesture.dx;
-            height = start.height - gesture.dy;
-          } else if (corner === 'tr') {
-            y = start.y + gesture.dy;
-            width = start.width + gesture.dx;
-            height = start.height - gesture.dy;
-          } else if (corner === 'bl') {
-            x = start.x + gesture.dx;
-            width = start.width - gesture.dx;
-            height = start.height + gesture.dy;
-          } else {
-            width = start.width + gesture.dx;
-            height = start.height + gesture.dy;
-          }
-          onChangeRef.current(clamp({ x, y, width, height }));
-        },
-      })
-    ).current;
+  function pickMode(localX: number, localY: number, start: CropRect): Mode {
+    const corners: Array<[Mode, number, number]> = [
+      ['tl', start.x, start.y],
+      ['tr', start.x + start.width, start.y],
+      ['bl', start.x, start.y + start.height],
+      ['br', start.x + start.width, start.y + start.height],
+    ];
+    for (const [mode, cx, cy] of corners) {
+      const dx = localX - cx;
+      const dy = localY - cy;
+      if (dx * dx + dy * dy <= HANDLE_HIT_RADIUS * HANDLE_HIT_RADIUS) return mode;
+    }
+    return 'move';
   }
 
-  const body = makeResponder('body');
-  const tl = makeResponder('tl');
-  const tr = makeResponder('tr');
-  const bl = makeResponder('bl');
-  const br = makeResponder('br');
+  const responder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: (evt: GestureResponderEvent) => {
+        const start = rectRef.current;
+        startRef.current = start;
+        // locationX/Y are relative to this view (it exactly covers the
+        // display box), so they land in the same coordinate space as rect.
+        const { locationX, locationY } = evt.nativeEvent;
+        modeRef.current = pickMode(locationX, locationY, start);
+      },
+      onPanResponderMove: (_evt: GestureResponderEvent, gesture: PanResponderGestureState) => {
+        const start = startRef.current;
+        let { x, y, width, height } = start;
+        switch (modeRef.current) {
+          case 'move':
+            x = start.x + gesture.dx;
+            y = start.y + gesture.dy;
+            break;
+          case 'tl':
+            x = start.x + gesture.dx;
+            y = start.y + gesture.dy;
+            width = start.width - gesture.dx;
+            height = start.height - gesture.dy;
+            break;
+          case 'tr':
+            y = start.y + gesture.dy;
+            width = start.width + gesture.dx;
+            height = start.height - gesture.dy;
+            break;
+          case 'bl':
+            x = start.x + gesture.dx;
+            width = start.width - gesture.dx;
+            height = start.height + gesture.dy;
+            break;
+          case 'br':
+            width = start.width + gesture.dx;
+            height = start.height + gesture.dy;
+            break;
+        }
+        onChangeRef.current(clamp({ x, y, width, height }));
+      },
+    })
+  ).current;
 
   return (
-    <>
+    <View {...responder.panHandlers} style={StyleSheet.absoluteFill}>
       {/* Darkens everything outside the frame, built from 4 plain rectangles
           since React Native has no clip-path/mask-with-a-hole primitive. */}
       <View pointerEvents="none" style={[styles.mask, { left: 0, top: 0, right: 0, height: rect.y }]} />
@@ -113,15 +138,15 @@ export function CropFrame({
       />
 
       <View
-        {...body.panHandlers}
+        pointerEvents="none"
         style={[styles.frame, { left: rect.x, top: rect.y, width: rect.width, height: rect.height }]}
       >
-        <View {...tl.panHandlers} style={[styles.handle, styles.handleTL]} />
-        <View {...tr.panHandlers} style={[styles.handle, styles.handleTR]} />
-        <View {...bl.panHandlers} style={[styles.handle, styles.handleBL]} />
-        <View {...br.panHandlers} style={[styles.handle, styles.handleBR]} />
+        <View style={[styles.handle, styles.handleTL]} />
+        <View style={[styles.handle, styles.handleTR]} />
+        <View style={[styles.handle, styles.handleBL]} />
+        <View style={[styles.handle, styles.handleBR]} />
       </View>
-    </>
+    </View>
   );
 }
 

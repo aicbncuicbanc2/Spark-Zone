@@ -220,6 +220,31 @@ def test_manufacture_only_returns_needs_review_and_no_expiry(
     assert "manufacture" in body["review_reason"].lower()
 
 
+def test_unlabelled_date_is_prefillable_via_alternatives(
+    client, auth, monkeypatch, _cleanup
+) -> None:
+    """A date with no EXP/MFG keyword nearby (e.g. a tightly-cropped photo of
+    just the digits) is a real reading the OCR found, just not one the
+    backend will silently promote to extracted_expiry_date - it must still
+    reach the client through alternatives so the app can prefill it as an
+    unconfirmed value rather than leaving the field blank."""
+    _stub(
+        monkeypatch,
+        value=date(2027, 12, 22),
+        date_type=DateType.UNKNOWN,
+        needs_review=True,
+        reason="A date was found but it is not labelled as an expiry date. Please confirm it.",
+    )
+    body = _scan(client, auth)
+    _cleanup.append(body["scan_id"])
+
+    assert body["status"] == "needs_review"
+    assert body["extracted_expiry_date"] is None
+    assert len(body["alternatives"]) == 1
+    assert body["alternatives"][0]["value"] == "2027-12-22"
+    assert body["alternatives"][0]["date_type"] == "unknown"
+
+
 def test_ambiguous_date_returns_alternatives(client, auth, monkeypatch, _cleanup) -> None:
     _stub(
         monkeypatch,

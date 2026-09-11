@@ -146,9 +146,15 @@ async def _run_pipeline_and_persist(
         date_type = parsed.best.date_type.value if parsed and parsed.best else None
 
         alternatives: list[dict] = []
-        if parsed and parsed.needs_review and len(parsed.candidates) > 1:
-            # Only worth persisting when there is a real choice to show -
-            # otherwise every scan would carry a redundant one-item list.
+        if parsed and parsed.needs_review and parsed.candidates:
+            # Populated even for a single candidate: an unlabelled date (no
+            # EXP/MFG keyword nearby - common once a client crops tightly to
+            # just the printed digits) is deliberately kept out of
+            # extracted_expiry_date, since it can't be told apart from a
+            # manufacture date. Without this, that reading was completely
+            # invisible to the client even though OCR genuinely found it -
+            # surfacing it here lets the app prefill /add with a value the
+            # user still has to confirm, instead of leaving the field blank.
             alternatives = [
                 {
                     "value": c.value.isoformat(),
