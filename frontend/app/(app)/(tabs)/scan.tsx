@@ -3,7 +3,6 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Image,
   Pressable,
   StyleSheet,
@@ -11,6 +10,7 @@ import {
   View,
 } from 'react-native';
 
+import { alert } from '../../../lib/alert';
 import { useCreateScan } from '../../../lib/queries';
 import { colors } from '../../../lib/theme';
 
@@ -21,7 +21,7 @@ async function pickImage(source: 'camera' | 'library') {
       : await ImagePicker.requestMediaLibraryPermissionsAsync();
 
   if (!permission.granted) {
-    Alert.alert('Permission needed', `Allow ${source === 'camera' ? 'camera' : 'photo library'} access to scan a label.`);
+    alert('Permission needed', `Allow ${source === 'camera' ? 'camera' : 'photo library'} access to scan a label.`);
     return null;
   }
 
@@ -50,7 +50,7 @@ export default function ScanScreen() {
         onSuccess: (scan) => {
           setPreviewUri(null);
           if (scan.status === 'failed') {
-            Alert.alert(
+            alert(
               'Could not read that label',
               scan.error_detail ?? 'Try a clearer, well-lit photo, or add the item manually.',
               [
@@ -80,7 +80,7 @@ export default function ScanScreen() {
         },
         onError: (error) => {
           setPreviewUri(null);
-          Alert.alert('Scan failed', (error as Error).message);
+          alert('Scan failed', (error as Error).message);
         },
       }
     );

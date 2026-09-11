@@ -4,7 +4,6 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Dimensions,
   Image,
   Pressable,
@@ -15,6 +14,7 @@ import {
 } from 'react-native';
 
 import { CropFrame, type CropRect } from '../../components/CropFrame';
+import { alert } from '../../lib/alert';
 import { useCreateScan, useIdentifyProduct } from '../../lib/queries';
 import { colors } from '../../lib/theme';
 import type { ScanResponse } from '../../lib/types';
@@ -70,6 +70,28 @@ function initialCropRect(displayWidth: number, displayHeight: number, target: Fr
   return { x: (displayWidth - width) / 2, y: (displayHeight - height) / 2, width, height };
 }
 
+/**
+ * Whether the date photo's OCR text plausibly mentions the identified
+ * brand. Deliberately loose, not an exact match: real testing on a genuine
+ * Sunlight bottle returned raw_text starting "Su\n120726..." - OCR had
+ * truncated "Sunlight" down to "Su" - so requiring the full brand name as
+ * a substring flagged an honest, correctly-matched scan as a mismatch.
+ * Treating any sufficiently-long word in the text that is a prefix of the
+ * brand (or vice versa) as a match absorbs that kind of truncation. This
+ * is deliberately generous toward "probably fine" - the check exists to
+ * catch an honest wrong-product mix-up, not to defeat a determined
+ * prankster, and a false "retake this" on a real, correct scan is worse
+ * than an occasional false negative.
+ */
+function looksLikeSameProduct(rawText: string, brandName: string): boolean {
+  const brand = brandName.trim().toLowerCase();
+  if (!brand) return true;
+  const text = rawText.toLowerCase();
+  if (text.includes(brand)) return true;
+  const words = text.split(/[^a-z0-9]+/).filter((word) => word.length >= 2);
+  return words.some((word) => brand.startsWith(word) || word.startsWith(brand));
+}
+
 async function pickImage(source: 'camera' | 'library') {
   const permission =
     source === 'camera'
@@ -77,7 +99,7 @@ async function pickImage(source: 'camera' | 'library') {
       : await ImagePicker.requestMediaLibraryPermissionsAsync();
 
   if (!permission.granted) {
-    Alert.alert('Permission needed', `Allow ${source === 'camera' ? 'camera' : 'photo library'} access to take a photo.`);
+    alert('Permission needed', `Allow ${source === 'camera' ? 'camera' : 'photo library'} access to take a photo.`);
     return null;
   }
 
@@ -194,7 +216,7 @@ export default function ScanProductScreen() {
           onSuccess: applyBrandResult,
           onError: (error) => {
             setPreviewUri(null);
-            Alert.alert('Could not read that photo', (error as Error).message);
+            alert('Could not read that photo', (error as Error).message);
           },
         }
       );
@@ -205,7 +227,7 @@ export default function ScanProductScreen() {
           onSuccess: (scan) => {
             setPreviewUri(null);
             if (scan.status === 'failed') {
-              Alert.alert(
+              alert(
                 'Could not read that label',
                 scan.error_detail ?? 'Try a clearer, well-lit photo, or add the item manually.',
                 [
@@ -225,11 +247,10 @@ export default function ScanProductScreen() {
             // mismatched attempt (there's no "already warned" bookkeeping
             // here) rather than only once, since dismissing the warning
             // once isn't the same as actually fixing the photo.
-            const brandMismatch =
-              !!brand && !!scan.raw_text && !scan.raw_text.toLowerCase().includes(brand.toLowerCase());
+            const brandMismatch = !!brand && !!scan.raw_text && !looksLikeSameProduct(scan.raw_text, brand);
 
             if (brandMismatch) {
-              Alert.alert(
+              alert(
                 'Does this match?',
                 `This photo doesn't seem to mention "${brand}" — make sure it's the expiry date from the same product.`,
                 [
@@ -248,7 +269,7 @@ export default function ScanProductScreen() {
           },
           onError: (error) => {
             setPreviewUri(null);
-            Alert.alert('Scan failed', (error as Error).message);
+            alert('Scan failed', (error as Error).message);
           },
         }
       );
@@ -332,7 +353,7 @@ export default function ScanProductScreen() {
       });
     } catch (error) {
       setPreviewUri(null);
-      Alert.alert('Could not read that photo', (error as Error).message);
+      alert('Could not read that photo', (error as Error).message);
     } finally {
       setIsCropping(false);
     }

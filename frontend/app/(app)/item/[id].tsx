@@ -1,7 +1,8 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { UrgencyBadge, urgencyLabel } from '../../../components/UrgencyBadge';
+import { alert } from '../../../lib/alert';
 import { useCategories, useConsumeItem, useDiscardItem, useItem, usePatchItem } from '../../../lib/queries';
 import { colors } from '../../../lib/theme';
 
@@ -112,7 +113,7 @@ export default function ItemDetailScreen() {
             style={[styles.actionButton, styles.discardButton]}
             disabled={consumeMutation.isPending || discardMutation.isPending}
             onPress={() =>
-              Alert.alert('Bin this item?', `"${item.name}" will be marked as discarded.`, [
+              alert('Bin this item?', `"${item.name}" will be marked as discarded.`, [
                 { text: 'Cancel', style: 'cancel' },
                 {
                   text: 'Bin it',
