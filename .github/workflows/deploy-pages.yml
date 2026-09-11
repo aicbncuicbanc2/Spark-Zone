@@ -1,0 +1,92 @@
+name: Deploy web build to GitHub Pages
+
+# Moved off Netlify: its free tier's 300 monthly credits (15 credits per
+# production deploy) got exhausted by normal iteration well before the
+# hackathon deadline, and the next reset (Oct 8) falls after it. GitHub
+# Pages has no such limit and reuses the same GitHub account/repo - no new
+# service, no new credentials.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/deploy-pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      # Same public values frontend/.env uses locally - the Supabase anon
+      # key is the RLS-protected publishable key, safe to ship in a client
+      # bundle (see frontend/.env's own comment). Nothing secret here.
+      EXPO_PUBLIC_API_BASE_URL: https://expiry-guardian-api-joepgih4la-an.a.run.app
+      EXPO_PUBLIC_SUPABASE_URL: https://vrdanstqtiuqtdfychcr.supabase.co
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_KHO1yoGo9V9JLV8FSbWuqg_vCe85yyF
+      EXPO_PUBLIC_USE_MOCKS: "false"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+
+      - name: Set the web export's base path for GitHub Pages' subpath
+        # GitHub Pages serves a project site at /<repo-name>/, not the
+        # domain root (unlike Netlify) - every asset/route reference must
+        # be prefixed to match, or the deployed bundle 404s on its own JS.
+        # Patches the checked-out app.json in this ephemeral runner only;
+        # never committed, so the Netlify build (root-served) is unaffected.
+        run: |
+          node -e "
+            const fs = require('fs');
+            const config = JSON.parse(fs.readFileSync('app.json', 'utf8'));
+            config.expo.experiments.baseUrl = '/${{ github.event.repository.name }}';
+            fs.writeFileSync('app.json', JSON.stringify(config, null, 2));
+          "
+
+      - run: npx expo export --platform web
+
+      - name: Add the SPA fallback GitHub Pages needs
+        # This is a client-side-routed single page app (one index.html,
+        # Expo Router handles navigation in JS) - a hard refresh or direct
+        # link to a deep route otherwise 404s, the same issue already fixed
+        # for Netlify via netlify.toml's redirect. GitHub Pages has no
+        # server-side rewrite config at all; its documented workaround is
+        # serving a 404.html with the same content as index.html, so the
+        # client-side router still boots and reads the real route from the
+        # URL - the response is technically a 404 status, but the page
+        # renders correctly regardless.
+        run: cp dist/index.html dist/404.html
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/deploy-pages@v4
+        id: deployment
