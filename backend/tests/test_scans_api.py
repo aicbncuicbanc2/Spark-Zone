@@ -220,6 +220,67 @@ def test_manufacture_only_returns_needs_review_and_no_expiry(
     assert "manufacture" in body["review_reason"].lower()
 
 
+def test_a_date_built_from_the_scanned_barcode_is_discarded(
+    client, auth, monkeypatch, _cleanup
+) -> None:
+    """End-to-end regression for a real bug: scanning an image containing
+    only a barcode (no printed date at all) produced a false expiry date
+    built from digits inside the barcode's own OCR text. Stubs both the OCR
+    pipeline (returning a "date" whose raw text is a barcode-digit
+    fragment) and barcode detection (returning that same barcode) so the
+    two run concurrently exactly as they do for a real request, then checks
+    the route's post-processing actually drops it."""
+    from app.services import barcode as barcode_service
+    from app.services.date_parser import DateCandidate
+
+    barcode = "1321412341239"
+    candidate = DateCandidate(
+        value=date(2039, 2, 1),
+        date_type=DateType.UNKNOWN,
+        confidence=0.75,
+        raw="1 2 39",
+        start=0,
+        end=6,
+        notes=("day and month both <= 12; assumed DD/MM", "no keyword found near this date"),
+    )
+    result = pipeline.PipelineResult(
+        ocr=OcrResult(
+            engine=OcrEngine.PADDLEOCR,
+            blocks=[TextBlock("13 21 4 1 2 3 4 1 2 39", 0.97, (0, 0, 10, 10))],
+            duration_ms=12,
+        ),
+        parsed=ParseResult(
+            best=candidate,
+            candidates=[candidate],
+            needs_review=True,
+            review_reason="A date was found but it is not labelled as an expiry date. Please confirm it.",
+        ),
+        attempts=[
+            pipeline.Attempt(
+                engine=OcrEngine.PADDLEOCR, succeeded=True, ocr_confidence=0.97,
+                date_found=True, duration_ms=12,
+            )
+        ],
+    )
+    monkeypatch.setattr(pipeline, "run", lambda *a, **k: result)
+    monkeypatch.setattr(
+        barcode_service, "best_product_code",
+        lambda *a, **k: barcode_service.DecodedBarcode(value=barcode, symbology="EAN13"),
+    )
+    async def _no_lookup(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr(barcode_service, "lookup_open_food_facts", _no_lookup)
+
+    body = _scan(client, auth)
+    _cleanup.append(body["scan_id"])
+
+    assert body["detected_barcode"] == barcode
+    assert body["extracted_expiry_date"] is None
+    assert body["alternatives"] == []
+    assert "No date could be found" in (body["review_reason"] or "")
+
+
 def test_unlabelled_date_is_prefillable_via_alternatives(
     client, auth, monkeypatch, _cleanup
 ) -> None:

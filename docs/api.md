@@ -345,5 +345,15 @@ Upcoming schedule, so the app can show "we'll remind you on Friday".
 
 Retail barcodes (EAN-13/UPC) **do not contain expiry dates**. The barcode gives us
 product identity (name, brand, category); the expiry date always comes from OCR of
-the printed text. Design the scan UI so both are captured in one photo where possible,
-and never promise "scan the barcode, get the expiry".
+the printed text. Never promise "scan the barcode, get the expiry" - the scan
+screen's copy deliberately doesn't ask the user to frame the barcode alongside the
+date either, since that's not what finds the date and only invites a photo of the
+barcode alone with no date in frame at all.
+
+Barcode detection and date parsing run concurrently against the same photo (see
+`_run_pipeline_and_persist` in `scans.py`), so a long run of barcode digits can
+occasionally get OCR'd and misread by the date parser as a day/month-shaped
+number - confirmed with a real barcode-only test image, which produced a false
+`2039-02-01` built from digits inside the barcode itself. `date_parser.
+discard_barcode_digits()` runs once both results are in and drops any date
+candidate built entirely from the detected barcode's own digits.

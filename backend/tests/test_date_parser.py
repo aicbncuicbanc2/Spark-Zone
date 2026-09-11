@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from app.services.date_parser import DateType, parse
+from app.services.date_parser import DateType, discard_barcode_digits, parse
 
 TODAY = date(2026, 9, 5)
 MANIFEST = Path(__file__).parent / "fixtures" / "labels" / "manifest.csv"
@@ -125,6 +125,46 @@ def test_lot_number_alone_is_not_a_date() -> None:
 def test_machine_codes_do_not_break_parsing() -> None:
     result = parse("M6EXPM 25 03 27 21:35", today=TODAY)
     assert result.expiry_date == date(2027, 3, 25)
+
+
+# --- Barcode noise --------------------------------------------------------
+
+
+def test_discard_barcode_digits_removes_a_date_built_from_the_barcode() -> None:
+    """Real bug: scanning a barcode-only test image (no printed date
+    anywhere) still produced a "date" of 2039-02-01, built from "1 2 39" -
+    digits found inside the barcode's own OCR text, "13 21 4 1 2 3 4 1 2
+    39". A barcode is a fixed product identifier; it cannot encode an
+    expiry date, so any match built entirely from its digits is noise."""
+    ocr_text = "13 21 4 1 2 3 4 1 2 39"
+    barcode = "1321412341239"
+    result = parse(ocr_text, today=TODAY)
+    assert result.best is not None
+    assert result.best.value == date(2039, 2, 1)  # the bug, reproduced
+
+    cleaned = discard_barcode_digits(result, barcode, today=TODAY)
+    assert cleaned.best is None
+    assert cleaned.candidates == []
+    assert cleaned.needs_review
+    assert cleaned.review_reason == "No date could be found in the label text."
+
+
+def test_discard_barcode_digits_keeps_a_real_date_alongside_a_barcode() -> None:
+    """The common real case: a photo shows both a barcode and a genuine
+    printed expiry date. Only the candidate that's pure barcode noise
+    should be dropped - a real date elsewhere in the same text must
+    survive untouched."""
+    ocr_text = "9 556126 663274 EXP 22/12/2027"
+    barcode = "9556126663274"
+    result = parse(ocr_text, today=TODAY)
+    cleaned = discard_barcode_digits(result, barcode, today=TODAY)
+    assert cleaned.expiry_date == date(2027, 12, 22)
+
+
+def test_discard_barcode_digits_is_a_noop_without_a_barcode() -> None:
+    result = parse("EXP 22/12/2027", today=TODAY)
+    assert discard_barcode_digits(result, None, today=TODAY) is result
+    assert discard_barcode_digits(result, "", today=TODAY) is result
 
 
 # --- Choosing between several dates -------------------------------------------

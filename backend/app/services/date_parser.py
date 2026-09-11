@@ -569,16 +569,13 @@ def _score(candidate: DateCandidate, today: date) -> float:
     return score
 
 
-def parse(text: str, *, today: date | None = None) -> ParseResult:
-    """Extract the most likely expiry date from OCR output."""
-    if not text or not text.strip():
-        return ParseResult(needs_review=True, review_reason="No text was recognised.")
+def _finalize(candidates: list[DateCandidate], today: date) -> ParseResult:
+    """Pick the best candidate and decide whether it needs review.
 
-    # Callers pass the user's local date; UTC is only a safety net.
-    today = today or datetime.now(timezone.utc).date()
-    prepared = mask_times(normalise(text))
-    candidates = _extract(prepared)
-
+    Shared by parse() and discard_barcode_digits(), which re-runs this same
+    selection after removing candidates that turned out to be noise from a
+    detected barcode rather than the label's own printed text.
+    """
     if not candidates:
         return ParseResult(
             candidates=[],
@@ -614,3 +611,47 @@ def parse(text: str, *, today: date | None = None) -> ParseResult:
         result.review_reason = "The date was read with low confidence. Please confirm it."
 
     return result
+
+
+def parse(text: str, *, today: date | None = None) -> ParseResult:
+    """Extract the most likely expiry date from OCR output."""
+    if not text or not text.strip():
+        return ParseResult(needs_review=True, review_reason="No text was recognised.")
+
+    # Callers pass the user's local date; UTC is only a safety net.
+    today = today or datetime.now(timezone.utc).date()
+    prepared = mask_times(normalise(text))
+    return _finalize(_extract(prepared), today)
+
+
+def discard_barcode_digits(
+    result: ParseResult, barcode: str | None, *, today: date | None = None
+) -> ParseResult:
+    """Re-derive `result` after dropping any candidate built entirely from
+    digits that belong to the detected barcode, not the label's own printed
+    text.
+
+    A retail barcode (EAN-13/UPC-A) is a fixed product identifier - country/
+    manufacturer prefix, product code, check digit - it structurally cannot
+    encode an expiry date. But OCR reads its printed digits like any other
+    text, and a long run of them can accidentally contain a day/month-shaped
+    pair (a real barcode-only test image turned "...341239" into a "date" of
+    2039-02-01). Barcode detection runs as a separate step from date parsing
+    (concurrently, for latency - see scans.py), so the barcode isn't known
+    yet when `parse()` first runs; this is applied afterwards, once both
+    results are in.
+    """
+    if not barcode or not result.candidates:
+        return result
+    barcode_digits = re.sub(r"\D", "", barcode)
+    if not barcode_digits:
+        return result
+
+    def _is_barcode_noise(candidate: DateCandidate) -> bool:
+        digits = re.sub(r"\D", "", candidate.raw)
+        return bool(digits) and digits in barcode_digits
+
+    kept = [c for c in result.candidates if not _is_barcode_noise(c)]
+    if len(kept) == len(result.candidates):
+        return result
+    return _finalize(kept, today or datetime.now(timezone.utc).date())

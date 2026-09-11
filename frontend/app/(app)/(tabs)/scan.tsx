@@ -100,8 +100,8 @@ export default function ScanScreen() {
           <Text style={styles.icon}>📷</Text>
           <Text style={styles.title}>Scan a product label</Text>
           <Text style={styles.body}>
-            Photograph the expiry date (and barcode, if visible, in the same shot). You'll always
-            get a chance to confirm or fix the date before it's saved.
+            Photograph the printed expiry date. You'll always get a chance to confirm or fix the
+            date before it's saved.
           </Text>
 
           <Pressable style={styles.button} onPress={() => handlePick('camera')}>

@@ -48,6 +48,7 @@ from app.schemas.scan import (
     SuggestedItem,
 )
 from app.services import barcode as barcode_service
+from app.services import date_parser
 from app.services import storage
 from app.services.ocr import pipeline
 from app.services.ocr.base import OcrEngine
@@ -133,6 +134,17 @@ async def _run_pipeline_and_persist(
             logger.warning("scan_image_not_stored", extra={"reason": stored.error})
 
         parsed = result.parsed
+        if parsed is not None:
+            # A barcode is a fixed product identifier, not a date source -
+            # a "date" built entirely from digits that belong to the
+            # detected barcode is noise (a real barcode-only test image
+            # produced a false 2039-02-01 this way), not a genuine reading.
+            # Barcode detection runs concurrently with OCR/date parsing
+            # (see the gather above), so this can only be applied once
+            # both are in, not inside pipeline.run() itself.
+            parsed = date_parser.discard_barcode_digits(
+                parsed, detected_barcode, today=today
+            )
         ocr_failed = result.ocr is None or not result.ocr.succeeded
 
         if ocr_failed:
