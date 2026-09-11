@@ -93,6 +93,17 @@ async def lookup(
     )
 
 
+class BrandBoxOut(BaseModel):
+    """Where the detected logo sits in the photo, as fractions (0-1) of its
+    width/height - not pixels - so the client can draw a frame over the
+    displayed image at any size without needing the original resolution."""
+
+    x: float
+    y: float
+    width: float
+    height: float
+
+
 class ProductPhotoResult(BaseModel):
     brand: str | None = None
     brand_confidence: float | None = None
@@ -105,6 +116,10 @@ class ProductPhotoResult(BaseModel):
     #: Null whenever no label clears the confidence bar; never a hard fail.
     category_id: str | None = None
     category_confidence: float | None = None
+    #: Null whenever brand is null - there's nothing to frame. Deliberately
+    #: never populated for the product name itself - see
+    #: vision_engine.ProductIdentification's docstring for why.
+    brand_box: BrandBoxOut | None = None
 
 
 @router.post(
@@ -133,13 +148,19 @@ async def identify_photo(
     regardless of what comes back.
     """
     data = await read_image_upload(image)
-    brand, brand_confidence, raw_text, category_id, category_confidence = await run_in_threadpool(
-        vision_engine.identify_product, data
-    )
+    result = await run_in_threadpool(vision_engine.identify_product, data)
     return ProductPhotoResult(
-        brand=brand,
-        brand_confidence=brand_confidence,
-        raw_text=raw_text,
-        category_id=category_id,
-        category_confidence=category_confidence,
+        brand=result.brand,
+        brand_confidence=result.brand_confidence,
+        raw_text=result.raw_text,
+        category_id=result.category_id,
+        category_confidence=result.category_confidence,
+        brand_box=BrandBoxOut(
+            x=result.brand_box.x,
+            y=result.brand_box.y,
+            width=result.brand_box.width,
+            height=result.brand_box.height,
+        )
+        if result.brand_box
+        else None,
     )

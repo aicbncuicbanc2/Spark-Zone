@@ -307,7 +307,13 @@ Upcoming schedule, so the app can show "we'll remind you on Friday".
   own front/branding (multipart `image`, same as `/v1/scans`). Synchronous, not
   async like scans — it only calls Vision, no local PaddleOCR, so it's
   consistently fast (~1-2s), never the 2-40s+ that motivated scans being async.
-  Returns `{brand, brand_confidence, raw_text, category_id, category_confidence}`.
+  Returns `{brand, brand_confidence, raw_text, category_id, category_confidence,
+  brand_box}`. `brand_box` is `{x, y, width, height}` as **fractions (0-1)** of
+  the photo's width/height, not pixels — multiply by the displayed image's
+  rendered size to draw a frame over the logo for the user to confirm. It is
+  `null` whenever `brand` is `null` (nothing to frame), and is never populated
+  for the product name itself — Vision detects text, not what that text means,
+  so there's no reliable region to point to the way there is for a logo.
   `brand` uses Logo Detection: precise when it hits (verified at 1.00 confidence
   on a real product) but inconsistent (a comparably well-known brand on a
   different real product returned nothing). `category_id` is one of the ids from
