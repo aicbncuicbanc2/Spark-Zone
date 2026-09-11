@@ -13,14 +13,25 @@ import {
 
 import { useCreateScan, useIdentifyProduct } from '../../lib/queries';
 import { colors } from '../../lib/theme';
+import type { BrandBox } from '../../lib/types';
 
 // Two photos, zero typing (when both hit): one of the product's own
 // front/branding to identify what it is, one of the printed expiry date to
 // read when it expires. They're deliberately separate steps rather than one
 // photo run through both endpoints — the two are rarely the same side of
 // the package (branding on the front, expiry date on the back or bottom).
+//
+// Between them sits a "confirm" step whenever Vision found the logo: the
+// photo is shown again with a frame drawn over the exact region Vision
+// detected, so the user confirms the *real* detection rather than trusting
+// it blindly. There's deliberately no equivalent frame for "the product
+// name" — Vision detects text, not what that text means, so there's no
+// reliable region to point to the way there is for a logo (see
+// backend/app/services/ocr/vision_engine.py's ProductIdentification).
 
-type Step = 'brand' | 'date';
+type Step = 'brand' | 'confirm' | 'date';
+
+const FALLBACK_ASPECT_RATIO = 4 / 3;
 
 async function pickImage(source: 'camera' | 'library') {
   const permission =
@@ -43,11 +54,12 @@ async function pickImage(source: 'camera' | 'library') {
 }
 
 function StepDots({ step }: { step: Step }) {
+  const onDateStep = step === 'date';
   return (
     <View style={styles.stepDots}>
       <View style={[styles.stepDot, styles.stepDotFilled]} />
-      <View style={[styles.stepDotTrack, step === 'date' && styles.stepDotTrackFilled]} />
-      <View style={[styles.stepDot, step === 'date' && styles.stepDotFilled]} />
+      <View style={[styles.stepDotTrack, onDateStep && styles.stepDotTrackFilled]} />
+      <View style={[styles.stepDot, onDateStep && styles.stepDotFilled]} />
     </View>
   );
 }
@@ -56,7 +68,9 @@ export default function ScanProductScreen() {
   const router = useRouter();
   const [step, setStep] = useState<Step>('brand');
   const [previewUri, setPreviewUri] = useState<string | null>(null);
+  const [previewAspectRatio, setPreviewAspectRatio] = useState(FALLBACK_ASPECT_RATIO);
   const [brand, setBrand] = useState<string | null>(null);
+  const [brandBox, setBrandBox] = useState<BrandBox | null>(null);
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [rawText, setRawText] = useState<string | null>(null);
 
@@ -68,20 +82,33 @@ export default function ScanProductScreen() {
     const asset = await pickImage(source);
     if (!asset) return;
     setPreviewUri(asset.uri);
+    // Some pickers/platforms genuinely can't report dimensions (0x0) - fall
+    // back to a plausible default rather than an invalid aspect ratio.
+    setPreviewAspectRatio(
+      asset.width && asset.height ? asset.width / asset.height : FALLBACK_ASPECT_RATIO
+    );
 
     identifyMutation.mutate(
       { uri: asset.uri },
       {
         onSuccess: (result) => {
-          setPreviewUri(null);
           // A miss on either is a normal result, not an error — Logo/Label
           // Detection are each precise when they hit but genuinely
           // inconsistent, and independent of each other. Either way the
           // user still confirms/types everything on /add.
           setBrand(result.brand);
+          setBrandBox(result.brand_box);
           setCategoryId(result.category_id);
           setRawText(result.raw_text);
-          setStep('date');
+          if (result.brand_box) {
+            // Something real to show the user - keep the photo on screen
+            // and let them confirm the actual detected region, rather than
+            // silently trusting it and moving straight on.
+            setStep('confirm');
+          } else {
+            setPreviewUri(null);
+            setStep('date');
+          }
         },
         onError: (error) => {
           setPreviewUri(null);
@@ -89,6 +116,20 @@ export default function ScanProductScreen() {
         },
       }
     );
+  }
+
+  function handleConfirmBrand() {
+    setPreviewUri(null);
+    setStep('date');
+  }
+
+  function handleRetakeBrand() {
+    setPreviewUri(null);
+    setBrand(null);
+    setBrandBox(null);
+    setCategoryId(null);
+    setRawText(null);
+    setStep('brand');
   }
 
   async function handleDatePhoto(source: 'camera' | 'library') {
@@ -141,6 +182,46 @@ export default function ScanProductScreen() {
   }
 
   const handlePick = step === 'brand' ? handleBrandPhoto : handleDatePhoto;
+
+  if (step === 'confirm') {
+    return (
+      <View style={styles.container}>
+        <StepDots step={step} />
+        <View style={styles.center}>
+          <Text style={styles.stepIndicator}>Step 1 of 2</Text>
+          <Text style={styles.title}>Is this the brand?</Text>
+          <Text style={styles.body}>We found "{brand}" in the highlighted area.</Text>
+
+          {previewUri && (
+            <View style={[styles.confirmImageWrap, { aspectRatio: previewAspectRatio }]}>
+              <Image source={{ uri: previewUri }} style={styles.confirmImage} resizeMode="contain" />
+              {brandBox && (
+                <View
+                  pointerEvents="none"
+                  style={[
+                    styles.brandFrame,
+                    {
+                      left: `${brandBox.x * 100}%`,
+                      top: `${brandBox.y * 100}%`,
+                      width: `${brandBox.width * 100}%`,
+                      height: `${brandBox.height * 100}%`,
+                    },
+                  ]}
+                />
+              )}
+            </View>
+          )}
+
+          <Pressable style={styles.button} onPress={handleConfirmBrand}>
+            <Text style={styles.buttonText}>Yes, that's right</Text>
+          </Pressable>
+          <Pressable style={[styles.button, styles.secondaryButton]} onPress={handleRetakeBrand}>
+            <Text style={[styles.buttonText, styles.secondaryButtonText]}>No, retake the photo</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -256,6 +337,26 @@ const styles = StyleSheet.create({
   preview: {
     width: '100%',
     height: 220,
+  },
+  confirmImageWrap: {
+    width: '100%',
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#000',
+    marginVertical: 8,
+    // aspectRatio is set inline per-photo, from the picked asset's real
+    // dimensions - without it the container would either crop the image
+    // (misaligning the frame below) or letterbox it (same problem).
+  },
+  confirmImage: {
+    width: '100%',
+    height: '100%',
+  },
+  brandFrame: {
+    position: 'absolute',
+    borderWidth: 3,
+    borderColor: colors.danger,
+    borderRadius: 4,
   },
   stepIndicator: {
     fontSize: 13,
