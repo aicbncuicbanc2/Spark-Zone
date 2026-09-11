@@ -131,27 +131,28 @@ export default function ScanProductScreen() {
     setFrameTarget(null);
   }
 
+  function applyBrandResult(result: { brand: string | null; category_id: string | null; raw_text: string | null }) {
+    // A miss is a normal result, not an error — Logo/Label Detection are
+    // each precise when they hit but genuinely inconsistent. Either way
+    // the user still confirms/types everything on /add.
+    setBrand(result.brand);
+    setCategoryId(result.category_id);
+    setRawText(result.raw_text);
+    if (result.brand) {
+      setStep('confirm');
+    } else {
+      setPreviewUri(null);
+      setStep('date');
+    }
+  }
+
   function runIdentifyOrScan(uri: string, target: FrameTarget) {
     setPreviewUri(uri);
     if (target === 'brand') {
       identifyMutation.mutate(
         { uri },
         {
-          onSuccess: (result) => {
-            // A miss is a normal result, not an error — Logo/Label
-            // Detection are each precise when they hit but genuinely
-            // inconsistent. Either way the user still confirms/types
-            // everything on /add.
-            setBrand(result.brand);
-            setCategoryId(result.category_id);
-            setRawText(result.raw_text);
-            if (result.brand) {
-              setStep('confirm');
-            } else {
-              setPreviewUri(null);
-              setStep('date');
-            }
-          },
+          onSuccess: applyBrandResult,
           onError: (error) => {
             setPreviewUri(null);
             Alert.alert('Could not read that photo', (error as Error).message);
@@ -247,6 +248,7 @@ export default function ScanProductScreen() {
   async function handleUseCrop() {
     if (!pendingUri || !pendingSize || !displaySize || !cropRect || !frameTarget) return;
     const target = frameTarget;
+    const originalUri = pendingUri;
     const scaleX = pendingSize.width / displaySize.width;
     const scaleY = pendingSize.height / displaySize.height;
     const originX = Math.round(cropRect.x * scaleX);
@@ -256,16 +258,41 @@ export default function ScanProductScreen() {
 
     setIsCropping(true);
     try {
-      const context = ImageManipulator.ImageManipulator.manipulate(pendingUri);
+      const context = ImageManipulator.ImageManipulator.manipulate(originalUri);
       context.crop({ originX, originY, width, height });
       const rendered = await context.renderAsync();
-      const result = await rendered.saveAsync();
+      const croppedResult = await rendered.saveAsync();
       setPreviewAspectRatio(width / height);
       resetFrameState();
       setStep(target);
-      runIdentifyOrScan(result.uri, target);
+
+      if (target === 'date') {
+        runIdentifyOrScan(croppedResult.uri, target);
+        return;
+      }
+
+      // Brand: Logo/Text Detection benefit from the tight crop the user
+      // just drew, but Label Detection (which category comes from) needs
+      // the product's full packaging in view to recognise what kind of
+      // thing it even is - a crop tight enough to isolate just a logo or
+      // wordmark starves it of that context (confirmed against a real
+      // scan: cropping to just "Sunlight" returned no category, where the
+      // same photo uncropped had returned "household" before). Run both
+      // and take brand from the crop, category from the original photo,
+      // rather than making one image serve both jobs.
+      setPreviewUri(croppedResult.uri);
+      const [cropHit, fullHit] = await Promise.all([
+        identifyMutation.mutateAsync({ uri: croppedResult.uri }),
+        identifyMutation.mutateAsync({ uri: originalUri }),
+      ]);
+      applyBrandResult({
+        brand: cropHit.brand,
+        category_id: fullHit.category_id,
+        raw_text: cropHit.raw_text,
+      });
     } catch (error) {
-      Alert.alert('Could not crop that photo', (error as Error).message);
+      setPreviewUri(null);
+      Alert.alert('Could not read that photo', (error as Error).message);
     } finally {
       setIsCropping(false);
     }
