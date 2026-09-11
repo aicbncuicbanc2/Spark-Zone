@@ -1,7 +1,5 @@
 import { useRef } from 'react';
-import { GestureResponderEvent, PanResponder, PanResponderGestureState, StyleSheet, View } from 'react-native';
-
-import { colors } from '../lib/theme';
+import { Animated, GestureResponderEvent, PanResponder, PanResponderGestureState, StyleSheet, View } from 'react-native';
 
 export interface CropRect {
   x: number;
@@ -10,9 +8,10 @@ export interface CropRect {
   height: number;
 }
 
-const HANDLE_SIZE = 28;
+const BRACKET_LENGTH = 22;
+const BRACKET_THICKNESS = 3;
 // A corner is "grabbed" if the touch lands within this radius of it - bigger
-// than the visible dot so a finger doesn't need pixel-perfect placement.
+// than the visible bracket so a finger doesn't need pixel-perfect placement.
 const HANDLE_HIT_RADIUS = 34;
 const MIN_SIZE = 40;
 
@@ -31,6 +30,15 @@ type Mode = 'move' | 'tl' | 'tr' | 'bl' | 'br';
  * fired, only move did. A single responder that decides "move a corner or
  * move the whole box" from where the gesture *started* (see pickMode below)
  * has no parent/child to negotiate between, so it can't lose that fight.
+ *
+ * Every frame of the drag is applied via Animated.Value.setValue() rather
+ * than the `onChange` prop, so dragging updates only this view's native
+ * props directly - not a React state update on every touch-move, which
+ * would re-render the whole scan screen underneath dozens of times a
+ * second and felt exactly as janky as that sounds on a real phone.
+ * `onChange` fires once, when the finger actually lifts: the caller only
+ * ever reads the rect after a gesture ends (when "Use this area" is
+ * tapped), so it never needed the live value mid-drag.
  */
 export function CropFrame({
   displayWidth,
@@ -50,15 +58,23 @@ export function CropFrame({
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   const startRef = useRef<CropRect>(rect);
+  const latestRef = useRef<CropRect>(rect);
   const modeRef = useRef<Mode>('move');
+
+  const x = useRef(new Animated.Value(rect.x)).current;
+  const y = useRef(new Animated.Value(rect.y)).current;
+  const width = useRef(new Animated.Value(rect.width)).current;
+  const height = useRef(new Animated.Value(rect.height)).current;
+  const right = useRef(Animated.add(x, width)).current;
+  const bottom = useRef(Animated.add(y, height)).current;
 
   function clamp(next: CropRect): CropRect {
     const { displayWidth, displayHeight } = boundsRef.current;
-    const width = Math.min(Math.max(next.width, MIN_SIZE), displayWidth);
-    const height = Math.min(Math.max(next.height, MIN_SIZE), displayHeight);
-    const x = Math.min(Math.max(next.x, 0), displayWidth - width);
-    const y = Math.min(Math.max(next.y, 0), displayHeight - height);
-    return { x, y, width, height };
+    const w = Math.min(Math.max(next.width, MIN_SIZE), displayWidth);
+    const h = Math.min(Math.max(next.height, MIN_SIZE), displayHeight);
+    const cx = Math.min(Math.max(next.x, 0), displayWidth - w);
+    const cy = Math.min(Math.max(next.y, 0), displayHeight - h);
+    return { x: cx, y: cy, width: w, height: h };
   }
 
   function pickMode(localX: number, localY: number, start: CropRect): Mode {
@@ -76,13 +92,31 @@ export function CropFrame({
     return 'move';
   }
 
+  function applyNext(next: CropRect) {
+    latestRef.current = next;
+    x.setValue(next.x);
+    y.setValue(next.y);
+    width.setValue(next.width);
+    height.setValue(next.height);
+  }
+
   const responder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
+      // Claimed in the capture phase and never surrendered: this view lives
+      // inside a ScrollView (the confirm/frame step scrolls on a tall
+      // portrait photo), and without this a vertical drag on the frame
+      // could get taken over by the ScrollView's own scroll gesture
+      // partway through - which felt exactly like "the frame randomly
+      // stops responding" on a real device.
+      onStartShouldSetPanResponderCapture: () => true,
+      onMoveShouldSetPanResponderCapture: () => true,
+      onPanResponderTerminationRequest: () => false,
       onPanResponderGrant: (evt: GestureResponderEvent) => {
         const start = rectRef.current;
         startRef.current = start;
+        latestRef.current = start;
         // locationX/Y are relative to this view (it exactly covers the
         // display box), so they land in the same coordinate space as rect.
         const { locationX, locationY } = evt.nativeEvent;
@@ -90,35 +124,37 @@ export function CropFrame({
       },
       onPanResponderMove: (_evt: GestureResponderEvent, gesture: PanResponderGestureState) => {
         const start = startRef.current;
-        let { x, y, width, height } = start;
+        let { x: nx, y: ny, width: nw, height: nh } = start;
         switch (modeRef.current) {
           case 'move':
-            x = start.x + gesture.dx;
-            y = start.y + gesture.dy;
+            nx = start.x + gesture.dx;
+            ny = start.y + gesture.dy;
             break;
           case 'tl':
-            x = start.x + gesture.dx;
-            y = start.y + gesture.dy;
-            width = start.width - gesture.dx;
-            height = start.height - gesture.dy;
+            nx = start.x + gesture.dx;
+            ny = start.y + gesture.dy;
+            nw = start.width - gesture.dx;
+            nh = start.height - gesture.dy;
             break;
           case 'tr':
-            y = start.y + gesture.dy;
-            width = start.width + gesture.dx;
-            height = start.height - gesture.dy;
+            ny = start.y + gesture.dy;
+            nw = start.width + gesture.dx;
+            nh = start.height - gesture.dy;
             break;
           case 'bl':
-            x = start.x + gesture.dx;
-            width = start.width - gesture.dx;
-            height = start.height + gesture.dy;
+            nx = start.x + gesture.dx;
+            nw = start.width - gesture.dx;
+            nh = start.height + gesture.dy;
             break;
           case 'br':
-            width = start.width + gesture.dx;
-            height = start.height + gesture.dy;
+            nw = start.width + gesture.dx;
+            nh = start.height + gesture.dy;
             break;
         }
-        onChangeRef.current(clamp({ x, y, width, height }));
+        applyNext(clamp({ x: nx, y: ny, width: nw, height: nh }));
       },
+      onPanResponderRelease: () => onChangeRef.current(latestRef.current),
+      onPanResponderTerminate: () => onChangeRef.current(latestRef.current),
     })
   ).current;
 
@@ -126,26 +162,31 @@ export function CropFrame({
     <View {...responder.panHandlers} style={StyleSheet.absoluteFill}>
       {/* Darkens everything outside the frame, built from 4 plain rectangles
           since React Native has no clip-path/mask-with-a-hole primitive. */}
-      <View pointerEvents="none" style={[styles.mask, { left: 0, top: 0, right: 0, height: rect.y }]} />
-      <View
-        pointerEvents="none"
-        style={[styles.mask, { left: 0, top: rect.y + rect.height, right: 0, bottom: 0 }]}
-      />
-      <View pointerEvents="none" style={[styles.mask, { left: 0, top: rect.y, width: rect.x, height: rect.height }]} />
-      <View
-        pointerEvents="none"
-        style={[styles.mask, { left: rect.x + rect.width, top: rect.y, right: 0, height: rect.height }]}
-      />
+      <Animated.View pointerEvents="none" style={[styles.mask, { left: 0, top: 0, right: 0, height: y }]} />
+      <Animated.View pointerEvents="none" style={[styles.mask, { left: 0, top: bottom, right: 0, bottom: 0 }]} />
+      <Animated.View pointerEvents="none" style={[styles.mask, { left: 0, top: y, width: x, height }]} />
+      <Animated.View pointerEvents="none" style={[styles.mask, { left: right, top: y, right: 0, height }]} />
 
-      <View
-        pointerEvents="none"
-        style={[styles.frame, { left: rect.x, top: rect.y, width: rect.width, height: rect.height }]}
-      >
-        <View style={[styles.handle, styles.handleTL]} />
-        <View style={[styles.handle, styles.handleTR]} />
-        <View style={[styles.handle, styles.handleBL]} />
-        <View style={[styles.handle, styles.handleBR]} />
-      </View>
+      <Animated.View pointerEvents="none" style={[styles.frame, { left: x, top: y, width, height }]}>
+        {/* Rule-of-thirds grid, the same visual language as a native photo
+            cropper - a quiet cue that this box is actively adjustable. */}
+        <View style={[styles.gridLineV, { left: '33.333%' }]} />
+        <View style={[styles.gridLineV, { left: '66.667%' }]} />
+        <View style={[styles.gridLineH, { top: '33.333%' }]} />
+        <View style={[styles.gridLineH, { top: '66.667%' }]} />
+
+        {/* Corner brackets rather than filled dots - the touch target
+            (HANDLE_HIT_RADIUS above) stays generous even though the mark
+            itself is small and precise. */}
+        <View style={[styles.bracketBar, styles.barH, { left: -1, top: -1 }]} />
+        <View style={[styles.bracketBar, styles.barV, { left: -1, top: -1 }]} />
+        <View style={[styles.bracketBar, styles.barH, { right: -1, top: -1 }]} />
+        <View style={[styles.bracketBar, styles.barV, { right: -1, top: -1 }]} />
+        <View style={[styles.bracketBar, styles.barH, { left: -1, bottom: -1 }]} />
+        <View style={[styles.bracketBar, styles.barV, { left: -1, bottom: -1 }]} />
+        <View style={[styles.bracketBar, styles.barH, { right: -1, bottom: -1 }]} />
+        <View style={[styles.bracketBar, styles.barV, { right: -1, bottom: -1 }]} />
+      </Animated.View>
     </View>
   );
 }
@@ -153,24 +194,37 @@ export function CropFrame({
 const styles = StyleSheet.create({
   mask: {
     position: 'absolute',
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
   },
   frame: {
     position: 'absolute',
-    borderWidth: 2,
-    borderColor: colors.white,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.9)',
   },
-  handle: {
+  gridLineV: {
     position: 'absolute',
-    width: HANDLE_SIZE,
-    height: HANDLE_SIZE,
-    borderRadius: HANDLE_SIZE / 2,
-    backgroundColor: colors.white,
-    borderWidth: 2,
-    borderColor: colors.navy,
+    top: 0,
+    bottom: 0,
+    width: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(255,255,255,0.45)',
   },
-  handleTL: { left: -HANDLE_SIZE / 2, top: -HANDLE_SIZE / 2 },
-  handleTR: { right: -HANDLE_SIZE / 2, top: -HANDLE_SIZE / 2 },
-  handleBL: { left: -HANDLE_SIZE / 2, bottom: -HANDLE_SIZE / 2 },
-  handleBR: { right: -HANDLE_SIZE / 2, bottom: -HANDLE_SIZE / 2 },
+  gridLineH: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(255,255,255,0.45)',
+  },
+  bracketBar: {
+    position: 'absolute',
+    backgroundColor: '#FFFFFF',
+    borderRadius: BRACKET_THICKNESS / 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.4,
+    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 3,
+  },
+  barH: { width: BRACKET_LENGTH, height: BRACKET_THICKNESS },
+  barV: { width: BRACKET_THICKNESS, height: BRACKET_LENGTH },
 });
