@@ -83,6 +83,33 @@ def test_guess_category_from_labels(labels: list[tuple[str, float]], expected_ca
     assert category_id == expected_category
 
 
+@pytest.mark.parametrize(
+    "raw_text,expected_brand",
+    [
+        ("Roma\nD\nHALA\nINDONES...", "Roma"),  # real miss found in testing
+        ("MR DIY\nACRYLIC SEALANT\nWHITE", "MR DIY"),  # full name printed on the front
+        ("Sunlight Dishwashing Liquid\nExtra Power", "Sunlight"),
+        ("MR\nACRYLIC SEALANT\nWHITE", None),  # "MR DIY" truncated away - no guess
+        ("Su\n120726 2335 15:54\nEXTRA", None),  # "Sunlight" truncated to "Su" - no guess
+        ("Moroll\nM\nk White", None),  # not (yet) a known brand - no guess
+        (None, None),
+        ("", None),
+    ],
+)
+def test_match_known_brand(raw_text: str | None, expected_brand: str | None) -> None:
+    """The fallback only ever returns a name someone has actually added to
+    KNOWN_BRANDS after seeing Logo Detection miss it for real - it must
+    never invent a guess for text that isn't in the list."""
+    from app.services.ocr.vision_engine import _match_known_brand
+
+    brand, confidence = _match_known_brand(raw_text)
+    assert brand == expected_brand
+    if expected_brand is None:
+        assert confidence is None
+    else:
+        assert confidence is not None and 0.0 < confidence < 1.0
+
+
 class _FakeVertex:
     def __init__(self, x: int, y: int) -> None:
         self.x = x

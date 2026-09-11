@@ -321,7 +321,19 @@ Upcoming schedule, so the app can show "we'll remind you on Friday".
   so there's no reliable region to point to the way there is for a logo.
   `brand` uses Logo Detection: precise when it hits (verified at 1.00 confidence
   on a real product) but inconsistent (a comparably well-known brand on a
-  different real product returned nothing). `category_id` is one of the ids from
+  different real product returned nothing) — Vision's logo database skews
+  toward globally prominent brands, so a real, legitimate local/regional one
+  (confirmed with MR DIY, a Malaysian retailer, and Roma, an Indonesian
+  biscuit brand) can return zero logo matches even printed clearly, with no
+  way to expand that database from our side. When Logo Detection misses,
+  `identify_product` falls back to a plain substring match of `raw_text`
+  against `vision_engine.KNOWN_BRANDS` — a short, manually curated list of
+  brands confirmed missing this way. A hit from this fallback reports
+  `brand_confidence: 0.5` (never as high as a real Logo Detection hit, since
+  it's a text match, not a verified visual one) and no `brand_box` (no
+  coordinates to frame). This only ever fixes a brand already added to that
+  list — extend it as more real misses turn up.
+  `category_id` is one of the ids from
   `GET /v1/categories`, guessed from Label Detection — a real, different signal
   from the brand/OCR path, verified on a real product photo (`Food`/`Chocolate`/
   `Junk food` all over 0.6 confidence, correctly mapped to `food`). Both are

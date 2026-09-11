@@ -154,6 +154,37 @@ def _guess_category(labels: list[tuple[str, float]]) -> tuple[str | None, float 
     return None, None
 
 
+# Real, legitimate brands confirmed missing from Google's own Logo Detection
+# database during testing - its training data skews toward globally
+# prominent brands, so a real local/regional brand can return zero logo
+# matches even printed clearly (MR DIY, a Malaysian retailer; Roma, an
+# Indonesian biscuit brand). This is a plain text fallback, not a
+# replacement for Logo Detection - it only ever fires when Logo Detection
+# already came up empty, and only ever matches a name someone has actually
+# added here after seeing it fail for real. Extend this list as more real
+# misses turn up; there's no way to grow it automatically.
+KNOWN_BRANDS: tuple[str, ...] = (
+    "MR DIY",
+    "Sunlight",
+    "Roma",
+)
+
+#: Lower than a real Logo Detection hit (which can reach 1.0) - this is a
+#: plain substring match against OCR text, not a verified visual detection,
+#: so callers that gate on confidence should treat it as a weaker signal.
+_KNOWN_BRAND_CONFIDENCE = 0.5
+
+
+def _match_known_brand(raw_text: str | None) -> tuple[str | None, float | None]:
+    if not raw_text:
+        return None, None
+    lowered = raw_text.lower()
+    for brand in KNOWN_BRANDS:
+        if brand.lower() in lowered:
+            return brand, _KNOWN_BRAND_CONFIDENCE
+    return None, None
+
+
 @dataclass
 class BoundingBox:
     """A detected region, as fractions (0-1) of the image's width/height -
@@ -246,6 +277,9 @@ def identify_product(image: bytes) -> ProductIdentification:
 
         text_response = client.document_text_detection(image=request_image)
         raw_text = (text_response.full_text_annotation.text or "").strip() or None
+
+        if brand is None:
+            brand, brand_confidence = _match_known_brand(raw_text)
 
         label_response = client.label_detection(image=request_image)
         labels = [(label.description, float(label.score)) for label in label_response.label_annotations]
