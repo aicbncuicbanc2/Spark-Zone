@@ -443,6 +443,14 @@ const styles = StyleSheet.create({
     // width/height to make room for it, which is why this was the one
     // header of the three where the wordmark rendered visibly smaller.
     flexShrink: 0,
+    // searchBox (border + vertical padding + text line-height) is a few
+    // px taller than the logo's fixed 36px height, so the header row's
+    // alignItems:'center' was centering the logo against that taller
+    // sibling and nudging it a few px lower than on Home/Scan, where the
+    // logo is the tallest thing in the row and already sits flush at the
+    // top. Pinning it to the top here matches that regardless of
+    // whatever height the search box ends up being.
+    alignSelf: 'flex-start',
   },
   searchBox: {
     flex: 1,
