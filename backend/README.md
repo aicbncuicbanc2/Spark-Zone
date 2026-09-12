@@ -152,7 +152,7 @@ gcloud run deploy expiry-guardian-api `
   --memory 2Gi `
   --cpu 2 `
   --timeout 300 `
-  --set-env-vars "ENVIRONMENT=production,LOG_LEVEL=INFO,CORS_ORIGINS=*,OCR_PRIMARY_ENGINE=google_vision,GEMINI_MODEL=gemini-2.0-flash" `
+  --set-env-vars "ENVIRONMENT=production,LOG_LEVEL=INFO,CORS_ORIGINS=*,OCR_PRIMARY_ENGINE=google_vision,GEMINI_MODEL=gemini-flash-lite-latest" `
   --set-secrets "SUPABASE_URL=supabase-url:latest,SUPABASE_ANON_KEY=supabase-anon-key:latest,SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest,CLOUDINARY_API_KEY=cloudinary-api-key:latest,CLOUDINARY_API_SECRET=cloudinary-api-secret:latest,CLOUDINARY_CLOUD_NAME=cloudinary-cloud-name:latest,INTERNAL_SWEEP_SECRET=internal-sweep-secret:latest,GEMINI_API_KEY=gemini-api-key:latest"
 ```
 

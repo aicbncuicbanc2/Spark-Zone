@@ -64,7 +64,14 @@ class Settings(BaseSettings):
     # curated instead). Empty key means the feature degrades to "unavailable",
     # never a crash - checked the same way vision_enabled gates Vision above.
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-2.0-flash"
+    # A "-latest" alias, not a pinned version: this family gets renamed and
+    # deprecated often enough (confirmed live - both gemini-2.0-flash and
+    # gemini-2.5-flash already 404 for new API keys) that chasing a fixed
+    # version name is a losing game; the lite/non-thinking tier is also a
+    # better fit than a full "thinking" model for a quick 2-3 item
+    # suggestion list - confirmed live at ~1.3s and no reasoning-token
+    # overhead, versus ~7s and 700+ hidden "thinking" tokens on gemini-3.6-flash.
+    gemini_model: str = "gemini-flash-lite-latest"
 
     @property
     def cors_origin_list(self) -> list[str]:
