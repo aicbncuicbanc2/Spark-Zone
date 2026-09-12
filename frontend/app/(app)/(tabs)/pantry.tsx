@@ -128,6 +128,7 @@ export default function PantryScreen() {
         </View>
       ) : (
         <FlatList
+          style={styles.list}
           data={items}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
@@ -154,6 +155,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 8,
+    flexShrink: 0,
   },
   title: {
     fontSize: 24,
@@ -172,6 +174,7 @@ const styles = StyleSheet.create({
   },
   chipRow: {
     flexGrow: 0,
+    flexShrink: 0,
     paddingHorizontal: 16,
     marginBottom: 8,
   },
@@ -200,11 +203,15 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-end',
     marginRight: 16,
     marginBottom: 4,
+    flexShrink: 0,
   },
   sortButtonText: {
     fontSize: 12,
     color: colors.navy,
     fontWeight: '600',
+  },
+  list: {
+    flex: 1,
   },
   center: {
     flex: 1,
