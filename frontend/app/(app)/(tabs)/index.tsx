@@ -1,13 +1,14 @@
 import { useRouter } from 'expo-router';
+import { useMemo } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { ItemRow } from '../../../components/ItemRow';
 import { useAuth } from '../../../contexts/AuthContext';
 import { alert } from '../../../lib/alert';
 import { exportToCalendar } from '../../../lib/ics';
-import { useDashboard } from '../../../lib/queries';
+import { useDashboard, useItems } from '../../../lib/queries';
 import { colors } from '../../../lib/theme';
-import type { DashboardResponse } from '../../../lib/types';
+import type { DashboardResponse, Item } from '../../../lib/types';
 
 const BUCKETS: { key: keyof DashboardResponse['counts']; label: string; color: string }[] = [
   { key: 'expired', label: 'Expired', color: '#c0392b' },
@@ -17,10 +18,45 @@ const BUCKETS: { key: keyof DashboardResponse['counts']; label: string; color: s
   { key: 'ok', label: 'OK', color: '#1e8449' },
 ];
 
+// Every active item lands in exactly one group: urgency alone decides
+// "Expired" and "Use within 3 days" (soon = <=3 days already, so it and
+// critical cover that span). For anything not yet urgent, "past prime" only
+// applies to an item with an actual once-opened rule (opened_at + pao_months)
+// - an item that's merely been opened, with no PAO limit, is still fine; one
+// governed by a PAO countdown is worth flagging even before it turns urgent,
+// since that shorter window is easy to forget once the lid's back on.
+type GroupKey = 'expired' | 'soon' | 'pastPrime' | 'fine';
+
+const GROUP_LABELS: Record<GroupKey, string> = {
+  expired: 'Expired — dispose safely',
+  soon: 'Use within 3 days',
+  pastPrime: 'Past prime — check before using',
+  fine: 'Still fine to use',
+};
+
+function groupKeyFor(item: Item): GroupKey {
+  if (item.urgency === 'expired') return 'expired';
+  if (item.urgency === 'critical' || item.urgency === 'soon') return 'soon';
+  return item.opened_at && item.pao_months != null ? 'pastPrime' : 'fine';
+}
+
+function groupItems(items: Item[]): { key: GroupKey; label: string; items: Item[] }[] {
+  const buckets: Record<GroupKey, Item[]> = { expired: [], soon: [], pastPrime: [], fine: [] };
+  for (const item of items) buckets[groupKeyFor(item)].push(item);
+  return (Object.keys(GROUP_LABELS) as GroupKey[])
+    .map((key) => ({ key, label: GROUP_LABELS[key], items: buckets[key] }))
+    .filter((group) => group.items.length > 0);
+}
+
 export default function DashboardScreen() {
   const router = useRouter();
   const { signOut } = useAuth();
   const { data, isLoading, isRefetching, refetch, error } = useDashboard();
+  const { data: itemsData } = useItems();
+
+  const activeItems = itemsData?.items ?? [];
+  const todayItems = useMemo(() => activeItems.filter((item) => item.days_remaining === 0), [activeItems]);
+  const groups = useMemo(() => groupItems(activeItems), [activeItems]);
 
   if (isLoading) {
     return (
@@ -51,6 +87,22 @@ export default function DashboardScreen() {
         </Pressable>
       </View>
 
+      {todayItems.length > 0 && (
+        <View style={styles.todayCard}>
+          <Text style={styles.todayTitle}>
+            {todayItems.length === 1 ? '1 item expires today' : `${todayItems.length} items expire today`}
+          </Text>
+          <Text style={styles.todaySubtitle}>Use it, check it, or dispose of it safely.</Text>
+          <View style={styles.todayLinks}>
+            {todayItems.map((item) => (
+              <Pressable key={item.id} onPress={() => router.push(`/item/${item.id}`)}>
+                <Text style={styles.todayItemLink}>{item.name} ›</Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      )}
+
       <View style={styles.bucketRow}>
         {BUCKETS.map(({ key, label, color }) => (
           <View key={key} style={styles.bucket}>
@@ -80,6 +132,22 @@ export default function DashboardScreen() {
       ) : (
         data.expiring_soon.map((item) => (
           <ItemRow key={item.id} item={item} onPress={() => router.push(`/item/${item.id}`)} />
+        ))
+      )}
+
+      <View style={styles.sectionHeaderRow}>
+        <Text style={styles.sectionTitle}>Use it before it's gone</Text>
+      </View>
+      {groups.length === 0 ? (
+        <Text style={styles.empty}>Nothing in your pantry yet.</Text>
+      ) : (
+        groups.map((group) => (
+          <View key={group.key}>
+            <Text style={styles.groupLabel}>{group.label}</Text>
+            {group.items.map((item) => (
+              <ItemRow key={item.id} item={item} onPress={() => router.push(`/item/${item.id}`)} />
+            ))}
+          </View>
         ))
       )}
     </ScrollView>
@@ -124,6 +192,35 @@ const styles = StyleSheet.create({
   signOut: {
     color: colors.danger,
     fontSize: 14,
+  },
+  todayCard: {
+    backgroundColor: colors.navy,
+    borderRadius: 14,
+    padding: 16,
+    marginHorizontal: 16,
+    marginTop: 16,
+    gap: 8,
+  },
+  todayTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.white,
+  },
+  todaySubtitle: {
+    fontSize: 13,
+    color: '#C9CEEF',
+  },
+  todayLinks: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginTop: 4,
+  },
+  todayItemLink: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.white,
+    textDecorationLine: 'underline',
   },
   bucketRow: {
     flexDirection: 'row',
@@ -170,5 +267,15 @@ const styles = StyleSheet.create({
   empty: {
     color: colors.textMuted,
     paddingHorizontal: 16,
+  },
+  groupLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.navyMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    paddingHorizontal: 16,
+    marginTop: 14,
+    marginBottom: 2,
   },
 });
