@@ -437,6 +437,12 @@ const styles = StyleSheet.create({
   logo: {
     width: logoSize.width,
     height: logoSize.height,
+    // The adjacent searchBox below is flex:1, competing for the row's
+    // space - without this, the logo (a normal flex child with the
+    // default flexShrink:1) got compressed smaller than its real
+    // width/height to make room for it, which is why this was the one
+    // header of the three where the wordmark rendered visibly smaller.
+    flexShrink: 0,
   },
   searchBox: {
     flex: 1,
