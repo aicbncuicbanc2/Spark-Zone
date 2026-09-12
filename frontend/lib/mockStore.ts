@@ -16,6 +16,7 @@ import type {
   Item,
   MePreferences,
   PatchItemInput,
+  PatchPreferencesInput,
   ProductIdentifyResponse,
   ScanResponse,
   SuggestionsResponse,
@@ -27,7 +28,7 @@ import type {
 // calls are wired up.
 let items: Item[] = structuredClone((itemsListJson as { items: Item[] }).items);
 let categories = categoriesJson as Category[];
-const me = meJson as MePreferences;
+let me = meJson as MePreferences;
 let devices: Device[] = [];
 let scanCount = 0;
 
@@ -81,6 +82,11 @@ export const mockStore = {
   },
 
   getMe(): MePreferences {
+    return me;
+  },
+
+  updatePreferences(patch: PatchPreferencesInput): MePreferences {
+    me = { ...me, ...patch, updated_at: new Date().toISOString() };
     return me;
   },
 
