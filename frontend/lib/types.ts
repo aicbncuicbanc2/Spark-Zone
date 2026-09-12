@@ -218,6 +218,40 @@ export interface ProductIdentifyResponse {
   brand_box: BrandBox | null;
 }
 
+/**
+ * GET /v1/ai/items/{item_id}/suggestions response
+ * (backend/app/api/v1/routes/ai.py). `suggestions` is always present — an
+ * empty array means "not available right now" (no Gemini key configured, a
+ * network failure, an unparsable model response), never a fetch error to
+ * handle specially. Never used for anything safety-critical; disposal advice
+ * stays on GET /v1/guidance/... , which is curated, not model-generated.
+ */
+export interface SuggestionsResponse {
+  suggestions: string[];
+}
+
+/**
+ * Feature C — "Ask Thyme". POST /v1/ai/ask body/response
+ * (backend/app/api/v1/routes/ai.py). `history` is prior turns, oldest
+ * first — the call is otherwise stateless; the backend rebuilds the user's
+ * current pantry context fresh every time. Unlike SuggestionsResponse, a
+ * failure here is a real HTTP error (503 AI_UNAVAILABLE), not an empty
+ * result — see api.md for why the two features degrade differently.
+ */
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  text: string;
+}
+
+export interface AskThymeRequest {
+  question: string;
+  history: ChatMessage[];
+}
+
+export interface AskThymeResponse {
+  answer: string;
+}
+
 export interface ApiErrorBody {
   error: {
     code: string;

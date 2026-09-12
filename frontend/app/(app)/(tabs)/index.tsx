@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -124,16 +124,53 @@ function TipCarousel({ items }: { items: Item[] }) {
   );
 }
 
+// Every active item lands in exactly one group: urgency alone decides
+// "Expired" and "Use within 3 days" (soon = <=3 days already, so it and
+// critical cover that span). For anything not yet urgent, "past prime" only
+// applies to an item with an actual once-opened rule (opened_at + pao_months)
+// - an item that's merely been opened, with no PAO limit, is still fine; one
+// governed by a PAO countdown is worth flagging even before it turns urgent,
+// since that shorter window is easy to forget once the lid's back on.
+type GroupKey = 'expired' | 'soon' | 'pastPrime' | 'fine';
+
+const GROUP_LABELS: Record<GroupKey, string> = {
+  expired: 'Expired — dispose safely',
+  soon: 'Use within 3 days',
+  pastPrime: 'Past prime — check before using',
+  fine: 'Still fine to use',
+};
+
+function groupKeyFor(item: Item): GroupKey {
+  if (item.urgency === 'expired') return 'expired';
+  if (item.urgency === 'critical' || item.urgency === 'soon') return 'soon';
+  return item.opened_at && item.pao_months != null ? 'pastPrime' : 'fine';
+}
+
+function groupItems(items: Item[]): { key: GroupKey; label: string; items: Item[] }[] {
+  const buckets: Record<GroupKey, Item[]> = { expired: [], soon: [], pastPrime: [], fine: [] };
+  for (const item of items) buckets[groupKeyFor(item)].push(item);
+  return (Object.keys(GROUP_LABELS) as GroupKey[])
+    .map((key) => ({ key, label: GROUP_LABELS[key], items: buckets[key] }))
+    .filter((group) => group.items.length > 0);
+}
+
 export default function DashboardScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { signOut } = useAuth();
   const { data, isLoading, isRefetching, refetch, error } = useDashboard();
   const { data: categories } = useCategories();
-  // The dashboard response only carries the top-10 expiring_soon items;
-  // the calendar and the "Expired" list below both need every active
-  // item, not just that capped top 10.
-  const { data: activeItems } = useItems({ status: 'active' });
+  // The dashboard response only carries the top-10 expiring_soon items; the
+  // calendar, category/location rows, and the "Use it before it's gone"
+  // grouping below all need every active item, not just that capped top 10.
+  const { data: activeItemsData } = useItems({ status: 'active' });
+  const activeItems = activeItemsData?.items ?? [];
+
+  const todayItems = useMemo(
+    () => activeItems.filter((item) => item.days_remaining === 0),
+    [activeItems]
+  );
+  const groups = useMemo(() => groupItems(activeItems), [activeItems]);
 
   if (isLoading) {
     return (
@@ -153,7 +190,6 @@ export default function DashboardScreen() {
     );
   }
 
-  const expiredItems = (activeItems?.items ?? []).filter((item) => item.urgency === 'expired');
   // expiring_soon is already sorted ascending by days_remaining, so expired
   // (negative days) naturally sort before critical (0-1 days) — filtering
   // preserves that "all expired, then critical" order without re-sorting.
@@ -163,120 +199,169 @@ export default function DashboardScreen() {
   // storage_location is free text the user sets on Add — no backend list of
   // locations to fetch, so this is just whatever distinct values exist.
   const locations = Array.from(
-    new Set((activeItems?.items ?? []).map((item) => item.storage_location).filter((v): v is string => !!v))
+    new Set(activeItems.map((item) => item.storage_location).filter((v): v is string => !!v))
   ).sort();
 
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
-    >
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <Image source={require('../../../assets/brand/wordmark.png')} style={styles.logo} resizeMode="contain" />
-        <Pressable hitSlop={10} onPress={signOut}>
-          <Ionicons name="log-out-outline" size={22} color={colors.textMuted} />
-        </Pressable>
-      </View>
-
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bucketRow}>
-        {BUCKETS.map(({ key, label, color }) => (
-          <Pressable
-            key={key}
-            style={[styles.bucketCard, { borderColor: color }]}
-            onPress={() => router.push({ pathname: '/pantry', params: { urgency: key } })}
-          >
-            <Text style={[styles.bucketLabel, { color }]}>{label}</Text>
-            <Text style={[styles.bucketCount, { color }]}>{data.counts[key]}</Text>
+    <View style={styles.screen}>
+      <ScrollView
+        style={styles.container}
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
+      >
+        <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+          <Image source={require('../../../assets/brand/wordmark.png')} style={styles.logo} resizeMode="contain" />
+          <Pressable hitSlop={10} onPress={signOut}>
+            <Ionicons name="log-out-outline" size={22} color={colors.textMuted} />
           </Pressable>
-        ))}
-      </ScrollView>
+        </View>
 
-      <TipCarousel items={bannerItems} />
-
-      <Pressable style={styles.sectionHeader} onPress={() => router.push('/pantry')}>
-        <Text style={styles.sectionTitle}>Categories</Text>
-        <Ionicons name="chevron-forward" size={18} color={colors.navy} />
-      </Pressable>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryRow}>
-        {categories?.map((c) => (
-          <Pressable
-            key={c.id}
-            style={styles.categoryItem}
-            onPress={() => router.push({ pathname: '/pantry', params: { category: c.id } })}
-          >
-            <View style={styles.categoryCircle}>
-              <Ionicons name={iconForCategory(c.id)} size={26} color={colors.navy} />
-            </View>
-            <Text style={styles.categoryLabel} numberOfLines={1}>
-              {c.label_en}
+        {todayItems.length > 0 && (
+          <View style={styles.todayCard}>
+            <Text style={styles.todayTitle}>
+              {todayItems.length === 1 ? '1 item expires today' : `${todayItems.length} items expire today`}
             </Text>
-          </Pressable>
-        ))}
+            <Text style={styles.todaySubtitle}>Use it, check it, or dispose of it safely.</Text>
+            <View style={styles.todayLinks}>
+              {todayItems.map((item) => (
+                <Pressable key={item.id} onPress={() => router.push(`/item/${item.id}`)}>
+                  <Text style={styles.todayItemLink}>{item.name} ›</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        )}
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bucketRow}>
+          {BUCKETS.map(({ key, label, color }) => (
+            <Pressable
+              key={key}
+              style={[styles.bucketCard, { borderColor: color }]}
+              onPress={() => router.push({ pathname: '/pantry', params: { urgency: key } })}
+            >
+              <Text style={[styles.bucketLabel, { color }]}>{label}</Text>
+              <Text style={[styles.bucketCount, { color }]}>{data.counts[key]}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+
+        <TipCarousel items={bannerItems} />
+
+        <Pressable style={styles.sectionHeader} onPress={() => router.push('/pantry')}>
+          <Text style={styles.sectionTitle}>Categories</Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.navy} />
+        </Pressable>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryRow}>
+          {categories?.map((c) => (
+            <Pressable
+              key={c.id}
+              style={styles.categoryItem}
+              onPress={() => router.push({ pathname: '/pantry', params: { category: c.id } })}
+            >
+              <View style={styles.categoryCircle}>
+                <Ionicons name={iconForCategory(c.id)} size={26} color={colors.navy} />
+              </View>
+              <Text style={styles.categoryLabel} numberOfLines={1}>
+                {c.label_en}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+
+        {locations.length > 0 && (
+          <>
+            <Pressable style={styles.sectionHeader} onPress={() => router.push('/pantry')}>
+              <Text style={styles.sectionTitle}>Locations</Text>
+              <Ionicons name="chevron-forward" size={18} color={colors.navy} />
+            </Pressable>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryRow}>
+              {locations.map((loc) => (
+                <Pressable
+                  key={loc}
+                  style={styles.categoryItem}
+                  onPress={() => router.push({ pathname: '/pantry', params: { location: loc } })}
+                >
+                  <View style={styles.categoryCircle}>
+                    <Ionicons name="location-outline" size={26} color={colors.navy} />
+                  </View>
+                  <Text style={styles.categoryLabel} numberOfLines={1}>
+                    {loc}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </>
+        )}
+
+        <View style={styles.calendarWrap}>
+          <ExpiryCalendar
+            items={activeItems}
+            onSelectDate={(iso) => router.push({ pathname: '/pantry', params: { expiryDate: iso } })}
+          />
+        </View>
+
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>Use it before it's gone</Text>
+          {activeItems.length > 0 && (
+            <Pressable
+              onPress={() =>
+                exportToCalendar(activeItems, 'pantry-items').catch((error) =>
+                  alert('Could not export', (error as Error).message)
+                )
+              }
+            >
+              <Text style={styles.sectionAction}>Add all to Calendar</Text>
+            </Pressable>
+          )}
+        </View>
+        {groups.length === 0 ? (
+          <Text style={styles.empty}>Nothing in your pantry yet.</Text>
+        ) : (
+          groups.map((group) => (
+            <View key={group.key}>
+              <Text style={styles.groupLabel}>{group.label}</Text>
+              {group.items.map((item) => (
+                <ItemRow
+                  key={item.id}
+                  item={item}
+                  showBadge={false}
+                  onPress={() => router.push(`/item/${item.id}`)}
+                />
+              ))}
+            </View>
+          ))
+        )}
       </ScrollView>
 
-      {locations.length > 0 && (
-        <>
-          <Pressable style={styles.sectionHeader} onPress={() => router.push('/pantry')}>
-            <Text style={styles.sectionTitle}>Locations</Text>
-            <Ionicons name="chevron-forward" size={18} color={colors.navy} />
-          </Pressable>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryRow}>
-            {locations.map((loc) => (
-              <Pressable
-                key={loc}
-                style={styles.categoryItem}
-                onPress={() => router.push({ pathname: '/pantry', params: { location: loc } })}
-              >
-                <View style={styles.categoryCircle}>
-                  <Ionicons name="location-outline" size={26} color={colors.navy} />
-                </View>
-                <Text style={styles.categoryLabel} numberOfLines={1}>
-                  {loc}
-                </Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-        </>
-      )}
-
-      <View style={styles.calendarWrap}>
-        <ExpiryCalendar
-          items={activeItems?.items ?? []}
-          onSelectDate={(iso) => router.push({ pathname: '/pantry', params: { expiryDate: iso } })}
-        />
-      </View>
-
-      <View style={styles.sectionHeaderRow}>
-        <Text style={styles.sectionTitle}>Expired</Text>
-        {expiredItems.length > 0 && (
-          <Pressable
-            onPress={() =>
-              exportToCalendar(expiredItems, 'expired-items').catch((error) =>
-                alert('Could not export', (error as Error).message)
-              )
-            }
-          >
-            <Text style={styles.sectionAction}>Add all to Calendar</Text>
-          </Pressable>
-        )}
-      </View>
-      {expiredItems.length === 0 ? (
-        <Text style={styles.empty}>Nothing expired — nice.</Text>
-      ) : (
-        expiredItems.map((item) => (
-          <ItemRow
-            key={item.id}
-            item={item}
-            showBadge={false}
-            onPress={() => router.push(`/item/${item.id}`)}
-          />
-        ))
-      )}
-    </ScrollView>
+      <Pressable style={styles.askButton} onPress={() => router.push('/ask-thyme')}>
+        <Text style={styles.askButtonText}>Ask Thyme</Text>
+      </Pressable>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+  },
+  askButton: {
+    position: 'absolute',
+    right: 16,
+    bottom: 20,
+    backgroundColor: colors.navy,
+    borderRadius: 24,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  askButtonText: {
+    color: colors.white,
+    fontWeight: '700',
+    fontSize: 14,
+  },
   container: {
     flex: 1,
     backgroundColor: colors.cream,
@@ -298,6 +383,35 @@ const styles = StyleSheet.create({
   logo: {
     width: 110,
     height: 36,
+  },
+  todayCard: {
+    backgroundColor: colors.navy,
+    borderRadius: 14,
+    padding: 16,
+    marginHorizontal: 16,
+    marginTop: 16,
+    gap: 8,
+  },
+  todayTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.white,
+  },
+  todaySubtitle: {
+    fontSize: 13,
+    color: '#C9CEEF',
+  },
+  todayLinks: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginTop: 4,
+  },
+  todayItemLink: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.white,
+    textDecorationLine: 'underline',
   },
   bucketRow: {
     flexGrow: 0,
@@ -418,5 +532,15 @@ const styles = StyleSheet.create({
   empty: {
     color: colors.textMuted,
     paddingHorizontal: 16,
+  },
+  groupLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.navyMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    paddingHorizontal: 16,
+    marginTop: 14,
+    marginBottom: 2,
   },
 });

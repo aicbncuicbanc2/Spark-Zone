@@ -5,6 +5,8 @@ import { apiRequest } from './api';
 import { USE_MOCKS } from './config';
 import { mockStore } from './mockStore';
 import type {
+  AskThymeRequest,
+  AskThymeResponse,
   Category,
   CreateCategoryInput,
   CreateItemInput,
@@ -17,6 +19,7 @@ import type {
   PatchItemInput,
   ProductIdentifyResponse,
   ScanResponse,
+  SuggestionsResponse,
 } from './types';
 
 // Every function here has one job: return the same shape whether it's
@@ -130,6 +133,22 @@ export async function discardItem(id: string): Promise<Item> {
     return mockStore.resolveItem(id, 'discarded');
   }
   return apiRequest<Item>(`/v1/items/${id}/discard`, { method: 'POST' });
+}
+
+export async function getItemSuggestions(item: Item): Promise<SuggestionsResponse> {
+  if (USE_MOCKS) {
+    await mockDelay();
+    return mockStore.getItemSuggestions(item);
+  }
+  return apiRequest<SuggestionsResponse>(`/v1/ai/items/${item.id}/suggestions`);
+}
+
+export async function askThyme(request: AskThymeRequest): Promise<AskThymeResponse> {
+  if (USE_MOCKS) {
+    await mockDelay();
+    return mockStore.askThyme(request);
+  }
+  return apiRequest<AskThymeResponse>('/v1/ai/ask', { method: 'POST', body: request });
 }
 
 export async function registerDevice(input: DeviceInput): Promise<Device> {

@@ -25,6 +25,17 @@ type StatusFilter = ItemStatus | 'all';
 const STATUS_FILTERS: StatusFilter[] = ['all', 'active', 'consumed', 'discarded', 'expired'];
 const SORTS = ['expiry', 'name', 'created'] as const;
 
+// Same 5 states and colors as HomeScreen's bucket row - kept as a separate
+// constant (not imported) since urgency here drives a chip filter, not a
+// count display, and the two screens' styling needs may drift independently.
+const URGENCIES: { key: Urgency; label: string; color: string }[] = [
+  { key: 'expired', label: 'Expired', color: urgencyColors.expired },
+  { key: 'critical', label: 'Critical', color: urgencyColors.critical },
+  { key: 'soon', label: 'Soon', color: urgencyColors.soon },
+  { key: 'upcoming', label: 'Upcoming', color: urgencyColors.upcoming },
+  { key: 'ok', label: 'OK', color: urgencyColors.ok },
+];
+
 export default function PantryScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -34,13 +45,17 @@ export default function PantryScreen() {
     category?: string;
     location?: string;
     expiryDate?: string;
-    urgency?: string;
+    urgency?: Urgency;
   }>();
 
   const [status, setStatus] = useState<StatusFilter>('active');
   const [category, setCategory] = useState<string | undefined>(undefined);
   const [location, setLocation] = useState<string | undefined>(undefined);
   const [search, setSearch] = useState('');
+  // Seeded from the ?urgency= param Home's bucket row / calendar passes in,
+  // so tapping "Critical" there lands here pre-filtered; after that it's
+  // just local UI state the user can change or clear like any other chip.
+  const [urgency, setUrgency] = useState<Urgency | undefined>(params.urgency);
   const [sortIndex, setSortIndex] = useState(0);
   const sort = SORTS[sortIndex];
 
@@ -54,8 +69,17 @@ export default function PantryScreen() {
 
   const { data: categories } = useCategories();
 
+  // No item's `status` column is ever actually written as "expired" - only
+  // /consume and /discard exist as resolution actions, so a real backend
+  // filter on status=expired always comes back empty. "Expired" instead
+  // means "active, but its date has already passed", split client-side by
+  // urgency; "All" merges the three *real* statuses (active/consumed/
+  // discarded) - fetching "active" already includes expired-but-unresolved
+  // items too, so there's no separate backend status to fetch for
+  // "expired" either.
   const showAllStatuses = status === 'all';
-  const singleStatusQuery = useItems(showAllStatuses ? undefined : { status, category, sort });
+  const backendStatus = showAllStatuses || status === 'expired' ? 'active' : status;
+  const singleStatusQuery = useItems(showAllStatuses ? undefined : { status: backendStatus, category, sort });
   const allStatusQuery = useAllStatusItems({ category, sort });
 
   const fetchedItems = showAllStatuses ? allStatusQuery.items : singleStatusQuery.data?.items ?? [];
@@ -80,11 +104,16 @@ export default function PantryScreen() {
 
   const items = useMemo(() => {
     let list = fetchedItems;
+    if (status === 'active') {
+      list = list.filter((item) => item.urgency !== 'expired');
+    } else if (status === 'expired') {
+      list = list.filter((item) => item.urgency === 'expired');
+    }
     if (params.expiryDate) {
       list = list.filter((item) => item.effective_expiry_date === params.expiryDate);
     }
-    if (params.urgency) {
-      list = list.filter((item) => item.urgency === (params.urgency as Urgency));
+    if (urgency) {
+      list = list.filter((item) => item.urgency === urgency);
     }
     if (location) {
       list = list.filter((item) => item.storage_location === location);
@@ -107,7 +136,7 @@ export default function PantryScreen() {
     }
     return list;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchedItems, search, params.expiryDate, params.urgency, location, categories]);
+  }, [fetchedItems, search, params.expiryDate, status, urgency, location, categories]);
 
   return (
     <View style={styles.container}>
@@ -125,12 +154,10 @@ export default function PantryScreen() {
         </View>
       </View>
 
-      {(params.urgency || params.expiryDate) && (
+      {params.expiryDate && (
         <View style={styles.filterBanner}>
-          <Text style={styles.filterBannerText}>
-            {params.urgency ? `Filtered: ${params.urgency}` : `Filtered: expiring ${params.expiryDate}`}
-          </Text>
-          <Pressable onPress={() => router.setParams({ urgency: undefined, expiryDate: undefined })}>
+          <Text style={styles.filterBannerText}>Filtered: expiring {params.expiryDate}</Text>
+          <Pressable onPress={() => router.setParams({ expiryDate: undefined })}>
             <Ionicons name="close-circle" size={18} color={colors.textMuted} />
           </Pressable>
         </View>
@@ -196,6 +223,29 @@ export default function PantryScreen() {
         </ScrollView>
       )}
 
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
+        <Pressable
+          style={[styles.chip, !urgency && styles.chipActive]}
+          onPress={() => setUrgency(undefined)}
+        >
+          <Text style={[styles.chipText, !urgency && styles.chipTextActive]}>All</Text>
+        </Pressable>
+        {URGENCIES.map((u) => (
+          <Pressable
+            key={u.key}
+            style={[
+              styles.chip,
+              urgency === u.key && { backgroundColor: u.color, borderColor: u.color },
+            ]}
+            onPress={() => setUrgency(u.key)}
+          >
+            <Text style={[styles.chipText, urgency === u.key && styles.chipTextActive]}>
+              {u.label}
+            </Text>
+          </Pressable>
+        ))}
+      </ScrollView>
+
       <Pressable style={styles.sortButton} onPress={() => setSortIndex((sortIndex + 1) % SORTS.length)}>
         <Text style={styles.sortButtonText}>Sort: {sort}</Text>
       </Pressable>
@@ -208,6 +258,7 @@ export default function PantryScreen() {
         <ErrorState title="Couldn't load items." message={(error as Error).message} onRetry={refetch} />
       ) : (
         <FlatList
+          style={styles.list}
           data={items}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
@@ -243,6 +294,7 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 16,
     paddingBottom: 8,
+    flexShrink: 0,
   },
   logo: {
     width: 90,
@@ -284,6 +336,7 @@ const styles = StyleSheet.create({
   },
   chipRow: {
     flexGrow: 0,
+    flexShrink: 0,
     paddingHorizontal: 16,
     marginBottom: 8,
   },
@@ -339,11 +392,15 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-end',
     marginRight: 16,
     marginBottom: 4,
+    flexShrink: 0,
   },
   sortButtonText: {
     fontSize: 12,
     color: colors.navy,
     fontWeight: '600',
+  },
+  list: {
+    flex: 1,
   },
   center: {
     flex: 1,

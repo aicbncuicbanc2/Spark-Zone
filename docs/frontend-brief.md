@@ -25,8 +25,8 @@ you.
 
 ## The backend already works
 
-Ten endpoints are live and tested. You are not blocked on anything except the
-camera screen.
+Every endpoint below is live and tested — nothing is blocked. `api.md` is the
+full contract; this table is just an index into it.
 
 | Screen | Endpoint | State |
 |---|---|---|
@@ -39,7 +39,16 @@ camera screen.
 | Used it / binned it | `POST /v1/items/{id}/consume` · `/discard` | ready |
 | Category picker | `GET /v1/categories` | ready |
 | Settings | `GET /v1/me` · `PATCH /v1/me/preferences` | ready |
-| **Camera / scan** | `POST /v1/scans` | **not yet — build a placeholder** |
+| Scan a brand photo | `POST /v1/products/identify-photo` | ready |
+| Scan an expiry-date photo | `POST /v1/scans` (async, poll) | ready |
+| Disposal/usage guidance | `GET /v1/guidance/...` | ready — curated, not AI |
+| "What should I use this for?" | `GET /v1/ai/items/{id}/suggestions` | ready — AI, non-critical |
+| "Ask Thyme" chat | `POST /v1/ai/ask` | ready — AI, non-critical |
+| Add to calendar | client-side `.ics` / native calendar write (`lib/ics.ts`) | ready, no endpoint needed |
+
+The scan flow is **two photos, not one**: first the product's brand/name
+(`identify-photo`), then its expiry date (`/v1/scans`) — see `scan-product.tsx`
+for the existing flow before building anything new here.
 
 ---
 
@@ -95,49 +104,46 @@ If you already have it, `git pull` instead.
 
 ## Backend base URL
 
-The API runs on the backend developer's machine and is exposed publicly through
-a Cloudflare tunnel, so you can reach it from anywhere — no shared wifi needed.
-
-Ask them for the current URL. It looks like:
+The backend moved off "runs on a laptop through a tunnel" — it's now a real,
+always-on deployment:
 
 ```
-https://<random-words>.trycloudflare.com
+https://expiry-guardian-api-113730041447.asia-northeast1.run.app
 ```
 
 Check it before debugging anything else:
 
 ```bash
-curl https://<their-url>/health
+curl https://expiry-guardian-api-113730041447.asia-northeast1.run.app/health
 ```
 
-**Two things to plan around:**
+It's Google Cloud Run, so it's up whether or not the backend developer's
+laptop is — no more "only up while their machine is awake" caveat, and the URL
+does not change on redeploy. `frontend/lib/config.ts` / `.env` should point
+`EXPO_PUBLIC_API_BASE_URL` at this.
 
-- **The URL changes every time they restart the server.** Keep it in *one*
-  config constant so swapping it is a one-line edit, and expect to be sent a
-  new one occasionally.
-- **It is only up while their laptop is awake** with the server running. If
-  `/health` does not answer, that is why — it is not your code.
+**The live web build of the whole app** (not just the API) is on GitHub Pages —
+ask the backend developer for the current link if you need to see the latest
+deployed frontend rather than running it locally; it redeploys automatically
+on every push to `main` that touches `frontend/**` (see
+`.github/workflows/deploy-pages.yml`).
 
-Because of both, build against `docs/api-samples/` (see below) and treat the
-live backend as something you point at when you need it, not something you
-depend on minute to minute.
+### Running the backend yourself (optional)
 
-### Running the backend yourself (optional, macOS)
-
-Only needed if you want to work while they are offline. Requires their `.env`
+Only needed if you want to work fully offline. Requires the real `.env`
 values, which are deliberately not in the repository:
 
 ```bash
 cd backend
-python3 -m venv venv
-source venv/bin/activate
+python -m venv venv
+source venv/bin/activate      # venv\Scripts\activate on Windows
 pip install -r requirements-dev.txt
-cp .env.example .env          # then fill in the Supabase values from them
+cp .env.example .env          # then fill in the Supabase + Gemini values from a teammate
 uvicorn app.main:app --host 0.0.0.0 --port 8080
 ```
 
-Skip `requirements-ml.txt` unless you need the camera endpoint working locally —
-it pulls roughly 1.5 GB of OCR dependencies.
+Skip `requirements-ml.txt` unless you need the camera endpoints working locally
+— it pulls roughly 1.5 GB of OCR dependencies.
 
 Interactive API docs, once running: `http://localhost:8080/docs`
 
@@ -234,6 +240,9 @@ likely to trip you up.
 
 ## Suggested build order
 
+This was the original bootstrap order and items 1-7 are long done. Still
+useful as a map of what exists and roughly the order it landed in:
+
 1. **Login** — Supabase email/password, session persistence, sign out
 2. **Dashboard** — `GET /v1/dashboard`, urgency buckets, the expiring-soon list
 3. **Pantry list** — `GET /v1/items` with status and category filters
@@ -242,25 +251,35 @@ likely to trip you up.
 5. **Manual add** — `POST /v1/items` with the category picker
 6. **Consume / discard** actions
 7. **Settings** — timezone, reminder lead days, quiet hours
-8. **Camera placeholder** — a button that routes nowhere yet
+8. **Two-photo scan flow** — brand/name photo (`identify-photo`, with a
+   confirmable frame over the detected logo), then expiry-date photo
+   (`/v1/scans`); `scan.tsx` is just two buttons that route into
+   `scan-product.tsx`, which runs both steps
+9. **Calendar export** (`lib/ics.ts`) — "Add to Calendar" on Item Detail and
+   on Home's "Expiring soon" section
+10. **AI features** — item suggestions (Item Detail) and "Ask Thyme" chat
+    (floating button on Home) — see `api.md`'s AI section for what's
+    deliberately curated vs. model-generated
 
 Item 5 is not throwaway work: manual entry is the fallback when OCR misreads
 during the demo.
 
 ---
 
-## Three decisions the backend is waiting on
+## Decisions that have since been made
 
-Ask the human to answer these and pass them back to the backend developer. The
-first blocks work that starts around day 10.
-
-1. **Push notifications: Expo's push service, or raw FCM tokens?** This changes
-   the backend's `devices` table and its sending code. It cannot be built until
-   this is decided.
-2. **Expo Go, or a development build?** Remote push requires the latter on
-   Android.
-3. **Is `expiryguardian://items/{id}` an acceptable deep link scheme?** That is
-   what the notification payload currently assumes.
+1. **Push notifications: Expo's push service** — `POST /v1/devices`'s
+   `fcm_token` field is named for history but must actually be an
+   `ExponentPushToken[...]`; the backend rejects a raw FCM token with 422.
+2. **Deep link scheme: `expiryguardian://`** — set in `app.json`'s `scheme`.
+3. **Expo Go vs. a development build — still worth confirming with whoever
+   last tested push/calendar on a real device.** It matters more now than it
+   did originally: `expo-calendar` and other config-plugin native modules
+   were added for the calendar export feature, and those require a dev
+   client/EAS build to actually run — Expo Go can't load them. The app's web
+   build (GitHub Pages) doesn't exercise this at all, so native push and the
+   direct-calendar-write path are both effectively untested on a real device
+   as of this writing.
 
 ---
 

@@ -20,6 +20,7 @@ export default function AppLayout() {
         <Stack.Screen name="item/[id]" options={{ headerShown: true, title: 'Item' }} />
         <Stack.Screen name="add" options={{ headerShown: true, title: 'Add item', presentation: 'modal' }} />
         <Stack.Screen name="scan-product" options={{ headerShown: true, title: 'Scan product' }} />
+        <Stack.Screen name="ask-thyme" options={{ headerShown: true, title: 'Ask Thyme' }} />
       </Stack>
       {USE_MOCKS && <MockDataBadge />}
     </View>

@@ -5,6 +5,8 @@ import meJson from '../mocks/me.json';
 import scanNeedsReviewJson from '../mocks/scan-needs-review.json';
 import scanSucceededJson from '../mocks/scan-succeeded.json';
 import type {
+  AskThymeRequest,
+  AskThymeResponse,
   Category,
   CreateCategoryInput,
   CreateItemInput,
@@ -16,6 +18,7 @@ import type {
   PatchItemInput,
   ProductIdentifyResponse,
   ScanResponse,
+  SuggestionsResponse,
 } from './types';
 
 // In-memory copy seeded from the real captured responses, so add/edit
@@ -208,5 +211,25 @@ export const mockStore = {
       category_confidence: 0.8,
       brand_box: null,
     };
+  },
+
+  getItemSuggestions(item: Item): SuggestionsResponse {
+    return {
+      suggestions: [
+        `Move ${item.name} to the front of the shelf so it gets used first.`,
+        item.category_id === 'food'
+          ? "Turn it into tonight's dinner rather than letting it sit any longer."
+          : 'A quick reminder to actually use this one soon.',
+      ],
+    };
+  },
+
+  askThyme(request: AskThymeRequest): AskThymeResponse {
+    const expiringSoon = items.filter((item) => item.status === 'active' && item.days_remaining <= 7);
+    if (expiringSoon.length === 0) {
+      return { answer: "Nothing in your pantry is expiring within a week right now — you're all clear." };
+    }
+    const names = expiringSoon.map((item) => item.name).join(', ');
+    return { answer: `Expiring within a week: ${names}. Worth using those up first.` };
   },
 };

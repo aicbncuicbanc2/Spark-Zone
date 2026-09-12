@@ -1,6 +1,7 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
+  askThyme,
   consumeItem,
   createCategory,
   createItem,
@@ -10,13 +11,25 @@ import {
   getDashboard,
   getItem,
   getItems,
+  getItemSuggestions,
   identifyProduct,
   patchItem,
 } from './dataSource';
-import type { CreateCategoryInput, CreateItemInput, Item, ItemStatus, PatchItemInput } from './types';
+import type {
+  AskThymeRequest,
+  CreateCategoryInput,
+  CreateItemInput,
+  Item,
+  ItemStatus,
+  PatchItemInput,
+} from './types';
 import type { ItemsQuery } from './dataSource';
 
-const ALL_ITEM_STATUSES: ItemStatus[] = ['active', 'consumed', 'discarded', 'expired'];
+// No item's `status` column is ever actually written as "expired" (see
+// pantry.tsx's comment) — a status=expired query always comes back empty,
+// and "active" already includes expired-but-unresolved items anyway, so
+// there's nothing for a 4th query to contribute.
+const ALL_ITEM_STATUSES: ItemStatus[] = ['active', 'consumed', 'discarded'];
 
 export const queryKeys = {
   dashboard: ['dashboard'] as const,
@@ -137,5 +150,23 @@ export function useCreateScan() {
 export function useIdentifyProduct() {
   return useMutation({
     mutationFn: ({ uri }: { uri: string }) => identifyProduct(uri),
+  });
+}
+
+// On-demand, not a useQuery: this calls an LLM, so it should only run when
+// the user actually taps "What should I use this for?", not eagerly every
+// time an item's detail screen opens.
+export function useItemSuggestions() {
+  return useMutation({
+    mutationFn: (item: Item) => getItemSuggestions(item),
+  });
+}
+
+// Feature C — "Ask Thyme". Each call is stateless (the backend rebuilds
+// pantry context fresh every time); the screen keeps the message list and
+// passes it back as `history` so the conversation still feels continuous.
+export function useAskThyme() {
+  return useMutation({
+    mutationFn: (request: AskThymeRequest) => askThyme(request),
   });
 }
