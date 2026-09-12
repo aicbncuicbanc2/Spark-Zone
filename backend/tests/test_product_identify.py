@@ -84,6 +84,28 @@ def test_guess_category_from_labels(labels: list[tuple[str, float]], expected_ca
 
 
 @pytest.mark.parametrize(
+    "labels,expected_unit",
+    [
+        ([("Bottle", 0.9), ("Plastic bottle", 0.7)], "bottle"),
+        ([("Medicine", 0.8), ("Tablet", 0.75)], "tablets"),
+        ([("Tin can", 0.8)], "can"),
+        ([("Tube", 0.7), ("Cosmetics", 0.6)], "tube"),
+        # Both "bottle" and "tablet" appear - the more specific container
+        # (pill bottles are near-universally counted, not measured by volume)
+        # must win regardless of list order.
+        ([("Bottle", 0.9), ("Tablet", 0.85)], "tablets"),
+        ([("Packaging and labeling", 0.9), ("Logo", 0.8)], None),
+        ([("Bottle", 0.4)], None),  # below the confidence bar
+        ([], None),
+    ],
+)
+def test_guess_unit_from_labels(labels: list[tuple[str, float]], expected_unit: str | None) -> None:
+    from app.services.ocr.vision_engine import _guess_unit
+
+    assert _guess_unit(labels) == expected_unit
+
+
+@pytest.mark.parametrize(
     "raw_text,expected_brand",
     [
         ("Roma\nD\nHALA\nINDONES...", "Roma"),  # real miss found in testing

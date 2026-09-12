@@ -313,7 +313,15 @@ Upcoming schedule, so the app can show "we'll remind you on Friday".
   async like scans — it only calls Vision, no local PaddleOCR, so it's
   consistently fast (~1-2s), never the 2-40s+ that motivated scans being async.
   Returns `{brand, brand_confidence, raw_text, category_id, category_confidence,
-  brand_box}`. `brand_box` is `{x, y, width, height}` as **fractions (0-1)** of
+  unit, brand_box}`. `unit` is a best-effort guess at the packaging unit
+  ("bottle", "tube", "tablets", "can", "jar", "box", "bar", "bag", "sachets")
+  to prefill the Add screen's Unit field, from the same Label Detection pass
+  as `category_id` — `null` whenever no label clears the confidence bar, and
+  a first-pass heuristic not yet checked against a real photo the way
+  `category_id`'s mapping was (see `vision_engine._UNIT_KEYWORDS`) — extend
+  or correct it as real misses turn up. Like every other field here, it's a
+  prefill only; never block on it or treat a miss as an error.
+  `brand_box` is `{x, y, width, height}` as **fractions (0-1)** of
   the photo's width/height, not pixels — multiply by the displayed image's
   rendered size to draw a frame over the logo for the user to confirm. It is
   `null` whenever `brand` is `null` (nothing to frame), and is never populated

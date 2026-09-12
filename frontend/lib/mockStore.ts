@@ -206,6 +206,7 @@ export const mockStore = {
         raw_text: 'KOPIKO Coffee Candy',
         category_id: 'food',
         category_confidence: 0.91,
+        unit: 'bag',
         brand_box: { x: 0.15, y: 0.22, width: 0.4, height: 0.18 },
       };
     }
@@ -215,6 +216,7 @@ export const mockStore = {
       raw_text: 'Anessa Perfect UV Sunscreen',
       category_id: 'skincare',
       category_confidence: 0.8,
+      unit: 'bottle',
       brand_box: null,
     };
   },

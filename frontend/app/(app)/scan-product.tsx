@@ -133,6 +133,7 @@ export default function ScanProductScreen() {
   const [brandDetected, setBrandDetected] = useState(false);
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [rawText, setRawText] = useState<string | null>(null);
+  const [unit, setUnit] = useState<string | null>(null);
 
   // The frame step's working state: the just-picked photo awaiting a crop
   // decision, its real pixel size (needed to convert the on-screen frame
@@ -180,6 +181,7 @@ export default function ScanProductScreen() {
         name: brand ?? scan.suggested_item?.name ?? '',
         brand: brand ?? scan.suggested_item?.brand ?? '',
         category_id: categoryId ?? scan.suggested_item?.category_id ?? '',
+        unit: unit ?? '',
         expiry_date: scan.extracted_expiry_date ?? fallbackDate ?? '',
         needs_review: scan.needs_review ? '1' : '0',
         review_reason: scan.review_reason ?? '',
@@ -188,7 +190,12 @@ export default function ScanProductScreen() {
     });
   }
 
-  function applyBrandResult(result: { brand: string | null; category_id: string | null; raw_text: string | null }) {
+  function applyBrandResult(result: {
+    brand: string | null;
+    category_id: string | null;
+    raw_text: string | null;
+    unit: string | null;
+  }) {
     // A miss is a normal result, not an error — Logo/Label Detection are
     // each precise when they hit but genuinely inconsistent. Either way
     // the user still confirms/types everything on /add.
@@ -196,6 +203,7 @@ export default function ScanProductScreen() {
     setBrandDetected(!!result.brand);
     setCategoryId(result.category_id);
     setRawText(result.raw_text);
+    setUnit(result.unit);
     if (result.brand) {
       setStep('confirm');
     } else {
@@ -334,6 +342,10 @@ export default function ScanProductScreen() {
         brand: cropHit.brand,
         category_id: fullHit.category_id,
         raw_text: cropHit.raw_text,
+        // Same reasoning as category above: the packaging-unit guess comes
+        // from the same Label Detection pass, so it needs the full product
+        // in view too, not just the tight brand/logo crop.
+        unit: fullHit.unit,
       });
     } catch (error) {
       setPreviewUri(null);
@@ -370,6 +382,7 @@ export default function ScanProductScreen() {
     setBrandDetected(false);
     setCategoryId(null);
     setRawText(null);
+    setUnit(null);
     setStep('brand');
   }
 

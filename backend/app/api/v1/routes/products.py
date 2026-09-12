@@ -116,6 +116,10 @@ class ProductPhotoResult(BaseModel):
     #: Null whenever no label clears the confidence bar; never a hard fail.
     category_id: str | None = None
     category_confidence: float | None = None
+    #: Best-effort guess at the packaging unit ("bottle", "tube", "tablets",
+    #: ...) from the same Label Detection pass as category. Null whenever no
+    #: label clears the confidence bar - prefill only, always editable.
+    unit: str | None = None
     #: Null whenever brand is null - there's nothing to frame. Deliberately
     #: never populated for the product name itself - see
     #: vision_engine.ProductIdentification's docstring for why.
@@ -155,6 +159,7 @@ async def identify_photo(
         raw_text=result.raw_text,
         category_id=result.category_id,
         category_confidence=result.category_confidence,
+        unit=result.unit,
         brand_box=BrandBoxOut(
             x=result.brand_box.x,
             y=result.brand_box.y,
