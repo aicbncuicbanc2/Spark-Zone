@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   FlatList,
   Image,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -46,9 +47,10 @@ export default function PantryScreen() {
     location?: string;
     expiryDate?: string;
     urgency?: Urgency;
+    status?: StatusFilter;
   }>();
 
-  const [status, setStatus] = useState<StatusFilter>('active');
+  const [status, setStatus] = useState<StatusFilter>(params.status ?? 'active');
   const [category, setCategory] = useState<string | undefined>(undefined);
   const [location, setLocation] = useState<string | undefined>(undefined);
   const [search, setSearch] = useState('');
@@ -58,6 +60,11 @@ export default function PantryScreen() {
   const [urgency, setUrgency] = useState<Urgency | undefined>(params.urgency);
   const [sortIndex, setSortIndex] = useState(0);
   const sort = SORTS[sortIndex];
+  // All the filter controls (status/category/location/urgency/sort) live
+  // inside one modal sheet behind a single "Filters" button instead of
+  // five permanently-visible rows stacked above the list — that stack was
+  // the actual clutter, not any one filter on its own.
+  const [filtersVisible, setFiltersVisible] = useState(false);
 
   useEffect(() => {
     if (params.category) setCategory(params.category);
@@ -66,6 +73,22 @@ export default function PantryScreen() {
   useEffect(() => {
     if (params.location) setLocation(params.location);
   }, [params.location]);
+
+  // Pantry is a tab screen, so it stays mounted while the user is on Home —
+  // tapping a dashboard bucket doesn't remount this screen, it just updates
+  // these params in place. Without syncing on every change (not just at
+  // mount, like the initial useState above covers), a second bucket tap
+  // landed on whatever status/urgency was already showing: tapping
+  // "Expired" after "Critical" combined status=active (stale) with
+  // urgency=expired, and since Active excludes expired-urgency items by
+  // definition, that combination always rendered an empty list.
+  useEffect(() => {
+    setStatus(params.status ?? 'active');
+  }, [params.status]);
+
+  useEffect(() => {
+    setUrgency(params.urgency);
+  }, [params.urgency]);
 
   const { data: categories } = useCategories();
 
@@ -138,6 +161,21 @@ export default function PantryScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchedItems, search, params.expiryDate, status, urgency, location, categories]);
 
+  const activeFilterCount =
+    (status !== 'active' ? 1 : 0) +
+    (category ? 1 : 0) +
+    (location ? 1 : 0) +
+    (urgency ? 1 : 0) +
+    (sort !== 'expiry' ? 1 : 0);
+
+  function resetFilters() {
+    setStatus('active');
+    setCategory(undefined);
+    setLocation(undefined);
+    setUrgency(undefined);
+    setSortIndex(0);
+  }
+
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
@@ -163,92 +201,152 @@ export default function PantryScreen() {
         </View>
       )}
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
-        {STATUS_FILTERS.map((s) => {
-          const isSelected = status === s;
-          const c = s === 'all' ? colors.navy : statusColors[s];
-          return (
-            <Pressable
-              key={s}
-              style={[styles.statusChip, { borderColor: c }, isSelected && { backgroundColor: c }]}
-              onPress={() => setStatus(s)}
-            >
-              <Text style={[styles.statusChipText, { color: isSelected ? colors.white : c }]}>
-                {s[0].toUpperCase() + s.slice(1)}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
-
-      <View style={styles.categoryRow}>
-        <Pressable
-          style={[styles.chip, !category && styles.chipActive]}
-          onPress={() => setCategory(undefined)}
-        >
-          <Text style={[styles.chipText, !category && styles.chipTextActive]}>All</Text>
+      <View style={styles.filterBar}>
+        <Pressable style={styles.filterButton} onPress={() => setFiltersVisible(true)}>
+          <Ionicons name="options-outline" size={16} color={colors.navy} />
+          <Text style={styles.filterButtonText}>Filters</Text>
+          {activeFilterCount > 0 && (
+            <View style={styles.filterCountBadge}>
+              <Text style={styles.filterCountText}>{activeFilterCount}</Text>
+            </View>
+          )}
         </Pressable>
-        <View style={styles.categoryPickerFlex}>
-          <CategoryPicker
-            categories={categories}
-            selectedId={category}
-            onSelect={setCategory}
-            newButtonVariant="square"
-          />
-        </View>
+        <Text style={styles.resultCount}>
+          {items.length} item{items.length === 1 ? '' : 's'}
+        </Text>
       </View>
 
-      {locations.length > 0 && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
-          <Pressable
-            style={[styles.chip, styles.chipRowContent, !location && styles.chipActive]}
-            onPress={() => setLocation(undefined)}
-          >
-            <Ionicons
-              name="location-outline"
-              size={13}
-              color={!location ? colors.white : colors.textMuted}
-            />
-            <Text style={[styles.chipText, !location && styles.chipTextActive]}>Any location</Text>
-          </Pressable>
-          {locations.map((loc) => (
-            <Pressable
-              key={loc}
-              style={[styles.chip, location === loc && styles.chipActive]}
-              onPress={() => setLocation(loc)}
-            >
-              <Text style={[styles.chipText, location === loc && styles.chipTextActive]}>{loc}</Text>
+      <Modal
+        visible={filtersVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setFiltersVisible(false)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setFiltersVisible(false)} />
+        <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 12 }]}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Filters</Text>
+            <Pressable hitSlop={10} onPress={() => setFiltersVisible(false)}>
+              <Ionicons name="close" size={22} color={colors.textMuted} />
             </Pressable>
-          ))}
-        </ScrollView>
-      )}
+          </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
-        <Pressable
-          style={[styles.chip, !urgency && styles.chipActive]}
-          onPress={() => setUrgency(undefined)}
-        >
-          <Text style={[styles.chipText, !urgency && styles.chipTextActive]}>All</Text>
-        </Pressable>
-        {URGENCIES.map((u) => (
-          <Pressable
-            key={u.key}
-            style={[
-              styles.chip,
-              urgency === u.key && { backgroundColor: u.color, borderColor: u.color },
-            ]}
-            onPress={() => setUrgency(u.key)}
-          >
-            <Text style={[styles.chipText, urgency === u.key && styles.chipTextActive]}>
-              {u.label}
-            </Text>
-          </Pressable>
-        ))}
-      </ScrollView>
+          <ScrollView contentContainerStyle={styles.modalContent}>
+            <Text style={styles.modalSectionTitle}>Status</Text>
+            <View style={styles.wrapRow}>
+              {STATUS_FILTERS.map((s) => {
+                const isSelected = status === s;
+                const c = s === 'all' ? colors.navy : statusColors[s];
+                return (
+                  <Pressable
+                    key={s}
+                    style={[styles.statusChip, { borderColor: c }, isSelected && { backgroundColor: c }]}
+                    onPress={() => setStatus(s)}
+                  >
+                    <Text style={[styles.statusChipText, { color: isSelected ? colors.white : c }]}>
+                      {s[0].toUpperCase() + s.slice(1)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
 
-      <Pressable style={styles.sortButton} onPress={() => setSortIndex((sortIndex + 1) % SORTS.length)}>
-        <Text style={styles.sortButtonText}>Sort: {sort}</Text>
-      </Pressable>
+            <Text style={styles.modalSectionTitle}>Category</Text>
+            <View style={styles.categoryRow}>
+              <Pressable
+                style={[styles.chip, !category && styles.chipActive]}
+                onPress={() => setCategory(undefined)}
+              >
+                <Text style={[styles.chipText, !category && styles.chipTextActive]}>All</Text>
+              </Pressable>
+              <View style={styles.categoryPickerFlex}>
+                <CategoryPicker
+                  categories={categories}
+                  selectedId={category}
+                  onSelect={setCategory}
+                  newButtonVariant="square"
+                />
+              </View>
+            </View>
+
+            {locations.length > 0 && (
+              <>
+                <Text style={styles.modalSectionTitle}>Location</Text>
+                <View style={styles.wrapRow}>
+                  <Pressable
+                    style={[styles.chip, styles.chipRowContent, !location && styles.chipActive]}
+                    onPress={() => setLocation(undefined)}
+                  >
+                    <Ionicons
+                      name="location-outline"
+                      size={13}
+                      color={!location ? colors.white : colors.textMuted}
+                    />
+                    <Text style={[styles.chipText, !location && styles.chipTextActive]}>Any location</Text>
+                  </Pressable>
+                  {locations.map((loc) => (
+                    <Pressable
+                      key={loc}
+                      style={[styles.chip, location === loc && styles.chipActive]}
+                      onPress={() => setLocation(loc)}
+                    >
+                      <Text style={[styles.chipText, location === loc && styles.chipTextActive]}>{loc}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </>
+            )}
+
+            <Text style={styles.modalSectionTitle}>Urgency</Text>
+            <View style={styles.wrapRow}>
+              <Pressable
+                style={[styles.chip, !urgency && styles.chipActive]}
+                onPress={() => setUrgency(undefined)}
+              >
+                <Text style={[styles.chipText, !urgency && styles.chipTextActive]}>All</Text>
+              </Pressable>
+              {URGENCIES.map((u) => (
+                <Pressable
+                  key={u.key}
+                  style={[
+                    styles.chip,
+                    urgency === u.key && { backgroundColor: u.color, borderColor: u.color },
+                  ]}
+                  onPress={() => setUrgency(u.key)}
+                >
+                  <Text style={[styles.chipText, urgency === u.key && styles.chipTextActive]}>
+                    {u.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <Text style={styles.modalSectionTitle}>Sort by</Text>
+            <View style={styles.wrapRow}>
+              {SORTS.map((s, i) => (
+                <Pressable
+                  key={s}
+                  style={[styles.chip, sortIndex === i && styles.chipActive]}
+                  onPress={() => setSortIndex(i)}
+                >
+                  <Text style={[styles.chipText, sortIndex === i && styles.chipTextActive]}>
+                    {s === 'expiry' ? 'Expiry date' : s === 'name' ? 'Name' : 'Newest'}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </ScrollView>
+
+          <View style={styles.modalFooter}>
+            <Pressable style={styles.resetButton} onPress={resetFilters}>
+              <Text style={styles.resetButtonText}>Reset filters</Text>
+            </Pressable>
+            <Pressable style={styles.doneButton} onPress={() => setFiltersVisible(false)}>
+              <Text style={styles.doneButtonText}>Done</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
 
       {isLoading ? (
         <View style={styles.center}>
@@ -334,18 +432,131 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textTransform: 'capitalize',
   },
-  chipRow: {
-    flexGrow: 0,
-    flexShrink: 0,
+  filterBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
     marginBottom: 8,
+    flexShrink: 0,
+  },
+  filterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderColor: colors.navy,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+  },
+  filterButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.navy,
+  },
+  filterCountBadge: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    backgroundColor: colors.navy,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterCountText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.white,
+  },
+  resultCount: {
+    fontSize: 12,
+    color: colors.textMuted,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  modalSheet: {
+    maxHeight: '80%',
+    backgroundColor: colors.cream,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: colors.navy,
+  },
+  modalContent: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  modalSectionTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    marginBottom: 8,
+    marginTop: 18,
+  },
+  wrapRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  resetButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    paddingVertical: 12,
+  },
+  resetButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textMuted,
+  },
+  doneButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.navy,
+    borderRadius: 10,
+    paddingVertical: 12,
+  },
+  doneButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.white,
   },
   statusChip: {
     borderWidth: 1,
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 6,
-    marginRight: 8,
     backgroundColor: colors.white,
   },
   statusChipText: {
@@ -355,8 +566,6 @@ const styles = StyleSheet.create({
   categoryRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    marginBottom: 8,
     gap: 8,
   },
   categoryPickerFlex: {
@@ -368,7 +577,6 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 6,
-    marginRight: 8,
     backgroundColor: colors.white,
   },
   chipRowContent: {
@@ -386,17 +594,6 @@ const styles = StyleSheet.create({
   },
   chipTextActive: {
     color: colors.white,
-    fontWeight: '600',
-  },
-  sortButton: {
-    alignSelf: 'flex-end',
-    marginRight: 16,
-    marginBottom: 4,
-    flexShrink: 0,
-  },
-  sortButtonText: {
-    fontSize: 12,
-    color: colors.navy,
     fontWeight: '600',
   },
   list: {

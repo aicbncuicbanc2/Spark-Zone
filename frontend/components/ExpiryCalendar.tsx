@@ -86,14 +86,11 @@ export function ExpiryCalendar({ items, onSelectDate }: Props) {
           return (
             <View key={iso} style={styles.cell}>
               <Pressable
-                style={[
-                  styles.dayCircle,
-                  isMarked && styles.dayCircleMarked,
-                  isToday && !isMarked && styles.dayCircleToday,
-                ]}
+                style={[styles.dayTouchable, isToday && styles.dayTouchableToday]}
                 onPress={() => onSelectDate?.(iso)}
               >
                 <Text style={[styles.dayText, isMarked && styles.dayTextMarked]}>{day}</Text>
+                {isMarked && <View style={styles.dayDot} />}
               </Pressable>
             </View>
           );
@@ -143,7 +140,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.textMuted,
   },
-  dayCircle: {
+  dayTouchable: {
     width: '78%',
     height: '78%',
     maxWidth: 36,
@@ -152,10 +149,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dayCircleMarked: {
-    backgroundColor: colors.navy,
-  },
-  dayCircleToday: {
+  dayTouchableToday: {
     borderWidth: 1.5,
     borderColor: colors.navy,
   },
@@ -164,7 +158,14 @@ const styles = StyleSheet.create({
     color: colors.navy,
   },
   dayTextMarked: {
-    color: colors.white,
     fontWeight: '700',
+  },
+  dayDot: {
+    position: 'absolute',
+    bottom: 2,
+    width: 5,
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: colors.navy,
   },
 });

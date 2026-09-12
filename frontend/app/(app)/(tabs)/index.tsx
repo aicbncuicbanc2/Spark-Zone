@@ -241,7 +241,17 @@ export default function DashboardScreen() {
             <Pressable
               key={key}
               style={[styles.bucketCard, { borderColor: color }]}
-              onPress={() => router.push({ pathname: '/pantry', params: { urgency: key } })}
+              onPress={() =>
+                router.push({
+                  pathname: '/pantry',
+                  // Pantry's "Active" status tab excludes expired-urgency
+                  // items by definition, so the expired bucket needs its
+                  // own status tab rather than an urgency filter on top of
+                  // Active — anything else stays active + urgency-filtered.
+                  params:
+                    key === 'expired' ? { status: 'expired' } : { status: 'active', urgency: key },
+                })
+              }
             >
               <Text style={[styles.bucketLabel, { color }]}>{label}</Text>
               <Text style={[styles.bucketCount, { color }]}>{data.counts[key]}</Text>
@@ -323,7 +333,16 @@ export default function DashboardScreen() {
         ) : (
           groups.map((group) => (
             <View key={group.key}>
-              <Text style={styles.groupLabel}>{group.label}</Text>
+              {group.key === 'expired' ? (
+                <Text style={styles.groupLabel}>
+                  <Text style={{ color: urgencyColors.expired }}>Expired</Text>
+                  {' — dispose safely'}
+                </Text>
+              ) : group.key === 'soon' ? (
+                <Text style={[styles.groupLabel, { color: urgencyColors.soon }]}>{group.label}</Text>
+              ) : (
+                <Text style={styles.groupLabel}>{group.label}</Text>
+              )}
               {group.items.map((item) => (
                 <ItemRow
                   key={item.id}
