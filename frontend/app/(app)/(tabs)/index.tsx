@@ -105,10 +105,14 @@ export default function DashboardScreen() {
 
       <View style={styles.bucketRow}>
         {BUCKETS.map(({ key, label, color }) => (
-          <View key={key} style={styles.bucket}>
+          <Pressable
+            key={key}
+            style={styles.bucket}
+            onPress={() => router.push({ pathname: '/pantry', params: { urgency: key } })}
+          >
             <Text style={[styles.bucketCount, { color }]}>{data.counts[key]}</Text>
             <Text style={styles.bucketLabel}>{label}</Text>
-          </View>
+          </Pressable>
         ))}
       </View>
       <Text style={styles.totalLabel}>{data.counts.total_active} active items</Text>

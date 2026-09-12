@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -13,20 +13,40 @@ import {
 import { ItemRow } from '../../../components/ItemRow';
 import { useCategories, useItems } from '../../../lib/queries';
 import { colors } from '../../../lib/theme';
-import type { ItemStatus } from '../../../lib/types';
+import type { ItemStatus, Urgency } from '../../../lib/types';
 
 const STATUSES: ItemStatus[] = ['active', 'consumed', 'discarded', 'expired'];
 const SORTS = ['expiry', 'name', 'created'] as const;
 
+// Same 5 states and colors as HomeScreen's bucket row - kept as a separate
+// constant (not imported) since urgency here drives a chip filter, not a
+// count display, and the two screens' styling needs may drift independently.
+const URGENCIES: { key: Urgency; label: string; color: string }[] = [
+  { key: 'expired', label: 'Expired', color: '#c0392b' },
+  { key: 'critical', label: 'Critical', color: '#d35400' },
+  { key: 'soon', label: 'Soon', color: '#b9770e' },
+  { key: 'upcoming', label: 'Upcoming', color: '#9a7d0a' },
+  { key: 'ok', label: 'OK', color: '#1e8449' },
+];
+
 export default function PantryScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ urgency?: Urgency }>();
   const [status, setStatus] = useState<ItemStatus>('active');
   const [category, setCategory] = useState<string | undefined>(undefined);
+  // Seeded from the ?urgency= param Home's bucket row passes in, so tapping
+  // "Critical" there lands here pre-filtered; still just local UI state
+  // afterwards; the user can change or clear it like any other chip.
+  const [urgency, setUrgency] = useState<Urgency | undefined>(params.urgency);
   const [sortIndex, setSortIndex] = useState(0);
   const sort = SORTS[sortIndex];
 
   const { data: categories } = useCategories();
   const { data, isLoading, error, refetch, isRefetching } = useItems({ status, category, sort });
+  // Urgency isn't a backend filter (ItemsQuery has no such param) - every
+  // item already carries its own computed `urgency`, so this narrows the
+  // already-fetched page client-side, same as the HomeScreen grouping.
+  const items = urgency ? (data?.items ?? []).filter((item) => item.urgency === urgency) : data?.items ?? [];
 
   return (
     <View style={styles.container}>
@@ -71,6 +91,29 @@ export default function PantryScreen() {
         ))}
       </ScrollView>
 
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
+        <Pressable
+          style={[styles.chip, !urgency && styles.chipActive]}
+          onPress={() => setUrgency(undefined)}
+        >
+          <Text style={[styles.chipText, !urgency && styles.chipTextActive]}>All</Text>
+        </Pressable>
+        {URGENCIES.map((u) => (
+          <Pressable
+            key={u.key}
+            style={[
+              styles.chip,
+              urgency === u.key && { backgroundColor: u.color, borderColor: u.color },
+            ]}
+            onPress={() => setUrgency(u.key)}
+          >
+            <Text style={[styles.chipText, urgency === u.key && styles.chipTextActive]}>
+              {u.label}
+            </Text>
+          </Pressable>
+        ))}
+      </ScrollView>
+
       <Pressable style={styles.sortButton} onPress={() => setSortIndex((sortIndex + 1) % SORTS.length)}>
         <Text style={styles.sortButtonText}>Sort: {sort}</Text>
       </Pressable>
@@ -85,7 +128,7 @@ export default function PantryScreen() {
         </View>
       ) : (
         <FlatList
-          data={data?.items ?? []}
+          data={items}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <ItemRow item={item} onPress={() => router.push(`/item/${item.id}`)} />
