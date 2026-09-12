@@ -42,11 +42,23 @@ export default function PantryScreen() {
   const sort = SORTS[sortIndex];
 
   const { data: categories } = useCategories();
-  const { data, isLoading, error, refetch, isRefetching } = useItems({ status, category, sort });
+  // No item's `status` column is ever actually written as "expired" - only
+  // /consume and /discard exist as resolution actions, so a real backend
+  // filter on status=expired always comes back empty. The "Expired" chip
+  // instead means "active, but its date has already passed" - fetch the
+  // real active bucket and split it client-side by urgency instead.
+  const backendStatus = status === 'expired' ? 'active' : status;
+  const { data, isLoading, error, refetch, isRefetching } = useItems({ status: backendStatus, category, sort });
+  const statusFiltered =
+    status === 'active'
+      ? (data?.items ?? []).filter((item) => item.urgency !== 'expired')
+      : status === 'expired'
+        ? (data?.items ?? []).filter((item) => item.urgency === 'expired')
+        : data?.items ?? [];
   // Urgency isn't a backend filter (ItemsQuery has no such param) - every
   // item already carries its own computed `urgency`, so this narrows the
   // already-fetched page client-side, same as the HomeScreen grouping.
-  const items = urgency ? (data?.items ?? []).filter((item) => item.urgency === urgency) : data?.items ?? [];
+  const items = urgency ? statusFiltered.filter((item) => item.urgency === urgency) : statusFiltered;
 
   return (
     <View style={styles.container}>
