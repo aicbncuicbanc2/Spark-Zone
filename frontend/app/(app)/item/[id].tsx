@@ -4,7 +4,14 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { UrgencyBadge, urgencyLabel } from '../../../components/UrgencyBadge';
 import { alert } from '../../../lib/alert';
 import { exportToCalendar } from '../../../lib/ics';
-import { useCategories, useConsumeItem, useDiscardItem, useItem, usePatchItem } from '../../../lib/queries';
+import {
+  useCategories,
+  useConsumeItem,
+  useDiscardItem,
+  useItem,
+  useItemSuggestions,
+  usePatchItem,
+} from '../../../lib/queries';
 import { colors } from '../../../lib/theme';
 
 function Row({ label, value }: { label: string; value: string }) {
@@ -24,6 +31,7 @@ export default function ItemDetailScreen() {
   const patchMutation = usePatchItem(id);
   const consumeMutation = useConsumeItem(id);
   const discardMutation = useDiscardItem(id);
+  const suggestionsMutation = useItemSuggestions();
 
   if (isLoading) {
     return (
@@ -98,6 +106,36 @@ export default function ItemDetailScreen() {
           <Text style={styles.notes}>{item.notes}</Text>
         </View>
       )}
+
+      <View style={styles.aiCard}>
+        <Text style={styles.aiLabel}>AI suggestion</Text>
+        {suggestionsMutation.data ? (
+          suggestionsMutation.data.suggestions.length > 0 ? (
+            <View style={styles.aiList}>
+              {suggestionsMutation.data.suggestions.map((suggestion, index) => (
+                <Text key={index} style={styles.aiSuggestion}>
+                  •  {suggestion}
+                </Text>
+              ))}
+            </View>
+          ) : (
+            <Text style={styles.aiEmpty}>No suggestions available right now.</Text>
+          )
+        ) : (
+          <Pressable
+            style={styles.aiButton}
+            disabled={suggestionsMutation.isPending}
+            onPress={() => suggestionsMutation.mutate(item)}
+          >
+            <Text style={styles.aiButtonText}>
+              {suggestionsMutation.isPending ? 'Thinking…' : 'What should I use this for?'}
+            </Text>
+          </Pressable>
+        )}
+        {suggestionsMutation.isError && (
+          <Text style={styles.aiEmpty}>Couldn't get a suggestion — try again in a moment.</Text>
+        )}
+      </View>
 
       <Pressable
         style={styles.calendarButton}
@@ -219,6 +257,41 @@ const styles = StyleSheet.create({
   },
   notes: {
     fontStyle: 'italic',
+    color: colors.textMuted,
+  },
+  aiCard: {
+    backgroundColor: colors.creamCard,
+    borderRadius: 12,
+    padding: 14,
+    gap: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.navy,
+  },
+  aiLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.navyMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  aiButton: {
+    alignSelf: 'flex-start',
+  },
+  aiButtonText: {
+    color: colors.navy,
+    fontWeight: '600',
+    fontSize: 15,
+  },
+  aiList: {
+    gap: 6,
+  },
+  aiSuggestion: {
+    fontSize: 14,
+    color: colors.navy,
+    lineHeight: 20,
+  },
+  aiEmpty: {
+    fontSize: 13,
     color: colors.textMuted,
   },
   calendarButton: {

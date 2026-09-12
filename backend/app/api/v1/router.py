@@ -6,6 +6,7 @@ Routers are added here as each milestone lands.
 from fastapi import APIRouter
 
 from app.api.v1.routes import (
+    ai,
     categories,
     dashboard,
     devices,
@@ -32,5 +33,6 @@ api_router.include_router(stats.router, prefix="/stats", tags=["stats"])
 api_router.include_router(devices.router, prefix="/devices", tags=["devices"])
 api_router.include_router(reminders.router, prefix="/reminders", tags=["reminders"])
 api_router.include_router(internal.router, prefix="/internal", tags=["internal"])
+api_router.include_router(ai.router, prefix="/ai", tags=["ai"])
 
 # --- Still to come -----------------------------------------------------------

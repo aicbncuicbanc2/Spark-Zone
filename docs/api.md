@@ -353,6 +353,28 @@ Upcoming schedule, so the app can show "we'll remind you on Friday".
 
 ---
 
+## ✅ AI — non-critical suggestions only
+
+- ✅ `GET /v1/ai/items/{item_id}/suggestions` — "what should I use this for?".
+  Sends the item's name, category label, and `days_remaining` to Google
+  Gemini and asks for 2-3 short, practical suggestions (a recipe idea, a
+  repurposing tip, a nudge to use medicine as directed). Returns
+  `{suggestions: string[]}` — **always 200**, never an error for "AI
+  unavailable": a missing `GEMINI_API_KEY`, a network failure, or an
+  unparsable model response all degrade to `suggestions: []`, since a
+  missing suggestion button is a minor loss the frontend should just hide,
+  not surface as a fetch error. The prompt explicitly tells the model never
+  to suggest consuming/applying something already unsafe (an expired
+  medicine, an expired perishable) — only disposal or a pharmacist in that
+  case.
+
+  **This is deliberately the only AI-generated feature in the app.**
+  Disposal/usage guidance (`/v1/guidance/...` above) stays curated data, on
+  purpose — see `services/guidance.py`'s docstring for why a language model
+  must not sit between a user and medicine/chemical disposal instructions.
+
+---
+
 ## Note on barcodes
 
 Retail barcodes (EAN-13/UPC) **do not contain expiry dates**. The barcode gives us

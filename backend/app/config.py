@@ -59,6 +59,13 @@ class Settings(BaseSettings):
     internal_sweep_secret: str = ""
     default_timezone: str = "Asia/Kuala_Lumpur"
 
+    # --- Google Gemini (AI suggestions) -------------------------------------
+    # Non-critical features only (see services/guidance.py for what stays
+    # curated instead). Empty key means the feature degrades to "unavailable",
+    # never a crash - checked the same way vision_enabled gates Vision above.
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-2.0-flash"
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

@@ -10,10 +10,11 @@ import {
   getDashboard,
   getItem,
   getItems,
+  getItemSuggestions,
   identifyProduct,
   patchItem,
 } from './dataSource';
-import type { CreateCategoryInput, CreateItemInput, PatchItemInput } from './types';
+import type { CreateCategoryInput, CreateItemInput, Item, PatchItemInput } from './types';
 import type { ItemsQuery } from './dataSource';
 
 export const queryKeys = {
@@ -102,5 +103,14 @@ export function useCreateScan() {
 export function useIdentifyProduct() {
   return useMutation({
     mutationFn: ({ uri }: { uri: string }) => identifyProduct(uri),
+  });
+}
+
+// On-demand, not a useQuery: this calls an LLM, so it should only run when
+// the user actually taps "What should I use this for?", not eagerly every
+// time an item's detail screen opens.
+export function useItemSuggestions() {
+  return useMutation({
+    mutationFn: (item: Item) => getItemSuggestions(item),
   });
 }

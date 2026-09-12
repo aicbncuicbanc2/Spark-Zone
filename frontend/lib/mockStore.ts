@@ -16,6 +16,7 @@ import type {
   PatchItemInput,
   ProductIdentifyResponse,
   ScanResponse,
+  SuggestionsResponse,
 } from './types';
 
 // In-memory copy seeded from the real captured responses, so add/edit
@@ -207,6 +208,17 @@ export const mockStore = {
       category_id: 'skincare',
       category_confidence: 0.8,
       brand_box: null,
+    };
+  },
+
+  getItemSuggestions(item: Item): SuggestionsResponse {
+    return {
+      suggestions: [
+        `Move ${item.name} to the front of the shelf so it gets used first.`,
+        item.category_id === 'food'
+          ? "Turn it into tonight's dinner rather than letting it sit any longer."
+          : 'A quick reminder to actually use this one soon.',
+      ],
     };
   },
 };
