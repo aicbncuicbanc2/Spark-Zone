@@ -34,6 +34,7 @@ type ScanParams = {
   name?: string;
   brand?: string;
   category_id?: string;
+  unit?: string;
   expiry_date?: string;
   needs_review?: string;
   review_reason?: string;
@@ -58,7 +59,10 @@ export default function AddItemScreen() {
   const [categoryId, setCategoryId] = useState<string | undefined>(params.category_id || undefined);
   const [expiryDate, setExpiryDate] = useState(params.expiry_date ?? '');
   const [quantity, setQuantity] = useState('1');
-  const [unit, setUnit] = useState('');
+  // Prefilled from the scanned photo's packaging-unit guess when there is
+  // one (e.g. "bottle", "tablets") — a best-effort start, not a locked
+  // value; the field stays a plain editable TextInput either way.
+  const [unit, setUnit] = useState(params.unit ?? '');
   const [storageLocation, setStorageLocation] = useState('');
   const [notes, setNotes] = useState('');
   const [formError, setFormError] = useState<string | null>(null);

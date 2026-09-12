@@ -154,6 +154,39 @@ def _guess_category(labels: list[tuple[str, float]]) -> tuple[str | None, float 
     return None, None
 
 
+# Same Label Detection pass as category, read a second way: guessing the
+# packaging unit to prefill the Add screen's "Unit" field. A first-pass
+# heuristic, not yet checked against a real photo the way _CATEGORY_KEYWORDS
+# was - extend or correct entries as real misses turn up. Order matters: more
+# specific containers first, since a photo can trip several keywords at once
+# (a pill bottle photo can say both "bottle" and "medicine").
+_UNIT_KEYWORDS: list[tuple[str, tuple[str, ...]]] = [
+    ("tablets", ("tablet", "capsule", "pill")),
+    ("sachets", ("sachet",)),
+    ("tube", ("tube",)),
+    ("jar", ("jar",)),
+    ("can", ("tin can", "aluminum can", "aerosol can", "spray can")),
+    ("box", ("carton", "box")),
+    ("bar", ("bar soap", "chocolate bar")),
+    ("bag", ("bag", "pouch", "packet")),
+    ("bottle", ("bottle",)),
+]
+_UNIT_MIN_SCORE = 0.6
+
+
+def _guess_unit(labels: list[tuple[str, float]]) -> str | None:
+    # Checked bucket-by-bucket across every qualifying label, not label-by-
+    # label - a photo of pill bottle can trip both "bottle" and "tablet",
+    # and the more specific, non-container signal must win regardless of
+    # which label Vision happened to score higher.
+    qualifying = [description.lower() for description, score in labels if score >= _UNIT_MIN_SCORE]
+    for unit, keywords in _UNIT_KEYWORDS:
+        for lowered in qualifying:
+            if any(keyword in lowered for keyword in keywords):
+                return unit
+    return None
+
+
 # Real, legitimate brands confirmed missing from Google's own Logo Detection
 # database during testing - its training data skews toward globally
 # prominent brands, so a real local/regional brand can return zero logo
@@ -205,6 +238,11 @@ class ProductIdentification:
     raw_text: str | None = None
     category_id: str | None = None
     category_confidence: float | None = None
+    #: Best-effort guess at the packaging unit ("bottle", "tube", "tablets",
+    #: ...) to prefill the Add screen's Unit field - see _guess_unit. Null
+    #: whenever no label clears the confidence bar; the field stays fully
+    #: editable either way.
+    unit: str | None = None
     #: Where the detected logo actually sits in the photo, so the client can
     #: draw a frame around it for the user to confirm. None whenever brand
     #: is None - there is nothing to frame. Deliberately never populated for
@@ -284,6 +322,7 @@ def identify_product(image: bytes) -> ProductIdentification:
         label_response = client.label_detection(image=request_image)
         labels = [(label.description, float(label.score)) for label in label_response.label_annotations]
         category_id, category_confidence = _guess_category(labels)
+        unit = _guess_unit(labels)
 
         return ProductIdentification(
             brand=brand,
@@ -291,6 +330,7 @@ def identify_product(image: bytes) -> ProductIdentification:
             raw_text=raw_text,
             category_id=category_id,
             category_confidence=category_confidence,
+            unit=unit,
             brand_box=brand_box,
         )
 

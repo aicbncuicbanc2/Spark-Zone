@@ -212,6 +212,11 @@ export interface ProductIdentifyResponse {
   raw_text: string | null;
   category_id: string | null;
   category_confidence: number | null;
+  /** Best-effort guess at the packaging unit ("bottle", "tube", "tablets",
+   * ...) to prefill the Add screen's Unit field, from the same Label
+   * Detection pass as category_id. Null whenever no label clears the
+   * confidence bar — a prefill only, always editable, never a hard guess. */
+  unit: string | null;
   /** Null whenever brand is null — nothing to frame. Never populated for
    * the product name itself; see backend/app/services/ocr/vision_engine.py
    * for why that's not a reliable region to point to. */
