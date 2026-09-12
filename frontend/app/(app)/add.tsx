@@ -15,6 +15,19 @@ import { useCategories, useCreateItem } from '../../lib/queries';
 import { colors } from '../../lib/theme';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+// Accepts a single-digit month/day while the user is still typing (e.g.
+// "2026-9-1") so the submit button doesn't lock up before normalizeDate
+// pads it — canSubmit is checked against this, not the strict DATE_RE.
+const LOOSE_DATE_RE = /^\d{4}-\d{1,2}-\d{1,2}$/;
+
+// "2026-9-1" -> "2026-09-01". Users naturally skip the leading zero on a
+// single-digit month or day; the API and DATE_RE both require it.
+function normalizeExpiryDate(raw: string): string {
+  const match = raw.trim().match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (!match) return raw;
+  const [, year, month, day] = match;
+  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+}
 
 type ScanParams = {
   scan_id?: string;
@@ -50,21 +63,24 @@ export default function AddItemScreen() {
   const [notes, setNotes] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
 
-  const canSubmit = name.trim().length > 0 && DATE_RE.test(expiryDate) && !createMutation.isPending;
+  const canSubmit = name.trim().length > 0 && LOOSE_DATE_RE.test(expiryDate) && !createMutation.isPending;
 
   function handleSubmit() {
     setFormError(null);
     if (!name.trim()) return setFormError('Name is required.');
-    if (!DATE_RE.test(expiryDate)) return setFormError('Expiry date must be YYYY-MM-DD.');
 
-    const dateWasEdited = expiryDate !== ocrExpiryDate;
+    const normalizedDate = normalizeExpiryDate(expiryDate);
+    if (!DATE_RE.test(normalizedDate)) return setFormError('Expiry date must be YYYY-MM-DD.');
+    if (normalizedDate !== expiryDate) setExpiryDate(normalizedDate);
+
+    const dateWasEdited = normalizedDate !== ocrExpiryDate;
 
     createMutation.mutate(
       {
         name: name.trim(),
         brand: brand.trim() || null,
         category_id: categoryId ?? null,
-        expiry_date: expiryDate,
+        expiry_date: normalizedDate,
         scan_id: scanId,
         quantity: Number(quantity) || 1,
         unit: unit.trim() || null,
@@ -104,6 +120,7 @@ export default function AddItemScreen() {
         style={styles.input}
         value={expiryDate}
         onChangeText={setExpiryDate}
+        onBlur={() => setExpiryDate((current) => normalizeExpiryDate(current))}
         placeholder="2026-12-31"
         keyboardType="numbers-and-punctuation"
       />
