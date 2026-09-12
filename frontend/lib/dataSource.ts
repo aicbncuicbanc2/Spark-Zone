@@ -5,6 +5,8 @@ import { apiRequest } from './api';
 import { USE_MOCKS } from './config';
 import { mockStore } from './mockStore';
 import type {
+  AskThymeRequest,
+  AskThymeResponse,
   Category,
   CreateCategoryInput,
   CreateItemInput,
@@ -139,6 +141,14 @@ export async function getItemSuggestions(item: Item): Promise<SuggestionsRespons
     return mockStore.getItemSuggestions(item);
   }
   return apiRequest<SuggestionsResponse>(`/v1/ai/items/${item.id}/suggestions`);
+}
+
+export async function askThyme(request: AskThymeRequest): Promise<AskThymeResponse> {
+  if (USE_MOCKS) {
+    await mockDelay();
+    return mockStore.askThyme(request);
+  }
+  return apiRequest<AskThymeResponse>('/v1/ai/ask', { method: 'POST', body: request });
 }
 
 export async function registerDevice(input: DeviceInput): Promise<Device> {

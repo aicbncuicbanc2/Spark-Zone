@@ -230,6 +230,28 @@ export interface SuggestionsResponse {
   suggestions: string[];
 }
 
+/**
+ * Feature C — "Ask Thyme". POST /v1/ai/ask body/response
+ * (backend/app/api/v1/routes/ai.py). `history` is prior turns, oldest
+ * first — the call is otherwise stateless; the backend rebuilds the user's
+ * current pantry context fresh every time. Unlike SuggestionsResponse, a
+ * failure here is a real HTTP error (503 AI_UNAVAILABLE), not an empty
+ * result — see api.md for why the two features degrade differently.
+ */
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  text: string;
+}
+
+export interface AskThymeRequest {
+  question: string;
+  history: ChatMessage[];
+}
+
+export interface AskThymeResponse {
+  answer: string;
+}
+
 export interface ApiErrorBody {
   error: {
     code: string;

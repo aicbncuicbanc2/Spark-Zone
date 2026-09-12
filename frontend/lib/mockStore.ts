@@ -5,6 +5,8 @@ import meJson from '../mocks/me.json';
 import scanNeedsReviewJson from '../mocks/scan-needs-review.json';
 import scanSucceededJson from '../mocks/scan-succeeded.json';
 import type {
+  AskThymeRequest,
+  AskThymeResponse,
   Category,
   CreateCategoryInput,
   CreateItemInput,
@@ -220,5 +222,14 @@ export const mockStore = {
           : 'A quick reminder to actually use this one soon.',
       ],
     };
+  },
+
+  askThyme(request: AskThymeRequest): AskThymeResponse {
+    const expiringSoon = items.filter((item) => item.status === 'active' && item.days_remaining <= 7);
+    if (expiringSoon.length === 0) {
+      return { answer: "Nothing in your pantry is expiring within a week right now — you're all clear." };
+    }
+    const names = expiringSoon.map((item) => item.name).join(', ');
+    return { answer: `Expiring within a week: ${names}. Worth using those up first.` };
   },
 };

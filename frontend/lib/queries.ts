@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
+  askThyme,
   consumeItem,
   createCategory,
   createItem,
@@ -14,7 +15,7 @@ import {
   identifyProduct,
   patchItem,
 } from './dataSource';
-import type { CreateCategoryInput, CreateItemInput, Item, PatchItemInput } from './types';
+import type { AskThymeRequest, CreateCategoryInput, CreateItemInput, Item, PatchItemInput } from './types';
 import type { ItemsQuery } from './dataSource';
 
 export const queryKeys = {
@@ -112,5 +113,14 @@ export function useIdentifyProduct() {
 export function useItemSuggestions() {
   return useMutation({
     mutationFn: (item: Item) => getItemSuggestions(item),
+  });
+}
+
+// Feature C — "Ask Thyme". Each call is stateless (the backend rebuilds
+// pantry context fresh every time); the screen keeps the message list and
+// passes it back as `history` so the conversation still feels continuous.
+export function useAskThyme() {
+  return useMutation({
+    mutationFn: (request: AskThymeRequest) => askThyme(request),
   });
 }

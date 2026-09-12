@@ -76,10 +76,11 @@ export default function DashboardScreen() {
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
-    >
+    <View style={styles.screen}>
+      <ScrollView
+        style={styles.container}
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
+      >
       <View style={styles.header}>
         <Text style={styles.title}>Your pantry</Text>
         <Pressable onPress={signOut}>
@@ -154,11 +155,38 @@ export default function DashboardScreen() {
           </View>
         ))
       )}
-    </ScrollView>
+      </ScrollView>
+
+      <Pressable style={styles.askButton} onPress={() => router.push('/ask-thyme')}>
+        <Text style={styles.askButtonText}>Ask Thyme</Text>
+      </Pressable>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+  },
+  askButton: {
+    position: 'absolute',
+    right: 16,
+    bottom: 20,
+    backgroundColor: colors.navy,
+    borderRadius: 24,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  askButtonText: {
+    color: colors.white,
+    fontWeight: '700',
+    fontSize: 14,
+  },
   container: {
     flex: 1,
     backgroundColor: colors.cream,

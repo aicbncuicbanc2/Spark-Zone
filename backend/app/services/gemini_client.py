@@ -31,19 +31,15 @@ class GeminiUnavailable(Exception):
     feature, return an empty result) rather than let it become a 500."""
 
 
-async def generate_json(prompt: str, *, timeout: float = 12.0) -> str:
-    """Sends one prompt, asking Gemini to answer as JSON, and returns the raw
-    JSON text from the first candidate. Raises GeminiUnavailable on any
-    failure; never raises anything else."""
+async def _call(prompt: str, *, json_mode: bool, timeout: float) -> str:
     settings = get_settings()
     if not settings.gemini_api_key:
         raise GeminiUnavailable("GEMINI_API_KEY is not configured")
 
     url = _ENDPOINT.format(model=settings.gemini_model)
-    body = {
-        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-        "generationConfig": {"responseMimeType": "application/json"},
-    }
+    body: dict = {"contents": [{"role": "user", "parts": [{"text": prompt}]}]}
+    if json_mode:
+        body["generationConfig"] = {"responseMimeType": "application/json"}
 
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
@@ -54,3 +50,19 @@ async def generate_json(prompt: str, *, timeout: float = 12.0) -> str:
     except Exception as exc:  # noqa: BLE001 - any failure here must degrade, not crash
         logger.warning("gemini_call_failed", extra={"reason": str(exc)})
         raise GeminiUnavailable(str(exc)) from exc
+
+
+async def generate_json(prompt: str, *, timeout: float = 12.0) -> str:
+    """Sends one prompt, asking Gemini to answer as JSON, and returns the raw
+    JSON text from the first candidate. Raises GeminiUnavailable on any
+    failure; never raises anything else."""
+    return await _call(prompt, json_mode=True, timeout=timeout)
+
+
+async def generate_text(prompt: str, *, timeout: float = 20.0) -> str:
+    """Sends one prompt and returns the plain-text answer from the first
+    candidate — for conversational output, not structured data. A longer
+    default timeout than generate_json: a chat answer with fuller context
+    takes longer to produce than a short suggestions list. Raises
+    GeminiUnavailable on any failure; never raises anything else."""
+    return await _call(prompt, json_mode=False, timeout=timeout)

@@ -368,10 +368,28 @@ Upcoming schedule, so the app can show "we'll remind you on Friday".
   medicine, an expired perishable) — only disposal or a pharmacist in that
   case.
 
-  **This is deliberately the only AI-generated feature in the app.**
-  Disposal/usage guidance (`/v1/guidance/...` above) stays curated data, on
-  purpose — see `services/guidance.py`'s docstring for why a language model
-  must not sit between a user and medicine/chemical disposal instructions.
+  **This is deliberately the only feature above where a wrong AI answer is
+  low-stakes.** Disposal/usage guidance (`/v1/guidance/...` above) stays
+  curated data, on purpose — see `services/guidance.py`'s docstring for why
+  a language model must not sit between a user and medicine/chemical
+  disposal instructions.
+
+- ✅ `POST /v1/ai/ask` — "Ask Thyme": free-text Q&A over the user's own
+  pantry ("what's expiring this week?", "can I still eat this?"). Body:
+  `{question: string, history?: [{role: "user"|"assistant", text: string}]}`
+  — `history` is prior turns, oldest first, optional; the endpoint is
+  otherwise stateless and rebuilds the user's current pantry context fresh
+  on every call, so it's always answering from up-to-date data. Returns
+  `{answer: string}`. Grounded in the same two fact sources as A and B —
+  the user's real item list, and (for anything currently `expired` or
+  `critical`) the same curated `disposal_guidance` rows `/v1/guidance`
+  serves — the model is explicitly told never to invent an item, a date, or
+  a disposal programme name outside that data.
+
+  **Unlike `/suggestions`, a Gemini failure here is a real error, not a
+  silent empty result:** `503` with `error.code: "AI_UNAVAILABLE"`. A blank
+  answer to a direct question would look broken; a missing suggestion
+  button barely registers — the two features fail differently on purpose.
 
 ---
 
