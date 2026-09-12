@@ -46,9 +46,10 @@ export default function PantryScreen() {
     location?: string;
     expiryDate?: string;
     urgency?: Urgency;
+    status?: StatusFilter;
   }>();
 
-  const [status, setStatus] = useState<StatusFilter>('active');
+  const [status, setStatus] = useState<StatusFilter>(params.status ?? 'active');
   const [category, setCategory] = useState<string | undefined>(undefined);
   const [location, setLocation] = useState<string | undefined>(undefined);
   const [search, setSearch] = useState('');
@@ -66,6 +67,22 @@ export default function PantryScreen() {
   useEffect(() => {
     if (params.location) setLocation(params.location);
   }, [params.location]);
+
+  // Pantry is a tab screen, so it stays mounted while the user is on Home —
+  // tapping a dashboard bucket doesn't remount this screen, it just updates
+  // these params in place. Without syncing on every change (not just at
+  // mount, like the initial useState above covers), a second bucket tap
+  // landed on whatever status/urgency was already showing: tapping
+  // "Expired" after "Critical" combined status=active (stale) with
+  // urgency=expired, and since Active excludes expired-urgency items by
+  // definition, that combination always rendered an empty list.
+  useEffect(() => {
+    setStatus(params.status ?? 'active');
+  }, [params.status]);
+
+  useEffect(() => {
+    setUrgency(params.urgency);
+  }, [params.urgency]);
 
   const { data: categories } = useCategories();
 
