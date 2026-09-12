@@ -18,11 +18,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ErrorState } from '../../../components/ErrorState';
 import { ExpiryCalendar } from '../../../components/ExpiryCalendar';
-import { ItemRow } from '../../../components/ItemRow';
 import { useAuth } from '../../../contexts/AuthContext';
-import { alert } from '../../../lib/alert';
 import { iconForCategory } from '../../../lib/categoryIcons';
-import { exportToCalendar } from '../../../lib/ics';
 import { useCategories, useDashboard, useItems } from '../../../lib/queries';
 import { colors, fontSize, logoSize, urgencyColors } from '../../../lib/theme';
 import type { DashboardResponse, Item } from '../../../lib/types';
@@ -124,36 +121,6 @@ function TipCarousel({ items }: { items: Item[] }) {
   );
 }
 
-// Every active item lands in exactly one group: urgency alone decides
-// "Expired" and "Use within 3 days" (soon = <=3 days already, so it and
-// critical cover that span). For anything not yet urgent, "past prime" only
-// applies to an item with an actual once-opened rule (opened_at + pao_months)
-// - an item that's merely been opened, with no PAO limit, is still fine; one
-// governed by a PAO countdown is worth flagging even before it turns urgent,
-// since that shorter window is easy to forget once the lid's back on.
-type GroupKey = 'expired' | 'soon' | 'pastPrime' | 'fine';
-
-const GROUP_LABELS: Record<GroupKey, string> = {
-  expired: 'Expired — dispose safely',
-  soon: 'Use within 3 days',
-  pastPrime: 'Past prime — check before using',
-  fine: 'Still fine to use',
-};
-
-function groupKeyFor(item: Item): GroupKey {
-  if (item.urgency === 'expired') return 'expired';
-  if (item.urgency === 'critical' || item.urgency === 'soon') return 'soon';
-  return item.opened_at && item.pao_months != null ? 'pastPrime' : 'fine';
-}
-
-function groupItems(items: Item[]): { key: GroupKey; label: string; items: Item[] }[] {
-  const buckets: Record<GroupKey, Item[]> = { expired: [], soon: [], pastPrime: [], fine: [] };
-  for (const item of items) buckets[groupKeyFor(item)].push(item);
-  return (Object.keys(GROUP_LABELS) as GroupKey[])
-    .map((key) => ({ key, label: GROUP_LABELS[key], items: buckets[key] }))
-    .filter((group) => group.items.length > 0);
-}
-
 export default function DashboardScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -170,7 +137,6 @@ export default function DashboardScreen() {
     () => activeItems.filter((item) => item.days_remaining === 0),
     [activeItems]
   );
-  const groups = useMemo(() => groupItems(activeItems), [activeItems]);
 
   if (isLoading) {
     return (
@@ -313,47 +279,6 @@ export default function DashboardScreen() {
             onSelectDate={(iso) => router.push({ pathname: '/pantry', params: { expiryDate: iso } })}
           />
         </View>
-
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>Use it before it's gone</Text>
-          {activeItems.length > 0 && (
-            <Pressable
-              onPress={() =>
-                exportToCalendar(activeItems, 'pantry-items').catch((error) =>
-                  alert('Could not export', (error as Error).message)
-                )
-              }
-            >
-              <Text style={styles.sectionAction}>Add all to Calendar</Text>
-            </Pressable>
-          )}
-        </View>
-        {groups.length === 0 ? (
-          <Text style={styles.empty}>Nothing in your pantry yet.</Text>
-        ) : (
-          groups.map((group) => (
-            <View key={group.key}>
-              {group.key === 'expired' ? (
-                <Text style={styles.groupLabel}>
-                  <Text style={{ color: urgencyColors.expired }}>Expired</Text>
-                  {' — dispose safely'}
-                </Text>
-              ) : group.key === 'soon' ? (
-                <Text style={[styles.groupLabel, { color: urgencyColors.soon }]}>{group.label}</Text>
-              ) : (
-                <Text style={styles.groupLabel}>{group.label}</Text>
-              )}
-              {group.items.map((item) => (
-                <ItemRow
-                  key={item.id}
-                  item={item}
-                  showBadge={false}
-                  onPress={() => router.push(`/item/${item.id}`)}
-                />
-              ))}
-            </View>
-          ))
-        )}
       </ScrollView>
 
       <Pressable style={styles.askButton} onPress={() => router.push('/ask-thyme')}>
@@ -514,23 +439,10 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     paddingHorizontal: 16,
   },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 24,
-    marginBottom: 8,
-    paddingHorizontal: 16,
-  },
   sectionTitle: {
     fontSize: fontSize.heading,
     fontWeight: '700',
     color: colors.navy,
-  },
-  sectionAction: {
-    fontSize: 13,
-    color: colors.navy,
-    fontWeight: '600',
   },
   categoryRow: {
     flexGrow: 0,
@@ -557,20 +469,6 @@ const styles = StyleSheet.create({
   },
   calendarWrap: {
     marginTop: 20,
-  },
-  empty: {
-    fontSize: fontSize.body,
-    color: colors.textMuted,
-    paddingHorizontal: 16,
-  },
-  groupLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.navyMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-    paddingHorizontal: 16,
-    marginTop: 14,
-    marginBottom: 2,
+    marginBottom: 32,
   },
 });
