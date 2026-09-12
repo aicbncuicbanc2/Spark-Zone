@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 
 import { useAskThyme } from '../../lib/queries';
-import { colors } from '../../lib/theme';
+import { colors, fontSize } from '../../lib/theme';
 import type { AskThymeRequest, ChatMessage } from '../../lib/types';
 
 const WELCOME: ChatMessage = {
@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 4,
   },
   bubbleText: {
-    fontSize: 15,
+    fontSize: fontSize.body,
     lineHeight: 21,
     color: colors.navy,
   },
@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   typingText: {
-    fontSize: 13,
+    fontSize: fontSize.caption,
     color: colors.textMuted,
   },
   errorBanner: {
@@ -183,7 +183,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     flex: 1,
-    fontSize: 13,
+    fontSize: fontSize.caption,
     color: colors.danger,
   },
   retryText: {

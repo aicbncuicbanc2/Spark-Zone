@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 
 import { useAuth } from '../contexts/AuthContext';
-import { colors } from '../lib/theme';
+import { colors, fontSize } from '../lib/theme';
 
 export default function SignInScreen() {
   const { signIn } = useAuth();
@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   subtitle: {
-    fontSize: 15,
+    fontSize: fontSize.subheading,
     color: colors.textMuted,
     textAlign: 'center',
     marginBottom: 16,

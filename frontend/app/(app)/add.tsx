@@ -12,7 +12,7 @@ import {
 
 import { CategoryPicker } from '../../components/CategoryPicker';
 import { useCategories, useCreateItem } from '../../lib/queries';
-import { colors } from '../../lib/theme';
+import { colors, fontSize } from '../../lib/theme';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 // Accepts a single-digit month/day while the user is still typing (e.g.
@@ -200,11 +200,11 @@ const styles = StyleSheet.create({
     color: '#9a7d0a',
   },
   reviewBannerText: {
-    fontSize: 13,
+    fontSize: fontSize.caption,
     color: '#7a6108',
   },
   label: {
-    fontSize: 13,
+    fontSize: fontSize.caption,
     color: colors.textMuted,
     marginTop: 14,
     marginBottom: 6,

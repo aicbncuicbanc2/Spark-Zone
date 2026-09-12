@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors } from '../lib/theme';
+import { colors, fontSize } from '../lib/theme';
 
 type Props = {
   title?: string;
@@ -32,13 +32,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.cream,
   },
   title: {
-    fontSize: 16,
+    fontSize: fontSize.subheading,
     fontWeight: '600',
     color: colors.navy,
     textAlign: 'center',
   },
   message: {
-    fontSize: 13,
+    fontSize: fontSize.body,
     color: colors.textMuted,
     textAlign: 'center',
   },

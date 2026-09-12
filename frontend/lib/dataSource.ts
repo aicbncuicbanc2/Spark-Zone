@@ -17,6 +17,7 @@ import type {
   ItemsListResponse,
   MePreferences,
   PatchItemInput,
+  PatchPreferencesInput,
   ProductIdentifyResponse,
   ScanResponse,
   SuggestionsResponse,
@@ -101,6 +102,14 @@ export async function getMe(): Promise<MePreferences> {
     return mockStore.getMe();
   }
   return apiRequest<MePreferences>('/v1/me');
+}
+
+export async function updatePreferences(patch: PatchPreferencesInput): Promise<MePreferences> {
+  if (USE_MOCKS) {
+    await mockDelay();
+    return mockStore.updatePreferences(patch);
+  }
+  return apiRequest<MePreferences>('/v1/me/preferences', { method: 'PATCH', body: patch });
 }
 
 export async function createItem(input: CreateItemInput): Promise<Item> {

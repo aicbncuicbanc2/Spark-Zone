@@ -24,7 +24,7 @@ import { alert } from '../../../lib/alert';
 import { iconForCategory } from '../../../lib/categoryIcons';
 import { exportToCalendar } from '../../../lib/ics';
 import { useCategories, useDashboard, useItems } from '../../../lib/queries';
-import { colors, urgencyColors } from '../../../lib/theme';
+import { colors, fontSize, logoSize, urgencyColors } from '../../../lib/theme';
 import type { DashboardResponse, Item } from '../../../lib/types';
 
 const BUCKETS: { key: keyof DashboardResponse['counts']; label: string; color: string }[] = [
@@ -210,9 +210,14 @@ export default function DashboardScreen() {
       >
         <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
           <Image source={require('../../../assets/brand/wordmark.png')} style={styles.logo} resizeMode="contain" />
-          <Pressable hitSlop={10} onPress={signOut}>
-            <Ionicons name="log-out-outline" size={22} color={colors.textMuted} />
-          </Pressable>
+          <View style={styles.headerActions}>
+            <Pressable hitSlop={10} onPress={() => router.push('/settings')}>
+              <Ionicons name="settings-outline" size={22} color={colors.textMuted} />
+            </Pressable>
+            <Pressable hitSlop={10} onPress={signOut}>
+              <Ionicons name="log-out-outline" size={22} color={colors.textMuted} />
+            </Pressable>
+          </View>
         </View>
 
         {todayItems.length > 0 && (
@@ -236,7 +241,17 @@ export default function DashboardScreen() {
             <Pressable
               key={key}
               style={[styles.bucketCard, { borderColor: color }]}
-              onPress={() => router.push({ pathname: '/pantry', params: { urgency: key } })}
+              onPress={() =>
+                router.push({
+                  pathname: '/pantry',
+                  // Pantry's "Active" status tab excludes expired-urgency
+                  // items by definition, so the expired bucket needs its
+                  // own status tab rather than an urgency filter on top of
+                  // Active — anything else stays active + urgency-filtered.
+                  params:
+                    key === 'expired' ? { status: 'expired' } : { status: 'active', urgency: key },
+                })
+              }
             >
               <Text style={[styles.bucketLabel, { color }]}>{label}</Text>
               <Text style={[styles.bucketCount, { color }]}>{data.counts[key]}</Text>
@@ -318,7 +333,16 @@ export default function DashboardScreen() {
         ) : (
           groups.map((group) => (
             <View key={group.key}>
-              <Text style={styles.groupLabel}>{group.label}</Text>
+              {group.key === 'expired' ? (
+                <Text style={styles.groupLabel}>
+                  <Text style={{ color: urgencyColors.expired }}>Expired</Text>
+                  {' — dispose safely'}
+                </Text>
+              ) : group.key === 'soon' ? (
+                <Text style={[styles.groupLabel, { color: urgencyColors.soon }]}>{group.label}</Text>
+              ) : (
+                <Text style={styles.groupLabel}>{group.label}</Text>
+              )}
               {group.items.map((item) => (
                 <ItemRow
                   key={item.id}
@@ -380,9 +404,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
   logo: {
-    width: 110,
-    height: 36,
+    width: logoSize.width,
+    height: logoSize.height,
   },
   todayCard: {
     backgroundColor: colors.navy,
@@ -453,10 +482,10 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   tipTitle: {
-    fontSize: 19,
+    fontSize: fontSize.subheading,
     fontWeight: '700',
     color: colors.navy,
-    lineHeight: 25,
+    lineHeight: 22,
   },
   tipBody: {
     fontSize: 15,
@@ -494,7 +523,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: fontSize.heading,
     fontWeight: '700',
     color: colors.navy,
   },
@@ -530,6 +559,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   empty: {
+    fontSize: fontSize.body,
     color: colors.textMuted,
     paddingHorizontal: 16,
   },

@@ -3,7 +3,7 @@ import { useRouter } from 'expo-router';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { colors } from '../../../lib/theme';
+import { colors, logoSize } from '../../../lib/theme';
 
 // This tab used to run its own single-photo scan (aimed at catching a
 // barcode and the date in one shot). Now that a photo is never expected to
@@ -60,8 +60,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   logo: {
-    width: 90,
-    height: 30,
+    width: logoSize.width,
+    height: logoSize.height,
   },
   center: {
     flex: 1,

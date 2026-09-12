@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { type AlertState, resolveWebAlert, subscribeToAlerts } from '../lib/alert';
-import { colors } from '../lib/theme';
+import { colors, fontSize } from '../lib/theme';
 
 /**
  * Renders the dialog for lib/alert.ts's web fallback. A no-op on native,
@@ -64,12 +64,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   title: {
-    fontSize: 17,
+    fontSize: fontSize.subheading,
     fontWeight: '700',
     color: colors.navy,
   },
   message: {
-    fontSize: 14,
+    fontSize: fontSize.body,
     color: colors.textMuted,
     lineHeight: 20,
   },

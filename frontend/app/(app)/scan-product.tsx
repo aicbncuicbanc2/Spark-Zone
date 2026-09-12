@@ -16,7 +16,7 @@ import {
 import { CropFrame, type CropRect } from '../../components/CropFrame';
 import { alert } from '../../lib/alert';
 import { useCreateScan, useIdentifyProduct } from '../../lib/queries';
-import { colors } from '../../lib/theme';
+import { colors, fontSize } from '../../lib/theme';
 import type { ScanResponse } from '../../lib/types';
 
 // Two photos, zero typing (when both hit): one of the product's own
@@ -625,7 +625,7 @@ const styles = StyleSheet.create({
     // CropFrame's coordinates are relative to this exact box.
   },
   stepIndicator: {
-    fontSize: 13,
+    fontSize: fontSize.caption,
     fontWeight: '600',
     color: colors.navy,
     marginBottom: 4,

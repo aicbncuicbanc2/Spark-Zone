@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors } from '../lib/theme';
+import { colors, fontSize } from '../lib/theme';
 import type { Item } from '../lib/types';
 import { UrgencyBadge, urgencyLabel } from './UrgencyBadge';
 
@@ -53,7 +53,7 @@ const styles = StyleSheet.create({
     color: colors.navy,
   },
   meta: {
-    fontSize: 13,
+    fontSize: fontSize.caption,
     color: colors.textMuted,
   },
   right: {
