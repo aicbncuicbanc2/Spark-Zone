@@ -12,8 +12,10 @@ import {
   getItem,
   getItems,
   getItemSuggestions,
+  getMe,
   identifyProduct,
   patchItem,
+  updatePreferences,
 } from './dataSource';
 import type {
   AskThymeRequest,
@@ -22,6 +24,7 @@ import type {
   Item,
   ItemStatus,
   PatchItemInput,
+  PatchPreferencesInput,
 } from './types';
 import type { ItemsQuery } from './dataSource';
 
@@ -36,6 +39,7 @@ export const queryKeys = {
   items: (query: ItemsQuery) => ['items', query] as const,
   item: (id: string) => ['items', id] as const,
   categories: ['categories'] as const,
+  me: ['me'] as const,
 };
 
 export function useDashboard() {
@@ -85,6 +89,20 @@ export function useItem(id: string) {
 
 export function useCategories() {
   return useQuery({ queryKey: queryKeys.categories, queryFn: getCategories });
+}
+
+export function useMe() {
+  return useQuery({ queryKey: queryKeys.me, queryFn: getMe });
+}
+
+export function useUpdatePreferences() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (patch: PatchPreferencesInput) => updatePreferences(patch),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.me });
+    },
+  });
 }
 
 export function useCreateCategory() {

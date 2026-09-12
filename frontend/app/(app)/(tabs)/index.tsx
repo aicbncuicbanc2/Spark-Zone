@@ -210,9 +210,14 @@ export default function DashboardScreen() {
       >
         <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
           <Image source={require('../../../assets/brand/wordmark.png')} style={styles.logo} resizeMode="contain" />
-          <Pressable hitSlop={10} onPress={signOut}>
-            <Ionicons name="log-out-outline" size={22} color={colors.textMuted} />
-          </Pressable>
+          <View style={styles.headerActions}>
+            <Pressable hitSlop={10} onPress={() => router.push('/settings')}>
+              <Ionicons name="settings-outline" size={22} color={colors.textMuted} />
+            </Pressable>
+            <Pressable hitSlop={10} onPress={signOut}>
+              <Ionicons name="log-out-outline" size={22} color={colors.textMuted} />
+            </Pressable>
+          </View>
         </View>
 
         {todayItems.length > 0 && (
@@ -379,6 +384,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
   },
   logo: {
     width: 110,

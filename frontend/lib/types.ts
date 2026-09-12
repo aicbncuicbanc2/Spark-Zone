@@ -92,6 +92,13 @@ export interface MePreferences {
   updated_at: string;
 }
 
+// PATCH /v1/me/preferences body — display_name/locale/id/timestamps are
+// read-only on this endpoint (see api.md's sample body), so only these five
+// fields are ever sent.
+export type PatchPreferencesInput = Partial<
+  Pick<MePreferences, 'timezone' | 'reminder_lead_days' | 'quiet_hours_start' | 'quiet_hours_end' | 'push_enabled'>
+>;
+
 export type DevicePlatform = 'ios' | 'android' | 'web';
 
 /**
