@@ -13,7 +13,7 @@ import {
   useItemSuggestions,
   usePatchItem,
 } from '../../../lib/queries';
-import { colors } from '../../../lib/theme';
+import { colors, fontSize } from '../../../lib/theme';
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
@@ -202,12 +202,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.cream,
   },
   name: {
-    fontSize: 24,
+    fontSize: fontSize.heading,
     fontWeight: '700',
     color: colors.navy,
   },
   brand: {
-    fontSize: 15,
+    fontSize: fontSize.subheading,
     color: colors.textMuted,
     marginTop: 2,
   },
@@ -267,7 +267,7 @@ const styles = StyleSheet.create({
     borderLeftColor: colors.navy,
   },
   aiLabel: {
-    fontSize: 11,
+    fontSize: fontSize.caption,
     fontWeight: '700',
     color: colors.navyMuted,
     textTransform: 'uppercase',
@@ -290,7 +290,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   aiEmpty: {
-    fontSize: 13,
+    fontSize: fontSize.caption,
     color: colors.textMuted,
   },
   calendarButton: {
@@ -328,6 +328,6 @@ const styles = StyleSheet.create({
   resolvedNotice: {
     textAlign: 'center',
     color: colors.textMuted,
-    fontSize: 13,
+    fontSize: fontSize.caption,
   },
 });

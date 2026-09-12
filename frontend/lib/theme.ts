@@ -33,3 +33,29 @@ export const statusColors = {
   discarded: '#D35400',
   expired: '#C0392B',
 };
+
+// Shared text-size tiers so the same kind of text — a page/section heading,
+// a secondary sub-heading, ordinary body copy, or a small caption/label —
+// reads at the same size on every screen, instead of each screen picking
+// its own nearby number (screens built independently had headings ranging
+// 17-24px and small helper text ranging 11-15px, for no reason tied to
+// what the text actually was). Doesn't cover UI-control text (buttons,
+// chips, badges, form inputs) — those are sized for their control, not for
+// reading hierarchy, so they're intentionally left out of this scale.
+export const fontSize = {
+  heading: 20,
+  subheading: 16,
+  body: 14,
+  caption: 12,
+};
+
+// The wordmark's on-screen box in every tab header (Home/Pantry/Scan) —
+// previously each screen had picked its own size (110x36, then 90x30
+// elsewhere), which is exactly why the logo looked like a different size
+// on every screen. Sign-in's logo is deliberately not on this constant:
+// it's a centered splash-style logo on its own screen, not a header logo,
+// so it's sized for that different context instead.
+export const logoSize = {
+  width: 104,
+  height: 36,
+};

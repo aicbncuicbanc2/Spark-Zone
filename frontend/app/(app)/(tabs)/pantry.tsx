@@ -19,7 +19,7 @@ import { CategoryPicker } from '../../../components/CategoryPicker';
 import { ErrorState } from '../../../components/ErrorState';
 import { ItemRow } from '../../../components/ItemRow';
 import { useAllStatusItems, useCategories, useItems } from '../../../lib/queries';
-import { colors, statusColors, urgencyColors } from '../../../lib/theme';
+import { colors, fontSize, logoSize, statusColors, urgencyColors } from '../../../lib/theme';
 import type { ItemStatus, Urgency } from '../../../lib/types';
 
 type StatusFilter = ItemStatus | 'all';
@@ -58,6 +58,14 @@ export default function PantryScreen() {
   // so tapping "Critical" there lands here pre-filtered; after that it's
   // just local UI state the user can change or clear like any other chip.
   const [urgency, setUrgency] = useState<Urgency | undefined>(params.urgency);
+  // storage_location has no backend list to create against (see the
+  // `locations` useMemo below) — a location a user "adds" here just gets
+  // remembered locally for the rest of this session so it's selectable as
+  // a filter immediately, the same way it'd show up once a real item
+  // actually used it.
+  const [customLocations, setCustomLocations] = useState<string[]>([]);
+  const [isAddingLocation, setIsAddingLocation] = useState(false);
+  const [newLocation, setNewLocation] = useState('');
   const [sortIndex, setSortIndex] = useState(0);
   const sort = SORTS[sortIndex];
   // All the filter controls (status/category/location/urgency/sort) live
@@ -122,8 +130,18 @@ export default function PantryScreen() {
     for (const item of fetchedItems) {
       if (item.storage_location) set.add(item.storage_location);
     }
+    for (const loc of customLocations) set.add(loc);
     return Array.from(set).sort();
-  }, [fetchedItems]);
+  }, [fetchedItems, customLocations]);
+
+  function handleAddLocation() {
+    const trimmed = newLocation.trim();
+    if (!trimmed) return;
+    setCustomLocations((prev) => (prev.includes(trimmed) ? prev : [...prev, trimmed]));
+    setLocation(trimmed);
+    setNewLocation('');
+    setIsAddingLocation(false);
+  }
 
   const items = useMemo(() => {
     let list = fetchedItems;
@@ -269,32 +287,54 @@ export default function PantryScreen() {
               </View>
             </View>
 
-            {locations.length > 0 && (
-              <>
-                <Text style={styles.modalSectionTitle}>Location</Text>
-                <View style={styles.wrapRow}>
-                  <Pressable
-                    style={[styles.chip, styles.chipRowContent, !location && styles.chipActive]}
-                    onPress={() => setLocation(undefined)}
-                  >
-                    <Ionicons
-                      name="location-outline"
-                      size={13}
-                      color={!location ? colors.white : colors.textMuted}
-                    />
-                    <Text style={[styles.chipText, !location && styles.chipTextActive]}>Any location</Text>
-                  </Pressable>
-                  {locations.map((loc) => (
-                    <Pressable
-                      key={loc}
-                      style={[styles.chip, location === loc && styles.chipActive]}
-                      onPress={() => setLocation(loc)}
-                    >
-                      <Text style={[styles.chipText, location === loc && styles.chipTextActive]}>{loc}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-              </>
+            <Text style={styles.modalSectionTitle}>Location</Text>
+            <View style={styles.wrapRow}>
+              <Pressable
+                style={[styles.chip, styles.chipRowContent, !location && styles.chipActive]}
+                onPress={() => setLocation(undefined)}
+              >
+                <Ionicons
+                  name="location-outline"
+                  size={13}
+                  color={!location ? colors.white : colors.textMuted}
+                />
+                <Text style={[styles.chipText, !location && styles.chipTextActive]}>Any location</Text>
+              </Pressable>
+              {locations.map((loc) => (
+                <Pressable
+                  key={loc}
+                  style={[styles.chip, location === loc && styles.chipActive]}
+                  onPress={() => setLocation(loc)}
+                >
+                  <Text style={[styles.chipText, location === loc && styles.chipTextActive]}>{loc}</Text>
+                </Pressable>
+              ))}
+              <Pressable
+                style={styles.squareNewButton}
+                onPress={() => setIsAddingLocation((v) => !v)}
+              >
+                <Ionicons name={isAddingLocation ? 'close' : 'add'} size={18} color={colors.navy} />
+              </Pressable>
+            </View>
+            {isAddingLocation && (
+              <View style={styles.createRow}>
+                <TextInput
+                  style={styles.createInput}
+                  value={newLocation}
+                  onChangeText={setNewLocation}
+                  placeholder="e.g. Fridge door"
+                  placeholderTextColor={colors.textMuted}
+                  autoFocus
+                  onSubmitEditing={handleAddLocation}
+                />
+                <Pressable
+                  style={[styles.createButton, !newLocation.trim() && styles.createButtonDisabled]}
+                  disabled={!newLocation.trim()}
+                  onPress={handleAddLocation}
+                >
+                  <Text style={styles.createButtonText}>Add</Text>
+                </Pressable>
+              </View>
             )}
 
             <Text style={styles.modalSectionTitle}>Urgency</Text>
@@ -395,8 +435,8 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   logo: {
-    width: 90,
-    height: 30,
+    width: logoSize.width,
+    height: logoSize.height,
   },
   searchBox: {
     flex: 1,
@@ -494,7 +534,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   modalTitle: {
-    fontSize: 17,
+    fontSize: fontSize.subheading,
     fontWeight: '700',
     color: colors.navy,
   },
@@ -504,7 +544,7 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   modalSectionTitle: {
-    fontSize: 13,
+    fontSize: fontSize.caption,
     fontWeight: '700',
     color: colors.textMuted,
     textTransform: 'uppercase',
@@ -584,6 +624,45 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
   },
+  squareNewButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.navy,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.white,
+  },
+  createRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+  },
+  createInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: fontSize.body,
+    backgroundColor: colors.white,
+  },
+  createButton: {
+    backgroundColor: colors.navy,
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  createButtonDisabled: {
+    opacity: 0.5,
+  },
+  createButtonText: {
+    color: colors.white,
+    fontWeight: '600',
+  },
   chipActive: {
     backgroundColor: colors.navy,
     borderColor: colors.navy,
@@ -609,6 +688,7 @@ const styles = StyleSheet.create({
     marginTop: 40,
   },
   empty: {
+    fontSize: fontSize.body,
     textAlign: 'center',
     color: colors.textMuted,
   },

@@ -1,38 +1,65 @@
 [
   {
+    "id": "medicine",
+    "label_en": "Medicine",
+    "label_ms": "Ubat",
+    "label_zh": "药品",
+    "default_pao_months": null,
+    "icon": "pill",
+    "sort_order": 10
+  },
+  {
+    "id": "supplement",
+    "label_en": "Supplement",
+    "label_ms": "Suplemen",
+    "label_zh": "保健品",
+    "default_pao_months": null,
+    "icon": "capsule",
+    "sort_order": 20
+  },
+  {
+    "id": "skincare",
+    "label_en": "Skincare",
+    "label_ms": "Penjagaan Kulit",
+    "label_zh": "护肤品",
+    "default_pao_months": 12,
+    "icon": "droplet",
+    "sort_order": 30
+  },
+  {
+    "id": "cosmetic",
+    "label_en": "Cosmetics",
+    "label_ms": "Kosmetik",
+    "label_zh": "化妆品",
+    "default_pao_months": 12,
+    "icon": "sparkles",
+    "sort_order": 40
+  },
+  {
     "id": "food",
     "label_en": "Food",
     "label_ms": "Makanan",
     "label_zh": "食品",
     "default_pao_months": null,
     "icon": "apple",
-    "sort_order": 10
+    "sort_order": 50
   },
   {
-    "id": "beauty",
-    "label_en": "Beauty",
-    "label_ms": "Kecantikan",
-    "label_zh": "美容",
-    "default_pao_months": 12,
-    "icon": "sparkles",
-    "sort_order": 20
-  },
-  {
-    "id": "health",
-    "label_en": "Health",
-    "label_ms": "Kesihatan",
-    "label_zh": "健康",
+    "id": "aerosol",
+    "label_en": "Aerosol / Spray",
+    "label_ms": "Aerosol / Semburan",
+    "label_zh": "喷雾",
     "default_pao_months": null,
-    "icon": "pill",
-    "sort_order": 30
+    "icon": "spray",
+    "sort_order": 60
   },
   {
-    "id": "personal_care",
-    "label_en": "Personal Care",
-    "label_ms": "Penjagaan Diri",
-    "label_zh": "个人护理",
-    "default_pao_months": 12,
-    "icon": "droplet",
-    "sort_order": 40
+    "id": "household",
+    "label_en": "Household Product",
+    "label_ms": "Produk Rumah",
+    "label_zh": "家用品",
+    "default_pao_months": null,
+    "icon": "home",
+    "sort_order": 70
   }
 ]

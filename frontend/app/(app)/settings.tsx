@@ -5,7 +5,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, Tex
 import { ErrorState } from '../../components/ErrorState';
 import { alert } from '../../lib/alert';
 import { useMe, useUpdatePreferences } from '../../lib/queries';
-import { colors } from '../../lib/theme';
+import { colors, fontSize } from '../../lib/theme';
 
 const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
 // Matches the push payload's advance_3d/advance_1d "kind" values documented
@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   label: {
-    fontSize: 13,
+    fontSize: fontSize.caption,
     color: colors.textMuted,
     marginTop: 14,
     marginBottom: 6,
@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   switchLabel: {
-    fontSize: 15,
+    fontSize: fontSize.subheading,
     fontWeight: '600',
     color: colors.navy,
   },

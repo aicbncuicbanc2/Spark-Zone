@@ -24,7 +24,7 @@ import { alert } from '../../../lib/alert';
 import { iconForCategory } from '../../../lib/categoryIcons';
 import { exportToCalendar } from '../../../lib/ics';
 import { useCategories, useDashboard, useItems } from '../../../lib/queries';
-import { colors, urgencyColors } from '../../../lib/theme';
+import { colors, fontSize, logoSize, urgencyColors } from '../../../lib/theme';
 import type { DashboardResponse, Item } from '../../../lib/types';
 
 const BUCKETS: { key: keyof DashboardResponse['counts']; label: string; color: string }[] = [
@@ -410,8 +410,8 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   logo: {
-    width: 110,
-    height: 36,
+    width: logoSize.width,
+    height: logoSize.height,
   },
   todayCard: {
     backgroundColor: colors.navy,
@@ -482,10 +482,10 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   tipTitle: {
-    fontSize: 19,
+    fontSize: fontSize.subheading,
     fontWeight: '700',
     color: colors.navy,
-    lineHeight: 25,
+    lineHeight: 22,
   },
   tipBody: {
     fontSize: 15,
@@ -523,7 +523,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: fontSize.heading,
     fontWeight: '700',
     color: colors.navy,
   },
@@ -559,6 +559,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   empty: {
+    fontSize: fontSize.body,
     color: colors.textMuted,
     paddingHorizontal: 16,
   },
