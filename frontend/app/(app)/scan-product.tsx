@@ -42,6 +42,25 @@ type Step = 'brand' | 'frame' | 'confirm' | 'date';
 type FrameTarget = 'brand' | 'date';
 
 const FALLBACK_ASPECT_RATIO = 4 / 3;
+const MAX_HINT_CANDIDATES = 8;
+const MAX_HINT_LENGTH = 30;
+
+// Turns raw OCR text into short, tappable candidates for "which of these is
+// the brand/product name?" - one per line (that's how Vision naturally
+// groups distinct text blocks), deduplicated, and long lines dropped since
+// a paragraph-length block is never itself a brand name.
+function hintCandidates(rawText: string): string[] {
+  const seen = new Set<string>();
+  const candidates: string[] = [];
+  for (const rawLine of rawText.split('\n')) {
+    const line = rawLine.trim();
+    if (!line || line.length > MAX_HINT_LENGTH || seen.has(line)) continue;
+    seen.add(line);
+    candidates.push(line);
+    if (candidates.length >= MAX_HINT_CANDIDATES) break;
+  }
+  return candidates;
+}
 
 function computeDisplayBox(imageWidth: number, imageHeight: number) {
   const window = Dimensions.get('window');
@@ -107,6 +126,11 @@ export default function ScanProductScreen() {
   const [previewUri, setPreviewUri] = useState<string | null>(null);
   const [previewAspectRatio, setPreviewAspectRatio] = useState(FALLBACK_ASPECT_RATIO);
   const [brand, setBrand] = useState<string | null>(null);
+  // Whether Logo/Label Detection itself actually found a brand - separate
+  // from `brand`, which the user can also fill in afterwards by tapping one
+  // of the raw-OCR-text hints below. Only gates whether that hint UI shows
+  // at all: a real detection hit means there's nothing to fall back to.
+  const [brandDetected, setBrandDetected] = useState(false);
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [rawText, setRawText] = useState<string | null>(null);
 
@@ -169,6 +193,7 @@ export default function ScanProductScreen() {
     // each precise when they hit but genuinely inconsistent. Either way
     // the user still confirms/types everything on /add.
     setBrand(result.brand);
+    setBrandDetected(!!result.brand);
     setCategoryId(result.category_id);
     setRawText(result.raw_text);
     if (result.brand) {
@@ -342,6 +367,7 @@ export default function ScanProductScreen() {
   function handleRetakeBrand() {
     setPreviewUri(null);
     setBrand(null);
+    setBrandDetected(false);
     setCategoryId(null);
     setRawText(null);
     setStep('brand');
@@ -457,18 +483,32 @@ export default function ScanProductScreen() {
                 : "Couldn't identify the brand, that's okay — now the printed expiry date."}
           </Text>
 
-          {step === 'date' && !brand && rawText && (
+          {step === 'date' && !brandDetected && rawText && (
             // Brand detection misses often enough (it depends on Google's
             // logo database, which doesn't cover every brand) that leaving
-            // the user with nothing is worse than a raw hint they can read
-            // and copy themselves — this is shown as-is, never auto-filled,
-            // since the same photo can also pick up unrelated background
-            // text from other products in frame.
+            // the user with nothing is worse than raw text they can't do
+            // anything with — each line becomes a tappable candidate for
+            // "this is the brand/product name" instead of just inert text
+            // to read and retype. Never auto-filled: the same photo can
+            // also pick up unrelated background text from other products
+            // in frame, so it's the user's call which line (if any) is real.
             <View style={styles.hintBox}>
-              <Text style={styles.hintLabel}>We also saw this text on the photo:</Text>
-              <Text style={styles.hintText} numberOfLines={4}>
-                {rawText}
+              <Text style={styles.hintLabel}>
+                Couldn't tell which of these is the brand — tap one if it is:
               </Text>
+              <View style={styles.hintChipRow}>
+                {hintCandidates(rawText).map((candidate) => (
+                  <Pressable
+                    key={candidate}
+                    style={[styles.hintChip, brand === candidate && styles.hintChipActive]}
+                    onPress={() => setBrand((current) => (current === candidate ? null : candidate))}
+                  >
+                    <Text style={[styles.hintChipText, brand === candidate && styles.hintChipTextActive]}>
+                      {candidate}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
             </View>
           )}
 
@@ -614,9 +654,29 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginBottom: 4,
   },
-  hintText: {
+  hintChipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  hintChip: {
+    borderWidth: 1,
+    borderColor: colors.navy,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: colors.white,
+  },
+  hintChipActive: {
+    backgroundColor: colors.navy,
+  },
+  hintChipText: {
     fontSize: 13,
+    fontWeight: '600',
     color: colors.navy,
+  },
+  hintChipTextActive: {
+    color: colors.white,
   },
   button: {
     backgroundColor: colors.navy,
