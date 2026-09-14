@@ -232,8 +232,16 @@ though a date was found — reporting a manufacture date as an expiry would tell
 the user their item expired months ago.
 
 `alternatives[]` carries other candidate readings with their confidence and an
-explanation, so the app can offer options instead of a guess. It is also
-populated with a single entry when there is no genuine choice but
+explanation, so the app can offer options instead of a guess. For the
+ambiguous-six-digit case, this includes the genuinely different DDMMYY *and*
+YYMMDD readings as two separate entries — not one entry duplicated, which was
+a real bug (a "300626" print showing "Other readings: 2026-06-30" right under
+an expiry field that already said 2026-06-30, with no actual alternative to
+correct to). **The client should filter out any entry equal to the value
+already shown in the expiry field** before rendering alternatives — the array
+can still contain that value alongside a real alternative, since it's built
+from every candidate, not just the ones that differ from `best`.
+It is also populated with a single entry when there is no genuine choice but
 `extracted_expiry_date` is still `null` for a reading that isn't a confirmed
 manufacture date (e.g. no EXP/MFG keyword was found near the date at all) —
 the app should offer that entry as a prefilled-but-unconfirmed value rather

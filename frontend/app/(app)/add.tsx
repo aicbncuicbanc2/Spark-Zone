@@ -58,6 +58,11 @@ export default function AddItemScreen() {
   const [brand, setBrand] = useState(params.brand ?? '');
   const [categoryId, setCategoryId] = useState<string | undefined>(params.category_id || undefined);
   const [expiryDate, setExpiryDate] = useState(params.expiry_date ?? '');
+  // Excludes whatever's currently in the date field itself - an ambiguous
+  // six-digit read (e.g. "300626") legitimately produces two different
+  // dates (DDMMYY and YYMMDD), but if the field already shows one of them,
+  // repeating it here as an "other" reading offers nothing to correct to.
+  const otherReadings = [...new Set(alternativeDates)].filter((date) => date !== expiryDate);
   const [quantity, setQuantity] = useState('1');
   // Prefilled from the scanned photo's packaging-unit guess when there is
   // one (e.g. "bottle", "tablets") — a best-effort start, not a locked
@@ -140,10 +145,10 @@ export default function AddItemScreen() {
         placeholder="2026-12-31"
         keyboardType="numbers-and-punctuation"
       />
-      {alternativeDates.length > 0 && (
+      {otherReadings.length > 0 && (
         <View style={styles.altRow}>
           <Text style={styles.altLabel}>Other readings:</Text>
-          {alternativeDates.map((date) => (
+          {otherReadings.map((date) => (
             <Pressable key={date} style={styles.altChip} onPress={() => setExpiryDate(date)}>
               <Text style={styles.altChipText}>{date}</Text>
             </Pressable>

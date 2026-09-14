@@ -241,6 +241,27 @@ def test_six_digit_date_is_flagged_ambiguous() -> None:
     assert any("YYMMDD" in note for note in result.best.notes)
 
 
+def test_six_digit_date_surfaces_both_readings_as_real_candidates() -> None:
+    """The YYMMDD reading must be an actual, separate candidate - not just a
+    note in the DDMMYY candidate's text - so the API's `alternatives` list
+    (built from every candidate, see scans.py) offers a genuinely different
+    date to tap, instead of just repeating whichever reading was chosen as
+    `best`. Real report: a "300626" print read as 2026-06-30 with "other
+    readings" showing 2026-06-30 again - no actual alternative to correct to.
+
+    Also fixes the primary guess itself here: with both readings now real
+    candidates, `best` correctly becomes 2030-06-26 - the DDMMYY reading
+    (2026-06-30) is already in the past relative to `today`, so the
+    "an expiry in the future is the common case" scoring bonus (see
+    `_score`) picks the plausible one instead of whichever was added first.
+    """
+    result = parse("EXP:300626 R2", today=TODAY)
+    values = [c.value for c in result.candidates]
+    assert date(2026, 6, 30) in values  # DDMMYY
+    assert date(2030, 6, 26) in values  # YYMMDD - the real second reading
+    assert result.expiry_date == date(2030, 6, 26)
+
+
 def test_ambiguity_is_reported_ahead_of_low_confidence() -> None:
     """Ambiguity tells the user what to check; "low confidence" does not."""
     result = parse("EXP:210827 KJ234", today=TODAY)

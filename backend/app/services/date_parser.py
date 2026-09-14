@@ -461,6 +461,7 @@ def _extract(text: str) -> list[DateCandidate]:
             _expand_year(int(digits[:2])), int(digits[2:4]), int(digits[4:])
         )
         if ddmmyy and yymmdd and ddmmyy != yymmdd:
+            before = len(found)
             add(
                 ddmmyy,
                 match.group(0),
@@ -472,6 +473,32 @@ def _extract(text: str) -> list[DateCandidate]:
                     f"could also be YYMMDD -> {yymmdd.isoformat()}",
                 ),
             )
+            # The YYMMDD reading of this exact span is a second, genuinely
+            # different candidate - not noise to reject as an overlap.
+            # add() would silently drop it (its span duplicates the DDMMYY
+            # candidate just above), which is why the API's `alternatives`
+            # list (every candidate - see scans.py) used to just repeat
+            # whichever reading was picked as `best` instead of offering
+            # the other one to tap. Appended directly, matching the
+            # just-added candidate's label/confidence so it sorts as an
+            # equally-plausible alternative, not a lesser guess.
+            if len(found) > before:
+                ddmmyy_candidate = found[-1]
+                found.append(
+                    DateCandidate(
+                        value=yymmdd,
+                        date_type=ddmmyy_candidate.date_type,
+                        confidence=ddmmyy_candidate.confidence - 0.01,
+                        raw=match.group(0),
+                        start=match.start(),
+                        end=match.end(),
+                        notes=(
+                            "six digits with no separator: ambiguous",
+                            f"read as YYMMDD -> {yymmdd.isoformat()}",
+                            f"could also be DDMMYY -> {ddmmyy.isoformat()}",
+                        ),
+                    )
+                )
         else:
             add(ddmmyy or yymmdd, match.group(0), *match.span(), 0.55)
 
