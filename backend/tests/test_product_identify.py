@@ -114,6 +114,12 @@ def test_guess_unit_from_labels(labels: list[tuple[str, float]], expected_unit: 
         ("MR\nACRYLIC SEALANT\nWHITE", None),  # "MR DIY" truncated away - no guess
         ("Su\n120726 2335 15:54\nEXTRA", None),  # "Sunlight" truncated to "Su" - no guess
         ("Moroll\nM\nk White", None),  # not (yet) a known brand - no guess
+        # Real miss: "NEXT" and "PRIME" printed on two separate lines -
+        # a plain substring match for "next prime" doesn't match text
+        # with a newline in between without collapsing whitespace first.
+        ("NEXT\nPRIME\nACNE CARE FACIAL WASH\nINGREDIENTS", "Next Prime"),
+        ("Next Prime Acne Care Facial Wash", "Next Prime"),  # already one line
+        ("NEXT\nSomething else\nPRIME", None),  # not adjacent - genuinely not this brand
         (None, None),
         ("", None),
     ],

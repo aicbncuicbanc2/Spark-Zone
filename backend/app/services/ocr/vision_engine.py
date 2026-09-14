@@ -200,6 +200,7 @@ KNOWN_BRANDS: tuple[str, ...] = (
     "MR DIY",
     "Sunlight",
     "Roma",
+    "Next Prime",
 )
 
 #: Lower than a real Logo Detection hit (which can reach 1.0) - this is a
@@ -211,7 +212,13 @@ _KNOWN_BRAND_CONFIDENCE = 0.5
 def _match_known_brand(raw_text: str | None) -> tuple[str | None, float | None]:
     if not raw_text:
         return None, None
-    lowered = raw_text.lower()
+    # Collapse all whitespace - including the newline between stacked
+    # lines of a multi-word brand printed on separate lines (e.g. "NEXT"
+    # then "PRIME" on the line below it) - to single spaces before
+    # matching. A real miss found this way: raw OCR text kept them as two
+    # separate lines, so a plain substring match for "next prime" never
+    # matched "next\nprime\n...", even with the brand in KNOWN_BRANDS.
+    lowered = " ".join(raw_text.lower().split())
     for brand in KNOWN_BRANDS:
         if brand.lower() in lowered:
             return brand, _KNOWN_BRAND_CONFIDENCE

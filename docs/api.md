@@ -342,9 +342,11 @@ Upcoming schedule, so the app can show "we'll remind you on Friday".
   (confirmed with MR DIY, a Malaysian retailer, and Roma, an Indonesian
   biscuit brand) can return zero logo matches even printed clearly, with no
   way to expand that database from our side. When Logo Detection misses,
-  `identify_product` falls back to a plain substring match of `raw_text`
-  against `vision_engine.KNOWN_BRANDS` — a short, manually curated list of
-  brands confirmed missing this way. A hit from this fallback reports
+  `identify_product` falls back to a whitespace-normalized substring match
+  of `raw_text` (newlines collapsed to spaces first, so a brand printed
+  across two lines — confirmed with "Next Prime" — still matches) against
+  `vision_engine.KNOWN_BRANDS` — a short, manually curated list of brands
+  confirmed missing this way. A hit from this fallback reports
   `brand_confidence: 0.5` (never as high as a real Logo Detection hit, since
   it's a text match, not a verified visual one) and no `brand_box` (no
   coordinates to frame). This only ever fixes a brand already added to that
