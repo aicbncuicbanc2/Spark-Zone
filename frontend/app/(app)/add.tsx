@@ -109,9 +109,14 @@ export default function AddItemScreen() {
               // on the mid-scan screen after successfully saving, looking
               // like the save failed and they need to retake the photo.
               // dismissAll() clears the whole pushed stack regardless of
-              // how many screens deep the user came from, always landing
-              // back on the tabs.
-              onPress: () => router.dismissAll(),
+              // how many screens deep the user came from; the explicit
+              // push to '/' then switches the active tab to Home too,
+              // rather than leaving whichever tab (often Scan) the user
+              // started from selected.
+              onPress: () => {
+                router.dismissAll();
+                router.push('/');
+              },
             },
           ]),
         onError: (err) => setFormError((err as Error).message),
