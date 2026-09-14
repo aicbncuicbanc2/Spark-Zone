@@ -13,6 +13,7 @@ import type {
   DashboardResponse,
   Device,
   DeviceInput,
+  GuidanceResponse,
   Item,
   MePreferences,
   PatchItemInput,
@@ -239,5 +240,55 @@ export const mockStore = {
     }
     const names = expiringSoon.map((item) => item.name).join(', ');
     return { answer: `Expiring within a week: ${names}. Worth using those up first.` };
+  },
+
+  // Mirrors the real captured samples in docs/api-samples/guidance-*.json -
+  // condition follows the item's own urgency, same as the real endpoint
+  // deciding it from effective_expiry_date vs today.
+  getItemGuidance(item: Item): GuidanceResponse {
+    const condition = item.urgency === 'expired' ? 'after_expiry' : 'before_expiry';
+    if (item.category_id === 'medicine' && condition === 'after_expiry') {
+      return {
+        category_id: 'medicine',
+        condition,
+        locale: 'en',
+        title: 'Do not use - return to a pharmacy for safe disposal',
+        body: "Expired medicine can be less effective or unsafe. Do not flush it down the toilet or pour it down the sink: sewage treatment cannot remove the active compounds, so they end up in rivers and the drinking water supply. Malaysia's Ministry of Health runs a Return Your Medicines Programme - you can hand unused or expired medicines in at the pharmacy counter, or drop them in a medicine return box, at any MOH hospital or klinik kesihatan.",
+        steps: [
+          'Keep the medicine in its original labelled packaging.',
+          'Take it to the pharmacy counter or medicine return box at any MOH hospital or klinik kesihatan.',
+          'Returned medicines are incinerated, which is the environmentally sound disposal route.',
+          'Never flush medicine or pour it down the drain.',
+          'Scratch out personal details on the label before discarding the box.',
+        ],
+        severity: 'hazard',
+        source_url: 'https://pharmacy.moh.gov.my/en/content/return-your-medicines-program.html',
+        is_fallback: false,
+      };
+    }
+    if (condition === 'before_expiry') {
+      return {
+        category_id: item.category_id,
+        condition,
+        locale: 'en',
+        title: 'Plan a meal around it',
+        body: 'Use-by dates are a safety limit; best-before dates are a quality guideline.',
+        steps: ['Use the item that expires soonest first.', 'Freeze what you cannot use in time.'],
+        severity: 'info',
+        source_url: null,
+        is_fallback: false,
+      };
+    }
+    return {
+      category_id: item.category_id,
+      condition,
+      locale: 'en',
+      title: 'Past its date - check before using, dispose safely if unsure',
+      body: 'No specific guidance exists for this category yet - when in doubt, do not use it, and dispose of it with regular household waste unless local rules say otherwise.',
+      steps: ['Check for signs of spoilage before using anything past its date.', 'When in doubt, throw it out.'],
+      severity: 'caution',
+      source_url: null,
+      is_fallback: true,
+    };
   },
 };

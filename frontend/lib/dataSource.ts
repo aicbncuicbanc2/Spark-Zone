@@ -13,6 +13,7 @@ import type {
   DashboardResponse,
   Device,
   DeviceInput,
+  GuidanceResponse,
   Item,
   ItemsListResponse,
   MePreferences,
@@ -158,6 +159,14 @@ export async function askThyme(request: AskThymeRequest): Promise<AskThymeRespon
     return mockStore.askThyme(request);
   }
   return apiRequest<AskThymeResponse>('/v1/ai/ask', { method: 'POST', body: request });
+}
+
+export async function getItemGuidance(item: Item): Promise<GuidanceResponse> {
+  if (USE_MOCKS) {
+    await mockDelay();
+    return mockStore.getItemGuidance(item);
+  }
+  return apiRequest<GuidanceResponse>(`/v1/guidance/items/${item.id}`);
 }
 
 export async function registerDevice(input: DeviceInput): Promise<Device> {

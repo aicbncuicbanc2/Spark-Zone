@@ -243,6 +243,32 @@ export interface SuggestionsResponse {
 }
 
 /**
+ * GET /v1/guidance/items/{item_id} response
+ * (backend/app/api/v1/routes/guidance.py). Curated, not AI-generated — every
+ * `hazard`-severity row cites a real published source in `source_url`
+ * (Malaysia's MOH medicine take-back programme, US EPA guidance), so a user
+ * can verify it rather than just trusting the app. `source_url` is null
+ * whenever the advice is general knowledge rather than from one specific
+ * source (e.g. food safety tips). `condition` flips automatically server-side
+ * between "before_expiry" and "after_expiry" based on the item's own
+ * effective_expiry_date — this always reflects disposal advice once an item
+ * is actually expired, usage advice otherwise.
+ */
+export interface GuidanceResponse {
+  category_id: string | null;
+  condition: 'before_expiry' | 'after_expiry';
+  locale: string;
+  title: string;
+  body: string;
+  steps: string[];
+  severity: 'info' | 'caution' | 'hazard';
+  source_url: string | null;
+  /** True when no advice existed for this item's category and a generic
+   * entry was used instead — still real, curated text, just not specific. */
+  is_fallback: boolean;
+}
+
+/**
  * Feature C — "Ask Thyme". POST /v1/ai/ask body/response
  * (backend/app/api/v1/routes/ai.py). `history` is prior turns, oldest
  * first — the call is otherwise stateless; the backend rebuilds the user's

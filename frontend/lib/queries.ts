@@ -10,6 +10,7 @@ import {
   getCategories,
   getDashboard,
   getItem,
+  getItemGuidance,
   getItems,
   getItemSuggestions,
   getMe,
@@ -186,5 +187,17 @@ export function useItemSuggestions() {
 export function useAskThyme() {
   return useMutation({
     mutationFn: (request: AskThymeRequest) => askThyme(request),
+  });
+}
+
+// Curated disposal/usage guidance, not AI - safe to fetch eagerly (a plain
+// GET, no model call, no cost). `enabled` is left to the caller so a screen
+// can restrict this to the cases it actually wants advice for (e.g. only
+// once an item is expired) rather than fetching for every item view.
+export function useItemGuidance(item: Item | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: ['guidance', item?.id],
+    queryFn: () => getItemGuidance(item as Item),
+    enabled: enabled && !!item,
   });
 }

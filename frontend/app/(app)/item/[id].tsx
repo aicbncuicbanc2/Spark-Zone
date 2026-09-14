@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { ErrorState } from '../../../components/ErrorState';
 import { UrgencyBadge, urgencyLabel } from '../../../components/UrgencyBadge';
@@ -10,16 +10,53 @@ import {
   useConsumeItem,
   useDiscardItem,
   useItem,
+  useItemGuidance,
   useItemSuggestions,
   usePatchItem,
 } from '../../../lib/queries';
 import { colors, fontSize } from '../../../lib/theme';
+import type { GuidanceResponse } from '../../../lib/types';
+
+const SEVERITY_COLORS: Record<'info' | 'caution' | 'hazard', string> = {
+  info: '#1e8449',
+  caution: '#b9770e',
+  hazard: colors.danger,
+};
+
+const SEVERITY_LABELS: Record<'info' | 'caution' | 'hazard', string> = {
+  info: 'Disposal advice',
+  caution: 'Check before disposing',
+  hazard: 'Dispose with care',
+};
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <View style={styles.row}>
       <Text style={styles.rowLabel}>{label}</Text>
       <Text style={styles.rowValue}>{value}</Text>
+    </View>
+  );
+}
+
+function GuidanceCard({ guidance }: { guidance: GuidanceResponse }) {
+  const color = SEVERITY_COLORS[guidance.severity];
+  return (
+    <View style={[styles.guidanceCard, { borderLeftColor: color }]}>
+      <Text style={[styles.guidanceSeverity, { color }]}>{SEVERITY_LABELS[guidance.severity]}</Text>
+      <Text style={styles.guidanceTitle}>{guidance.title}</Text>
+      <Text style={styles.guidanceBody}>{guidance.body}</Text>
+      <View style={styles.guidanceSteps}>
+        {guidance.steps.map((step, index) => (
+          <Text key={index} style={styles.guidanceStep}>
+            •  {step}
+          </Text>
+        ))}
+      </View>
+      {guidance.source_url && (
+        <Pressable onPress={() => Linking.openURL(guidance.source_url as string)}>
+          <Text style={styles.guidanceSource}>View source ↗</Text>
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -33,6 +70,7 @@ export default function ItemDetailScreen() {
   const consumeMutation = useConsumeItem(id);
   const discardMutation = useDiscardItem(id);
   const suggestionsMutation = useItemSuggestions();
+  const guidanceQuery = useItemGuidance(item, item?.urgency === 'expired');
 
   if (isLoading) {
     return (
@@ -60,6 +98,8 @@ export default function ItemDetailScreen() {
         <UrgencyBadge urgency={item.urgency} />
         <Text style={styles.daysText}>{urgencyLabel(item.urgency, item.days_remaining)}</Text>
       </View>
+
+      {item.urgency === 'expired' && guidanceQuery.data && <GuidanceCard guidance={guidanceQuery.data} />}
 
       <View style={styles.card}>
         <Row label="Effective expiry" value={item.effective_expiry_date} />
@@ -243,6 +283,43 @@ const styles = StyleSheet.create({
   notice: {
     fontSize: 12,
     color: colors.danger,
+  },
+  guidanceCard: {
+    backgroundColor: colors.creamCard,
+    borderRadius: 12,
+    padding: 14,
+    gap: 8,
+    borderLeftWidth: 3,
+  },
+  guidanceSeverity: {
+    fontSize: fontSize.caption,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  guidanceTitle: {
+    fontSize: fontSize.subheading,
+    fontWeight: '700',
+    color: colors.navy,
+  },
+  guidanceBody: {
+    fontSize: 14,
+    color: colors.navy,
+    lineHeight: 20,
+  },
+  guidanceSteps: {
+    gap: 4,
+  },
+  guidanceStep: {
+    fontSize: 13,
+    color: colors.navy,
+    lineHeight: 19,
+  },
+  guidanceSource: {
+    fontSize: fontSize.caption,
+    fontWeight: '600',
+    color: colors.navy,
+    textDecorationLine: 'underline',
   },
   openButton: {
     backgroundColor: colors.navy,
