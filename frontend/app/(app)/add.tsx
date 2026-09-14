@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 
 import { CategoryPicker } from '../../components/CategoryPicker';
+import { alert } from '../../lib/alert';
 import { useCategories, useCreateItem } from '../../lib/queries';
 import { colors, fontSize } from '../../lib/theme';
 
@@ -98,14 +99,21 @@ export default function AddItemScreen() {
         date_source: scanId && !dateWasEdited ? 'ocr' : 'user',
       },
       {
-        // Not router.back(): this screen is reachable through a
-        // two-deep stack (Scan tab -> scan-product -> add), and back()
-        // only pops one level - landing the user right back on the
-        // mid-scan screen after successfully saving, looking like the
-        // save failed and they need to retake the photo. dismissAll()
-        // clears the whole pushed stack regardless of how many screens
-        // deep the user came from, always landing back on the tabs.
-        onSuccess: () => router.dismissAll(),
+        onSuccess: () =>
+          alert('Item added', `"${name.trim()}" was added to your pantry.`, [
+            {
+              text: 'OK',
+              // Not router.back(): this screen is reachable through a
+              // two-deep stack (Scan tab -> scan-product -> add), and
+              // back() only pops one level - landing the user right back
+              // on the mid-scan screen after successfully saving, looking
+              // like the save failed and they need to retake the photo.
+              // dismissAll() clears the whole pushed stack regardless of
+              // how many screens deep the user came from, always landing
+              // back on the tabs.
+              onPress: () => router.dismissAll(),
+            },
+          ]),
         onError: (err) => setFormError((err as Error).message),
       }
     );
