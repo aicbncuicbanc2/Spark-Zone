@@ -427,6 +427,9 @@ export default function ScanProductScreen() {
           <Pressable style={styles.manualLink} onPress={handleRetakeFromFrame} disabled={isCropping}>
             <Text style={styles.manualLinkText}>← Retake the photo</Text>
           </Pressable>
+          <Pressable style={styles.manualLink} onPress={() => router.push('/add')} disabled={isCropping}>
+            <Text style={styles.manualLinkText}>Or add manually</Text>
+          </Pressable>
         </ScrollView>
       </View>
     );
