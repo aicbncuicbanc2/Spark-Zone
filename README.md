@@ -13,6 +13,17 @@ The one detail most expiry-tracker apps miss: an opened cosmetic can expire
 *before* its printed date, once its period-after-opening (PAO) is accounted
 for. Thyme tracks that automatically.
 
+## Live demo
+
+**https://aicbncuicbanc2.github.io/Spark-Zone/** — the deployed web build,
+running against the real backend on Google Cloud Run. Redeploys
+automatically on every push to `main` that touches `frontend/**`.
+
+Needs a login. See `backend/README.md`'s "Dev accounts" section for the two
+seeded test accounts — the password isn't in this file since the repo is
+public; it belongs wherever your submission form has a dedicated
+judge-credentials field, not committed here.
+
 ## Repository layout
 
 ```
