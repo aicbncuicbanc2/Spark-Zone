@@ -190,6 +190,22 @@ export default function ScanProductScreen() {
     });
   }
 
+  // Every "Or add manually" escape hatch in this flow (a failed scan, the
+  // frame step, the date step) can fire after the brand photo already
+  // succeeded - bailing out must not throw that away and hand the user a
+  // blank form for something the app already knows.
+  function goToAddScreenManually() {
+    router.push({
+      pathname: '/add',
+      params: {
+        name: brand ?? '',
+        brand: brand ?? '',
+        category_id: categoryId ?? '',
+        unit: unit ?? '',
+      },
+    });
+  }
+
   function applyBrandResult(result: {
     brand: string | null;
     category_id: string | null;
@@ -237,7 +253,7 @@ export default function ScanProductScreen() {
                 scan.error_detail ?? 'Try a clearer, well-lit photo, or add the item manually.',
                 [
                   { text: 'Try again', style: 'cancel' },
-                  { text: 'Add manually', onPress: () => router.push('/add') },
+                  { text: 'Add manually', onPress: goToAddScreenManually },
                 ]
               );
               return;
@@ -427,7 +443,7 @@ export default function ScanProductScreen() {
           <Pressable style={styles.manualLink} onPress={handleRetakeFromFrame} disabled={isCropping}>
             <Text style={styles.manualLinkText}>← Retake the photo</Text>
           </Pressable>
-          <Pressable style={styles.manualLink} onPress={() => router.push('/add')} disabled={isCropping}>
+          <Pressable style={styles.manualLink} onPress={goToAddScreenManually} disabled={isCropping}>
             <Text style={styles.manualLinkText}>Or add manually</Text>
           </Pressable>
         </ScrollView>
@@ -540,7 +556,7 @@ export default function ScanProductScreen() {
               <Text style={styles.manualLinkText}>← Retake the product photo</Text>
             </Pressable>
           )}
-          <Pressable style={styles.manualLink} onPress={() => router.push('/add')}>
+          <Pressable style={styles.manualLink} onPress={goToAddScreenManually}>
             <Text style={styles.manualLinkText}>Or add manually</Text>
           </Pressable>
         </View>
