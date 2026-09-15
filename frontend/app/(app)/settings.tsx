@@ -4,6 +4,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, Switch, Text, TextInput, Vie
 
 import { ErrorState } from '../../components/ErrorState';
 import { LiquidButton } from '../../components/LiquidButton';
+import { TimeField } from '../../components/TimeField';
 import { ToggleChip } from '../../components/ToggleChip';
 import { alert } from '../../lib/alert';
 import { useMe, useUpdatePreferences } from '../../lib/queries';
@@ -105,23 +106,11 @@ export default function SettingsScreen() {
       <View style={styles.inlineRow}>
         <View style={styles.inlineField}>
           <Text style={styles.label}>Quiet hours start</Text>
-          <TextInput
-            style={styles.input}
-            value={quietStart}
-            onChangeText={setQuietStart}
-            placeholder="22:00"
-            keyboardType="numbers-and-punctuation"
-          />
+          <TimeField value={quietStart} onChangeText={setQuietStart} placeholder="22:00" />
         </View>
         <View style={styles.inlineField}>
           <Text style={styles.label}>Quiet hours end</Text>
-          <TextInput
-            style={styles.input}
-            value={quietEnd}
-            onChangeText={setQuietEnd}
-            placeholder="08:00"
-            keyboardType="numbers-and-punctuation"
-          />
+          <TimeField value={quietEnd} onChangeText={setQuietEnd} placeholder="08:00" />
         </View>
       </View>
 
