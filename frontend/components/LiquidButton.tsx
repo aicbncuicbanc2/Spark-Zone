@@ -1,14 +1,16 @@
-import { useRef, useState } from 'react';
-import { Animated, Pressable, StyleSheet, Text } from 'react-native';
+import { useRef } from 'react';
+import { Animated, Pressable, StyleSheet, View } from 'react-native';
 
 import { colors } from '../lib/theme';
 
-// Modelled on animate-ui.com's "Liquid Button": a slight hover scale-up, a
-// press scale-down, and a colored fill that rises from the bottom on hover
-// - not the SVG-filter gooey-blob effect "liquid" might suggest, just two
-// Animated-driven values, so it works on both web (where hover exists) and
-// native (where onHoverIn/Out simply never fire - a harmless no-op, not a
-// missing feature).
+// Modelled on animate-ui.com's "Liquid Button": a colored fill that rises
+// from the bottom on hover - not the SVG-filter gooey-blob effect "liquid"
+// might suggest, just an Animated-driven height, so it works on both web
+// (where hover exists) and native (where onHoverIn/Out simply never fire -
+// a harmless no-op, not a missing feature). No scale/size change: on a
+// full-width button (this one spans its whole parent), scaling up visibly
+// overflows past the container's own padding - fine for a small button,
+// not for this one.
 export function LiquidButton({
   label,
   onPress,
@@ -20,17 +22,11 @@ export function LiquidButton({
   variant?: 'solid' | 'outline';
   disabled?: boolean;
 }) {
-  const scale = useRef(new Animated.Value(1)).current;
   // Drives the fill overlay's height (0%-100%) and, for the outline variant,
   // the text color crossfade - can't use the native driver for either
   // (layout height and color aren't supported by it), but this only
   // animates on a hover/press interaction, not a hot path.
   const fill = useRef(new Animated.Value(0)).current;
-  const hoveredRef = useRef(false);
-
-  function animateScale(toValue: number) {
-    Animated.spring(scale, { toValue, useNativeDriver: true, speed: 20, bounciness: 6 }).start();
-  }
 
   function animateFill(toValue: number) {
     Animated.timing(fill, { toValue, duration: 220, useNativeDriver: false }).start();
@@ -43,27 +39,10 @@ export function LiquidButton({
       style={styles.wrapper}
       disabled={disabled}
       onPress={onPress}
-      onHoverIn={() => {
-        hoveredRef.current = true;
-        animateScale(1.05);
-        animateFill(1);
-      }}
-      onHoverOut={() => {
-        hoveredRef.current = false;
-        animateScale(1);
-        animateFill(0);
-      }}
-      onPressIn={() => animateScale(0.95)}
-      onPressOut={() => animateScale(hoveredRef.current ? 1.05 : 1)}
+      onHoverIn={() => animateFill(1)}
+      onHoverOut={() => animateFill(0)}
     >
-      <Animated.View
-        style={[
-          styles.button,
-          isOutline && styles.outline,
-          disabled && styles.disabled,
-          { transform: [{ scale }] },
-        ]}
-      >
+      <View style={[styles.button, isOutline && styles.outline, disabled && styles.disabled]}>
         <Animated.View
           pointerEvents="none"
           style={[
@@ -89,7 +68,7 @@ export function LiquidButton({
         >
           {label}
         </Animated.Text>
-      </Animated.View>
+      </View>
     </Pressable>
   );
 }
