@@ -7,6 +7,7 @@ import {
   Dimensions,
   FlatList,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -255,13 +256,20 @@ export default function PantryScreen() {
       )}
 
       <View style={styles.filterBar}>
-        <Pressable style={styles.filterButton} onPress={() => setFiltersVisible(true)}>
-          <Ionicons name="options-outline" size={16} color={colors.navy} />
-          <Text style={styles.filterButtonText}>Filters</Text>
-          {activeFilterCount > 0 && (
-            <View style={styles.filterCountBadge}>
-              <Text style={styles.filterCountText}>{activeFilterCount}</Text>
-            </View>
+        <Pressable
+          style={({ hovered }) => [styles.filterButton, hovered && styles.filterButtonHovered]}
+          onPress={() => setFiltersVisible(true)}
+        >
+          {({ hovered }: { hovered?: boolean }) => (
+            <>
+              <Ionicons name="options-outline" size={16} color={hovered ? colors.white : colors.navy} />
+              <Text style={[styles.filterButtonText, hovered && styles.filterButtonTextHovered]}>Filters</Text>
+              {activeFilterCount > 0 && (
+                <View style={styles.filterCountBadge}>
+                  <Text style={styles.filterCountText}>{activeFilterCount}</Text>
+                </View>
+              )}
+            </>
           )}
         </Pressable>
         <Text style={styles.resultCount}>
@@ -545,11 +553,20 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 7,
+    // web-only, same as the category circles' hover fade - harmless no-op
+    // on native, which has no hover state to transition into.
+    ...(Platform.OS === 'web' ? { transitionProperty: 'background-color', transitionDuration: '150ms' } : null),
+  },
+  filterButtonHovered: {
+    backgroundColor: colors.navy,
   },
   filterButtonText: {
     fontSize: 13,
     fontWeight: '600',
     color: colors.navy,
+  },
+  filterButtonTextHovered: {
+    color: colors.white,
   },
   filterCountBadge: {
     minWidth: 18,
