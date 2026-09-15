@@ -504,10 +504,13 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     color: colors.navy,
-    // Chrome/Edge draw their own focus ring (a black outline) on a plain
-    // HTML input - react-native-web renders TextInput as one, so without
-    // this the search box got a second, uglier border on top of its own
-    // when focused. Harmless no-op on native, which has no such outline.
+    // react-native-web renders TextInput as a plain HTML <input>, which
+    // browsers give both a default border AND (when focused) their own
+    // black outline - on top of this box's own rounded pill border from
+    // the parent searchBox. Zeroing both removes the browser's, leaving
+    // just the intentional one. Harmless no-op on native, which has
+    // neither.
+    borderWidth: 0,
     ...(Platform.OS === 'web' ? { outlineWidth: 0 } : null),
   },
   filterBanner: {
