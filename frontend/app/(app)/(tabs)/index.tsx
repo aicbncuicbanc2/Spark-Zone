@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErrorState } from '../../../components/ErrorState';
 import { ExpiryCalendar } from '../../../components/ExpiryCalendar';
 import { HeaderLogo } from '../../../components/HeaderLogo';
+import { Tooltip } from '../../../components/Tooltip';
 import { useAuth } from '../../../contexts/AuthContext';
 import { iconForCategory } from '../../../lib/categoryIcons';
 import { useCategories, useDashboard, useItems } from '../../../lib/queries';
@@ -208,12 +209,12 @@ export default function DashboardScreen() {
         <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
           <HeaderLogo />
           <View style={styles.headerActions}>
-            <Pressable hitSlop={10} onPress={() => router.push('/settings')}>
+            <Tooltip label="Settings" hitSlop={10} onPress={() => router.push('/settings')}>
               <Ionicons name="settings-outline" size={22} color={colors.textMuted} />
-            </Pressable>
-            <Pressable hitSlop={10} onPress={signOut}>
+            </Tooltip>
+            <Tooltip label="Log out" hitSlop={10} onPress={signOut}>
               <Ionicons name="log-out-outline" size={22} color={colors.textMuted} />
-            </Pressable>
+            </Tooltip>
           </View>
         </View>
 

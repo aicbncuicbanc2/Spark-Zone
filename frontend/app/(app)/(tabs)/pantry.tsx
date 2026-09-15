@@ -22,6 +22,7 @@ import { ErrorState } from '../../../components/ErrorState';
 import { HeaderLogo } from '../../../components/HeaderLogo';
 import { ItemRow } from '../../../components/ItemRow';
 import { LiquidButton } from '../../../components/LiquidButton';
+import { Tooltip, TooltipBubble } from '../../../components/Tooltip';
 import { useAllStatusItems, useCategories, useItems } from '../../../lib/queries';
 import { colors, fontSize, statusColors, urgencyColors } from '../../../lib/theme';
 import type { ItemStatus, Urgency } from '../../../lib/types';
@@ -250,9 +251,9 @@ export default function PantryScreen() {
       {params.expiryDate && (
         <View style={styles.filterBanner}>
           <Text style={styles.filterBannerText}>Filtered: expiring {params.expiryDate}</Text>
-          <Pressable onPress={() => router.setParams({ expiryDate: undefined })}>
+          <Tooltip label="Clear date filter" onPress={() => router.setParams({ expiryDate: undefined })}>
             <Ionicons name="close-circle" size={18} color={colors.textMuted} />
-          </Pressable>
+          </Tooltip>
         </View>
       )}
 
@@ -290,9 +291,9 @@ export default function PantryScreen() {
         >
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Filters</Text>
-            <Pressable hitSlop={10} onPress={() => setFiltersVisible(false)}>
+            <Tooltip label="Close" hitSlop={10} onPress={() => setFiltersVisible(false)}>
               <Ionicons name="close" size={22} color={colors.textMuted} />
-            </Pressable>
+            </Tooltip>
           </View>
 
           <ScrollView contentContainerStyle={styles.modalContent}>
@@ -382,11 +383,14 @@ export default function PantryScreen() {
                 onPress={() => setIsAddingLocation((v) => !v)}
               >
                 {({ hovered }: { hovered?: boolean }) => (
-                  <Ionicons
-                    name={isAddingLocation ? 'close' : 'add'}
-                    size={18}
-                    color={hovered ? colors.white : colors.navy}
-                  />
+                  <>
+                    <Ionicons
+                      name={isAddingLocation ? 'close' : 'add'}
+                      size={18}
+                      color={hovered ? colors.white : colors.navy}
+                    />
+                    <TooltipBubble label={isAddingLocation ? 'Cancel' : 'Add location'} visible={!!hovered} />
+                  </>
                 )}
               </Pressable>
             </View>
@@ -732,6 +736,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   squareNewButton: {
+    position: 'relative',
     width: 34,
     height: 34,
     borderRadius: 8,

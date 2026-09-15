@@ -6,6 +6,7 @@ import { alert } from '../lib/alert';
 import { useCreateCategory } from '../lib/queries';
 import { colors } from '../lib/theme';
 import type { Category } from '../lib/types';
+import { TooltipBubble } from './Tooltip';
 
 type Props = {
   categories: Category[] | undefined;
@@ -74,7 +75,10 @@ export function CategoryPicker({
             onPress={() => setIsCreating((v) => !v)}
           >
             {({ hovered }: { hovered?: boolean }) => (
-              <Ionicons name={isCreating ? 'close' : 'add'} size={18} color={hovered ? colors.white : colors.navy} />
+              <>
+                <Ionicons name={isCreating ? 'close' : 'add'} size={18} color={hovered ? colors.white : colors.navy} />
+                <TooltipBubble label={isCreating ? 'Cancel' : 'Add category'} visible={!!hovered} />
+              </>
             )}
           </Pressable>
         ) : (
@@ -164,6 +168,7 @@ const styles = StyleSheet.create({
     borderStyle: 'solid',
   },
   squareNewButton: {
+    position: 'relative',
     width: 34,
     height: 34,
     borderRadius: 8,

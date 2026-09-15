@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '../lib/theme';
 import type { Item } from '../lib/types';
+import { Tooltip } from './Tooltip';
 
 const WEEKDAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 const MONTH_NAMES = [
@@ -58,15 +59,15 @@ export function ExpiryCalendar({ items, onSelectDate }: Props) {
   return (
     <View style={styles.card}>
       <View style={styles.header}>
-        <Pressable hitSlop={10} onPress={() => setViewDate(new Date(year, month - 1, 1))}>
+        <Tooltip label="Previous month" hitSlop={10} onPress={() => setViewDate(new Date(year, month - 1, 1))}>
           <Ionicons name="chevron-back" size={20} color={colors.navy} />
-        </Pressable>
+        </Tooltip>
         <Text style={styles.headerText}>
           {MONTH_NAMES[month]} {year}
         </Text>
-        <Pressable hitSlop={10} onPress={() => setViewDate(new Date(year, month + 1, 1))}>
+        <Tooltip label="Next month" hitSlop={10} onPress={() => setViewDate(new Date(year, month + 1, 1))}>
           <Ionicons name="chevron-forward" size={20} color={colors.navy} />
-        </Pressable>
+        </Tooltip>
       </View>
 
       <View style={styles.weekRow}>
