@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
+  Dimensions,
   FlatList,
   Image,
   Modal,
@@ -73,6 +75,39 @@ export default function PantryScreen() {
   // five permanently-visible rows stacked above the list — that stack was
   // the actual clutter, not any one filter on its own.
   const [filtersVisible, setFiltersVisible] = useState(false);
+  // RN's built-in Modal animationType="slide" moves its whole content view
+  // (backdrop + sheet together) as one sliding unit, so the dark backdrop
+  // visibly rises together with the sheet instead of just being there.
+  // Animating them separately - the sheet slides, the backdrop only starts
+  // fading in once the sheet finishes - needs Modal's own animation turned
+  // off and both pieces driven by hand instead.
+  const [modalMounted, setModalMounted] = useState(false);
+  const sheetTranslateY = useRef(new Animated.Value(Dimensions.get('window').height)).current;
+  const backdropOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (filtersVisible) {
+      setModalMounted(true);
+      sheetTranslateY.setValue(Dimensions.get('window').height);
+      backdropOpacity.setValue(0);
+      Animated.timing(sheetTranslateY, { toValue: 0, duration: 260, useNativeDriver: true }).start(() => {
+        Animated.timing(backdropOpacity, { toValue: 1, duration: 160, useNativeDriver: true }).start();
+      });
+    } else if (modalMounted) {
+      Animated.timing(backdropOpacity, { toValue: 0, duration: 120, useNativeDriver: true }).start(() => {
+        Animated.timing(sheetTranslateY, {
+          toValue: Dimensions.get('window').height,
+          duration: 220,
+          useNativeDriver: true,
+        }).start(() => setModalMounted(false));
+      });
+    }
+    // modalMounted is intentionally not a dependency - it's only read here
+    // to gate the closing branch, not to re-trigger this effect on its own
+    // change (that would immediately re-fire the close animation on the
+    // setModalMounted(false) this same branch just did).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtersVisible]);
 
   useEffect(() => {
     if (params.category) setCategory(params.category);
@@ -234,14 +269,16 @@ export default function PantryScreen() {
         </Text>
       </View>
 
-      <Modal
-        visible={filtersVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setFiltersVisible(false)}
-      >
-        <Pressable style={styles.modalBackdrop} onPress={() => setFiltersVisible(false)} />
-        <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 12 }]}>
+      <Modal visible={modalMounted} transparent animationType="none" onRequestClose={() => setFiltersVisible(false)}>
+        <Animated.View style={[styles.modalBackdrop, { opacity: backdropOpacity }]}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setFiltersVisible(false)} />
+        </Animated.View>
+        <Animated.View
+          style={[
+            styles.modalSheet,
+            { paddingBottom: insets.bottom + 12, transform: [{ translateY: sheetTranslateY }] },
+          ]}
+        >
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Filters</Text>
             <Pressable hitSlop={10} onPress={() => setFiltersVisible(false)}>
@@ -385,7 +422,7 @@ export default function PantryScreen() {
               <Text style={styles.doneButtonText}>Done</Text>
             </Pressable>
           </View>
-        </View>
+        </Animated.View>
       </Modal>
 
       {isLoading ? (
