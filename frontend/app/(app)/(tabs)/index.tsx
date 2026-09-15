@@ -1,11 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import type { ComponentProps } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
   NativeScrollEvent,
   NativeSyntheticEvent,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -121,6 +123,35 @@ function TipCarousel({ items }: { items: Item[] }) {
   );
 }
 
+// Pressable's children-as-function form reports `hovered` on web only (it's
+// always undefined on native, where hover has no meaning) - so this is a
+// no-op there, not a bug. Icon color flips to white alongside the
+// background so it stays visible against navy instead of vanishing.
+function CategoryCircleButton({
+  icon,
+  label,
+  onPress,
+}: {
+  icon: ComponentProps<typeof Ionicons>['name'];
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable style={styles.categoryItem} onPress={onPress}>
+      {({ hovered }: { hovered?: boolean }) => (
+        <>
+          <View style={[styles.categoryCircle, hovered && styles.categoryCircleHovered]}>
+            <Ionicons name={icon} size={26} color={hovered ? colors.white : colors.navy} />
+          </View>
+          <Text style={styles.categoryLabel} numberOfLines={1}>
+            {label}
+          </Text>
+        </>
+      )}
+    </Pressable>
+  );
+}
+
 export default function DashboardScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -233,18 +264,12 @@ export default function DashboardScreen() {
         </Pressable>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryRow}>
           {categories?.map((c) => (
-            <Pressable
+            <CategoryCircleButton
               key={c.id}
-              style={styles.categoryItem}
+              icon={iconForCategory(c.id)}
+              label={c.label_en}
               onPress={() => router.push({ pathname: '/pantry', params: { category: c.id } })}
-            >
-              <View style={styles.categoryCircle}>
-                <Ionicons name={iconForCategory(c.id)} size={26} color={colors.navy} />
-              </View>
-              <Text style={styles.categoryLabel} numberOfLines={1}>
-                {c.label_en}
-              </Text>
-            </Pressable>
+            />
           ))}
         </ScrollView>
 
@@ -256,18 +281,12 @@ export default function DashboardScreen() {
             </Pressable>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryRow}>
               {locations.map((loc) => (
-                <Pressable
+                <CategoryCircleButton
                   key={loc}
-                  style={styles.categoryItem}
+                  icon="location-outline"
+                  label={loc}
                   onPress={() => router.push({ pathname: '/pantry', params: { location: loc } })}
-                >
-                  <View style={styles.categoryCircle}>
-                    <Ionicons name="location-outline" size={26} color={colors.navy} />
-                  </View>
-                  <Text style={styles.categoryLabel} numberOfLines={1}>
-                    {loc}
-                  </Text>
-                </Pressable>
+                />
               ))}
             </ScrollView>
           </>
@@ -438,6 +457,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.creamCard,
     alignItems: 'center',
     justifyContent: 'center',
+    // transitionProperty/-Duration are web-only (react-native-web passes
+    // them straight through as CSS) - harmless no-ops on native, where
+    // there's no hover state to transition into in the first place.
+    ...(Platform.OS === 'web' ? { transitionProperty: 'background-color', transitionDuration: '150ms' } : null),
+  },
+  categoryCircleHovered: {
+    backgroundColor: colors.navy,
   },
   categoryLabel: {
     fontSize: 12,
