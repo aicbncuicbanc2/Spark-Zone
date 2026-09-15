@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 
 import { CropFrame, type CropRect } from '../../components/CropFrame';
+import { LiquidButton } from '../../components/LiquidButton';
 import { alert } from '../../lib/alert';
 import { useCreateScan, useIdentifyProduct } from '../../lib/queries';
 import { colors, fontSize } from '../../lib/theme';
@@ -544,12 +545,8 @@ export default function ScanProductScreen() {
             </View>
           )}
 
-          <Pressable style={styles.button} onPress={() => handlePick('camera')}>
-            <Text style={styles.buttonText}>Take photo</Text>
-          </Pressable>
-          <Pressable style={[styles.button, styles.secondaryButton]} onPress={() => handlePick('library')}>
-            <Text style={[styles.buttonText, styles.secondaryButtonText]}>Choose from library</Text>
-          </Pressable>
+          <LiquidButton label="Take photo" onPress={() => handlePick('camera')} />
+          <LiquidButton label="Choose from library" variant="outline" onPress={() => handlePick('library')} />
 
           {step === 'date' && (
             <Pressable style={styles.manualLink} onPress={() => setStep('brand')}>
