@@ -12,6 +12,10 @@ export default function TabsLayout() {
         tabBarActiveTintColor: colors.navy,
         tabBarInactiveTintColor: colors.textMuted,
         tabBarStyle: { backgroundColor: colors.white, borderTopColor: colors.border },
+        // Tabs swap instantly by default (no push/pop, so nothing to
+        // slide) - a quick fade instead of a hard cut is enough to read
+        // as an intentional transition rather than a flicker.
+        animation: 'fade',
       }}
     >
       <Tabs.Screen

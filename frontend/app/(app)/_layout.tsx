@@ -14,14 +14,25 @@ export default function AppLayout() {
           headerStyle: { backgroundColor: colors.cream },
           headerTintColor: colors.navy,
           headerTitleStyle: { color: colors.navy },
+          // A pushed screen slides in from the right (and reverses on the
+          // way back) instead of just snapping into place - native-stack
+          // already does this on iOS/Android by default, but web needs it
+          // stated explicitly to animate at all.
+          animation: 'slide_from_right',
         }}
       >
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="item/[id]" options={{ headerShown: true, title: 'Item' }} />
-        <Stack.Screen name="add" options={{ headerShown: true, title: 'Add item', presentation: 'modal' }} />
+        <Stack.Screen
+          name="add"
+          options={{ headerShown: true, title: 'Add item', presentation: 'modal', animation: 'slide_from_bottom' }}
+        />
         <Stack.Screen name="scan-product" options={{ headerShown: true, title: 'Scan product' }} />
         <Stack.Screen name="ask-thyme" options={{ headerShown: true, title: 'Ask Thyme' }} />
-        <Stack.Screen name="settings" options={{ headerShown: true, title: 'Settings', presentation: 'modal' }} />
+        <Stack.Screen
+          name="settings"
+          options={{ headerShown: true, title: 'Settings', presentation: 'modal', animation: 'slide_from_bottom' }}
+        />
       </Stack>
       {USE_MOCKS && <MockDataBadge />}
     </View>
