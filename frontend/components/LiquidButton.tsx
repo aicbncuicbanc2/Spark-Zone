@@ -40,6 +40,7 @@ export function LiquidButton({
 
   return (
     <Pressable
+      style={styles.wrapper}
       disabled={disabled}
       onPress={onPress}
       onHoverIn={() => {
@@ -94,6 +95,15 @@ export function LiquidButton({
 }
 
 const styles = StyleSheet.create({
+  // The old bare <Pressable style={styles.button}> (button itself had
+  // width:'100%') is now a Pressable wrapping an inner Animated.View - the
+  // 100% width has to live on THIS outer Pressable too, or it shrinks to
+  // fit the label text (as a plain View would by default inside a
+  // center-aligned column) and the 100% on the inner view just means 100%
+  // of that already-shrunk width.
+  wrapper: {
+    width: '100%',
+  },
   button: {
     backgroundColor: colors.navy,
     borderRadius: 10,
