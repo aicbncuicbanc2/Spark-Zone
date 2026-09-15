@@ -239,7 +239,11 @@ export default function DashboardScreen() {
           {BUCKETS.map(({ key, label, color }) => (
             <Pressable
               key={key}
-              style={[styles.bucketCard, { borderColor: color }]}
+              style={({ hovered }) => [
+                styles.bucketCard,
+                { borderColor: color },
+                hovered && styles.bucketCardHovered,
+              ]}
               onPress={() =>
                 router.push({
                   pathname: '/pantry',
@@ -378,6 +382,17 @@ const styles = StyleSheet.create({
     marginRight: 10,
     alignItems: 'center',
     backgroundColor: colors.white,
+    // web-only, same as the category circles' hover fade - harmless no-op
+    // on native, which has no hover state to transition into.
+    ...(Platform.OS === 'web' ? { transitionProperty: 'box-shadow, transform', transitionDuration: '150ms' } : null),
+  },
+  bucketCardHovered: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+    transform: [{ translateY: -2 }],
   },
   bucketLabel: {
     fontSize: 14,
