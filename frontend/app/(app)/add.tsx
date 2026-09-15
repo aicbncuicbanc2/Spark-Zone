@@ -1,7 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
-  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,6 +10,7 @@ import {
 } from 'react-native';
 
 import { CategoryPicker } from '../../components/CategoryPicker';
+import { LiquidButton } from '../../components/LiquidButton';
 import { alert } from '../../lib/alert';
 import { useCategories, useCreateItem } from '../../lib/queries';
 import { colors, fontSize } from '../../lib/theme';
@@ -193,13 +193,14 @@ export default function AddItemScreen() {
 
       {formError && <Text style={styles.error}>{formError}</Text>}
 
-      <Pressable style={[styles.submit, !canSubmit && styles.submitDisabled]} disabled={!canSubmit} onPress={handleSubmit}>
-        {createMutation.isPending ? (
-          <ActivityIndicator color={colors.white} />
-        ) : (
-          <Text style={styles.submitText}>Add item</Text>
-        )}
-      </Pressable>
+      <View style={styles.submitWrap}>
+        <LiquidButton
+          label="Add item"
+          onPress={handleSubmit}
+          disabled={!canSubmit}
+          loading={createMutation.isPending}
+        />
+      </View>
     </ScrollView>
   );
 }
@@ -281,19 +282,7 @@ const styles = StyleSheet.create({
     marginTop: 14,
     textAlign: 'center',
   },
-  submit: {
-    backgroundColor: colors.navy,
-    borderRadius: 10,
-    paddingVertical: 14,
-    alignItems: 'center',
+  submitWrap: {
     marginTop: 20,
-  },
-  submitDisabled: {
-    opacity: 0.5,
-  },
-  submitText: {
-    color: colors.white,
-    fontSize: 16,
-    fontWeight: '600',
   },
 });
