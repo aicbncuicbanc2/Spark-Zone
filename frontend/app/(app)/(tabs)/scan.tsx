@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { LiquidButton } from '../../../components/LiquidButton';
 import { colors, logoSize } from '../../../lib/theme';
 
 // This tab used to run its own single-photo scan (aimed at catching a
@@ -30,18 +31,15 @@ export default function ScanScreen() {
           always get a chance to confirm or fix the date before it's saved.
         </Text>
 
-        <Pressable
-          style={styles.button}
+        <LiquidButton
+          label="Take photo"
           onPress={() => router.push({ pathname: '/scan-product', params: { source: 'camera' } })}
-        >
-          <Text style={styles.buttonText}>Take photo</Text>
-        </Pressable>
-        <Pressable
-          style={[styles.button, styles.secondaryButton]}
+        />
+        <LiquidButton
+          label="Upload photo"
+          variant="outline"
           onPress={() => router.push({ pathname: '/scan-product', params: { source: 'library' } })}
-        >
-          <Text style={[styles.buttonText, styles.secondaryButtonText]}>Upload photo</Text>
-        </Pressable>
+        />
         <Pressable style={styles.manualLink} onPress={() => router.push('/add')}>
           <Text style={styles.manualLinkText}>Or add manually</Text>
         </Pressable>
@@ -87,26 +85,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 8,
-  },
-  button: {
-    backgroundColor: colors.navy,
-    borderRadius: 10,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    width: '100%',
-    alignItems: 'center',
-  },
-  secondaryButton: {
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.navy,
-  },
-  buttonText: {
-    color: colors.white,
-    fontWeight: '600',
-  },
-  secondaryButtonText: {
-    color: colors.navy,
   },
   manualLink: {
     marginTop: 4,
