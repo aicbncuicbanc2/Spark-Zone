@@ -7,7 +7,6 @@ import {
   Dimensions,
   FlatList,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -505,13 +504,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.navy,
     // react-native-web renders TextInput as a plain HTML <input>, which
-    // browsers give both a default border AND (when focused) their own
-    // black outline - on top of this box's own rounded pill border from
-    // the parent searchBox. Zeroing both removes the browser's, leaving
-    // just the intentional one. Harmless no-op on native, which has
-    // neither.
+    // browsers give a default border - on top of this box's own rounded
+    // pill border from the parent searchBox. The browser's separate focus
+    // outline can't be zeroed here at all (react-native-web's style
+    // compiler drops outlineWidth/outlineStyle silently); that's handled
+    // globally instead, see lib/webFocusReset.ts.
     borderWidth: 0,
-    ...(Platform.OS === 'web' ? { outlineWidth: 0 } : null),
   },
   filterBanner: {
     flexDirection: 'row',

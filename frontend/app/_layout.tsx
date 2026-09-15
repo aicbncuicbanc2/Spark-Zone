@@ -4,6 +4,7 @@ import { Stack } from 'expo-router';
 
 import { AppAlertHost } from '../components/AppAlertHost';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
+import '../lib/webFocusReset';
 
 SplashScreen.preventAutoHideAsync();
 
