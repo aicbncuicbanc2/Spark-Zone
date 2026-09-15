@@ -232,7 +232,9 @@ export default function PantryScreen() {
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <Image source={require('../../../assets/brand/wordmark.png')} style={styles.logo} resizeMode="contain" />
+        <Pressable onPress={() => router.push('/')}>
+          <Image source={require('../../../assets/brand/wordmark.png')} style={styles.logo} resizeMode="contain" />
+        </Pressable>
         <View style={styles.searchBox}>
           <TextInput
             style={styles.searchInput}

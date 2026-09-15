@@ -206,7 +206,9 @@ export default function DashboardScreen() {
         refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
       >
         <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-          <Image source={require('../../../assets/brand/wordmark.png')} style={styles.logo} resizeMode="contain" />
+          <Pressable onPress={() => router.push('/')}>
+            <Image source={require('../../../assets/brand/wordmark.png')} style={styles.logo} resizeMode="contain" />
+          </Pressable>
           <View style={styles.headerActions}>
             <Pressable hitSlop={10} onPress={() => router.push('/settings')}>
               <Ionicons name="settings-outline" size={22} color={colors.textMuted} />
