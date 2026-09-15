@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { Animated, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Animated, Pressable, StyleSheet, View } from 'react-native';
 
 import { colors } from '../lib/theme';
 
@@ -16,11 +16,16 @@ export function LiquidButton({
   onPress,
   variant = 'solid',
   disabled,
+  loading,
 }: {
   label: string;
   onPress: () => void;
   variant?: 'solid' | 'outline';
   disabled?: boolean;
+  /** Swaps the label for a spinner and disables the button - for an action
+   * already in flight (e.g. a crop upload), same as the plain Pressable
+   * this replaced showed an ActivityIndicator in place of its text. */
+  loading?: boolean;
 }) {
   // Drives the fill overlay's height (0%-100%) and, for the outline variant,
   // the text color crossfade - can't use the native driver for either
@@ -37,7 +42,7 @@ export function LiquidButton({
   return (
     <Pressable
       style={styles.wrapper}
-      disabled={disabled}
+      disabled={disabled || loading}
       onPress={onPress}
       onHoverIn={() => animateFill(1)}
       onHoverOut={() => animateFill(0)}
@@ -53,21 +58,25 @@ export function LiquidButton({
             },
           ]}
         />
-        <Animated.Text
-          style={[
-            styles.text,
-            isOutline
-              ? {
-                  color: fill.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [colors.navy, colors.white],
-                  }),
-                }
-              : styles.solidText,
-          ]}
-        >
-          {label}
-        </Animated.Text>
+        {loading ? (
+          <ActivityIndicator color={isOutline ? colors.navy : colors.white} />
+        ) : (
+          <Animated.Text
+            style={[
+              styles.text,
+              isOutline
+                ? {
+                    color: fill.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [colors.navy, colors.white],
+                    }),
+                  }
+                : styles.solidText,
+            ]}
+          >
+            {label}
+          </Animated.Text>
+        )}
       </View>
     </Pressable>
   );

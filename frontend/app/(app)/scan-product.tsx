@@ -431,16 +431,13 @@ export default function ScanProductScreen() {
             />
           </View>
 
-          <Pressable style={styles.button} onPress={handleUseCrop} disabled={isCropping}>
-            {isCropping ? (
-              <ActivityIndicator color={colors.white} />
-            ) : (
-              <Text style={styles.buttonText}>Use this area</Text>
-            )}
-          </Pressable>
-          <Pressable style={[styles.button, styles.secondaryButton]} onPress={handleUseWholePhoto} disabled={isCropping}>
-            <Text style={[styles.buttonText, styles.secondaryButtonText]}>Use the whole photo instead</Text>
-          </Pressable>
+          <LiquidButton label="Use this area" onPress={handleUseCrop} loading={isCropping} />
+          <LiquidButton
+            label="Use the whole photo instead"
+            variant="outline"
+            onPress={handleUseWholePhoto}
+            disabled={isCropping}
+          />
           <Pressable style={styles.manualLink} onPress={handleRetakeFromFrame} disabled={isCropping}>
             <Text style={styles.manualLinkText}>← Retake the photo</Text>
           </Pressable>
@@ -473,12 +470,8 @@ export default function ScanProductScreen() {
             </View>
           )}
 
-          <Pressable style={styles.button} onPress={handleConfirmBrand}>
-            <Text style={styles.buttonText}>Yes, that's right</Text>
-          </Pressable>
-          <Pressable style={[styles.button, styles.secondaryButton]} onPress={handleRetakeBrand}>
-            <Text style={[styles.buttonText, styles.secondaryButtonText]}>No, retake the photo</Text>
-          </Pressable>
+          <LiquidButton label="Yes, that's right" onPress={handleConfirmBrand} />
+          <LiquidButton label="No, retake the photo" variant="outline" onPress={handleRetakeBrand} />
         </ScrollView>
       </View>
     );
@@ -706,26 +699,6 @@ const styles = StyleSheet.create({
   },
   hintChipTextActive: {
     color: colors.white,
-  },
-  button: {
-    backgroundColor: colors.navy,
-    borderRadius: 10,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    width: '100%',
-    alignItems: 'center',
-  },
-  secondaryButton: {
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.navy,
-  },
-  buttonText: {
-    color: colors.white,
-    fontWeight: '600',
-  },
-  secondaryButtonText: {
-    color: colors.navy,
   },
   manualLink: {
     marginTop: 4,
