@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
+import type { BottomTabSceneInterpolationProps } from 'expo-router/build/react-navigation/bottom-tabs/types';
 import { Tabs, usePathname, useRouter } from 'expo-router';
 import { useMemo } from 'react';
-import { PanResponder, View } from 'react-native';
+import { Dimensions, Easing, PanResponder, View } from 'react-native';
 
 import { colors } from '../../../lib/theme';
 
@@ -11,6 +12,32 @@ import { colors } from '../../../lib/theme';
 const TAB_ORDER = ['/', '/pantry', '/scan'] as const;
 const SWIPE_DISTANCE_THRESHOLD = 60;
 const SWIPE_VELOCITY_THRESHOLD = 0.3;
+
+// expo-router's Tabs only ships two built-in transitions ('fade' and
+// 'shift', a 50px nudge) - neither is the full "one page slides fully off,
+// the next slides fully in" effect a tab switch was asked to have, which
+// only exists as a preset for the *stack* navigator (used elsewhere in this
+// app for pushed screens, not tabs). This is that same full slide, written
+// by hand as a custom scene-style interpolator: `progress` is -1 for a
+// screen with a lower tab index than the active one, 0 when active, 1 when
+// higher - so a screen you're leaving slides fully off toward whichever
+// side its neighbor sits on, and the incoming one slides fully in from the
+// opposite side, matching TAB_ORDER's left-to-right layout.
+function forSlide({ current }: BottomTabSceneInterpolationProps) {
+  const { width } = Dimensions.get('window');
+  return {
+    sceneStyle: {
+      transform: [
+        {
+          translateX: current.progress.interpolate({
+            inputRange: [-1, 0, 1],
+            outputRange: [-width, 0, width],
+          }),
+        },
+      ],
+    },
+  };
+}
 
 export default function TabsLayout() {
   const router = useRouter();
@@ -52,9 +79,15 @@ export default function TabsLayout() {
           tabBarInactiveTintColor: colors.textMuted,
           tabBarStyle: { backgroundColor: colors.white, borderTopColor: colors.border },
           // Tabs swap instantly by default (no push/pop, so nothing to
-          // slide) - a quick fade instead of a hard cut is enough to read
-          // as an intentional transition rather than a flicker.
-          animation: 'fade',
+          // animate) - forSlide (above) is a custom full-width slide,
+          // since neither of the two built-in options ('fade', a 50px
+          // 'shift') is the real page-sliding-across effect this was
+          // asked for.
+          sceneStyleInterpolator: forSlide,
+          transitionSpec: {
+            animation: 'timing',
+            config: { duration: 300, easing: Easing.out(Easing.cubic) },
+          },
         }}
       >
         <Tabs.Screen
