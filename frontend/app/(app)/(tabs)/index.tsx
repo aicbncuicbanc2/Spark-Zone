@@ -4,7 +4,6 @@ import type { ComponentProps } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   NativeScrollEvent,
   NativeSyntheticEvent,
   Platform,
@@ -20,10 +19,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ErrorState } from '../../../components/ErrorState';
 import { ExpiryCalendar } from '../../../components/ExpiryCalendar';
+import { HeaderLogo } from '../../../components/HeaderLogo';
 import { useAuth } from '../../../contexts/AuthContext';
 import { iconForCategory } from '../../../lib/categoryIcons';
 import { useCategories, useDashboard, useItems } from '../../../lib/queries';
-import { colors, fontSize, logoSize, urgencyColors } from '../../../lib/theme';
+import { colors, fontSize, urgencyColors } from '../../../lib/theme';
 import type { DashboardResponse, Item } from '../../../lib/types';
 
 const BUCKETS: { key: keyof DashboardResponse['counts']; label: string; color: string }[] = [
@@ -206,9 +206,7 @@ export default function DashboardScreen() {
         refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
       >
         <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-          <Pressable onPress={() => router.push('/')}>
-            <Image source={require('../../../assets/brand/wordmark.png')} style={styles.logo} resizeMode="contain" />
-          </Pressable>
+          <HeaderLogo />
           <View style={styles.headerActions}>
             <Pressable hitSlop={10} onPress={() => router.push('/settings')}>
               <Ionicons name="settings-outline" size={22} color={colors.textMuted} />
@@ -340,10 +338,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
-  },
-  logo: {
-    width: logoSize.width,
-    height: logoSize.height,
   },
   todayCard: {
     backgroundColor: colors.navy,

@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { HeaderLogo } from '../../../components/HeaderLogo';
 import { LiquidButton } from '../../../components/LiquidButton';
-import { colors, logoSize } from '../../../lib/theme';
+import { colors } from '../../../lib/theme';
 
 // This tab used to run its own single-photo scan (aimed at catching a
 // barcode and the date in one shot). Now that a photo is never expected to
@@ -18,9 +19,7 @@ export default function ScanScreen() {
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <Pressable onPress={() => router.push('/')}>
-          <Image source={require('../../../assets/brand/wordmark.png')} style={styles.logo} resizeMode="contain" />
-        </Pressable>
+        <HeaderLogo />
       </View>
 
       <View style={styles.center}>
@@ -58,10 +57,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-  },
-  logo: {
-    width: logoSize.width,
-    height: logoSize.height,
   },
   center: {
     flex: 1,

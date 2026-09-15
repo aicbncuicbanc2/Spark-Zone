@@ -6,7 +6,6 @@ import {
   Animated,
   Dimensions,
   FlatList,
-  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -19,9 +18,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CategoryPicker } from '../../../components/CategoryPicker';
 import { ErrorState } from '../../../components/ErrorState';
+import { HeaderLogo } from '../../../components/HeaderLogo';
 import { ItemRow } from '../../../components/ItemRow';
 import { useAllStatusItems, useCategories, useItems } from '../../../lib/queries';
-import { colors, fontSize, logoSize, statusColors, urgencyColors } from '../../../lib/theme';
+import { colors, fontSize, statusColors, urgencyColors } from '../../../lib/theme';
 import type { ItemStatus, Urgency } from '../../../lib/types';
 
 type StatusFilter = ItemStatus | 'all';
@@ -232,9 +232,7 @@ export default function PantryScreen() {
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <Pressable onPress={() => router.push('/')}>
-          <Image source={require('../../../assets/brand/wordmark.png')} style={styles.logo} resizeMode="contain" />
-        </Pressable>
+        <HeaderLogo style={styles.logo} />
         <View style={styles.searchBox}>
           <TextInput
             style={styles.searchInput}
@@ -474,8 +472,6 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   logo: {
-    width: logoSize.width,
-    height: logoSize.height,
     // The adjacent searchBox below is flex:1, competing for the row's
     // space - without this, the logo (a normal flex child with the
     // default flexShrink:1) got compressed smaller than its real
