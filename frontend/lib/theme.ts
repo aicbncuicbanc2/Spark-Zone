@@ -59,3 +59,16 @@ export const logoSize = {
   width: 104,
   height: 36,
 };
+
+// Warm wood-tone accents for the PantryRoom category browser (a stylised
+// "shelves either side of an aisle" view, replacing the plain category
+// icon row) — kept as its own small palette rather than reusing navy/cream,
+// since this one section is meant to read as a literal room rather than
+// flat app chrome the way every other screen does.
+export const room = {
+  wall: '#EFEAE0',
+  floor: '#D9C9AE',
+  shelf: '#8A6A4A',
+  shelfDark: '#6E5238',
+  aisle: '#F1E4C9',
+};

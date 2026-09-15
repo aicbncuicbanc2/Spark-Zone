@@ -18,8 +18,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ErrorState } from '../../../components/ErrorState';
 import { ExpiryCalendar } from '../../../components/ExpiryCalendar';
+import { PantryRoom } from '../../../components/PantryRoom';
 import { useAuth } from '../../../contexts/AuthContext';
-import { iconForCategory } from '../../../lib/categoryIcons';
 import { useCategories, useDashboard, useItems } from '../../../lib/queries';
 import { colors, fontSize, logoSize, urgencyColors } from '../../../lib/theme';
 import type { DashboardResponse, Item } from '../../../lib/types';
@@ -231,22 +231,13 @@ export default function DashboardScreen() {
           <Text style={styles.sectionTitle}>Categories</Text>
           <Ionicons name="chevron-forward" size={18} color={colors.navy} />
         </Pressable>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryRow}>
-          {categories?.map((c) => (
-            <Pressable
-              key={c.id}
-              style={styles.categoryItem}
-              onPress={() => router.push({ pathname: '/pantry', params: { category: c.id } })}
-            >
-              <View style={styles.categoryCircle}>
-                <Ionicons name={iconForCategory(c.id)} size={26} color={colors.navy} />
-              </View>
-              <Text style={styles.categoryLabel} numberOfLines={1}>
-                {c.label_en}
-              </Text>
-            </Pressable>
-          ))}
-        </ScrollView>
+        <PantryRoom
+          categories={categories}
+          items={activeItems}
+          onSelectCategory={(categoryId) =>
+            router.push({ pathname: '/pantry', params: { category: categoryId } })
+          }
+        />
 
         {locations.length > 0 && (
           <>
