@@ -1,8 +1,10 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 
 import { ErrorState } from '../../components/ErrorState';
+import { LiquidButton } from '../../components/LiquidButton';
+import { ToggleChip } from '../../components/ToggleChip';
 import { alert } from '../../lib/alert';
 import { useMe, useUpdatePreferences } from '../../lib/queries';
 import { colors, fontSize } from '../../lib/theme';
@@ -90,20 +92,14 @@ export default function SettingsScreen() {
 
       <Text style={styles.label}>Remind me before expiry</Text>
       <View style={styles.chipRow}>
-        {LEAD_DAY_OPTIONS.map((day) => {
-          const selected = leadDays.includes(day);
-          return (
-            <Pressable
-              key={day}
-              style={[styles.chip, selected && styles.chipSelected]}
-              onPress={() => toggleLeadDay(day)}
-            >
-              <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
-                {day} day{day === 1 ? '' : 's'}
-              </Text>
-            </Pressable>
-          );
-        })}
+        {LEAD_DAY_OPTIONS.map((day) => (
+          <ToggleChip
+            key={day}
+            label={`${day} day${day === 1 ? '' : 's'}`}
+            selected={leadDays.includes(day)}
+            onPress={() => toggleLeadDay(day)}
+          />
+        ))}
       </View>
 
       <View style={styles.inlineRow}>
@@ -143,17 +139,9 @@ export default function SettingsScreen() {
 
       {formError && <Text style={styles.error}>{formError}</Text>}
 
-      <Pressable
-        style={[styles.submit, updateMutation.isPending && styles.submitDisabled]}
-        disabled={updateMutation.isPending}
-        onPress={handleSave}
-      >
-        {updateMutation.isPending ? (
-          <ActivityIndicator color={colors.white} />
-        ) : (
-          <Text style={styles.submitText}>Save</Text>
-        )}
-      </Pressable>
+      <View style={styles.submitWrap}>
+        <LiquidButton label="Save" onPress={handleSave} loading={updateMutation.isPending} />
+      </View>
     </ScrollView>
   );
 }
@@ -193,26 +181,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
   },
-  chip: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    backgroundColor: colors.white,
-  },
-  chipSelected: {
-    borderColor: colors.navy,
-    backgroundColor: colors.navy,
-  },
-  chipText: {
-    fontSize: 14,
-    color: colors.navy,
-  },
-  chipTextSelected: {
-    color: colors.white,
-    fontWeight: '600',
-  },
   inlineRow: {
     flexDirection: 'row',
     gap: 12,
@@ -245,19 +213,7 @@ const styles = StyleSheet.create({
     marginTop: 14,
     textAlign: 'center',
   },
-  submit: {
-    backgroundColor: colors.navy,
-    borderRadius: 10,
-    paddingVertical: 14,
-    alignItems: 'center',
+  submitWrap: {
     marginTop: 20,
-  },
-  submitDisabled: {
-    opacity: 0.5,
-  },
-  submitText: {
-    color: colors.white,
-    fontSize: 16,
-    fontWeight: '600',
   },
 });
