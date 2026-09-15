@@ -7,6 +7,7 @@ import {
   Dimensions,
   FlatList,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -503,6 +504,11 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     color: colors.navy,
+    // Chrome/Edge draw their own focus ring (a black outline) on a plain
+    // HTML input - react-native-web renders TextInput as one, so without
+    // this the search box got a second, uglier border on top of its own
+    // when focused. Harmless no-op on native, which has no such outline.
+    ...(Platform.OS === 'web' ? { outlineWidth: 0 } : null),
   },
   filterBanner: {
     flexDirection: 'row',
