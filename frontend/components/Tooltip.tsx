@@ -5,7 +5,7 @@ import type { StyleProp, ViewStyle } from 'react-native';
 
 import { colors } from '../lib/theme';
 
-// Modelled on animate-ui.com's Tooltip: a small label that fades in above an
+// Modelled on animate-ui.com's Tooltip: a small label that fades in below an
 // icon-only button on hover, so its meaning isn't left to guessing. Web
 // only - onHoverIn/Out simply never fire on native, so the label is never
 // even rendered there (a harmless no-op, not a missing feature).
@@ -75,12 +75,17 @@ const styles = StyleSheet.create({
   // the bubble inside it centers the bubble over the icon, without
   // needing a percentage-based transform (RN doesn't support one on
   // native, though this subtree never even mounts there).
+  //
+  // Below the icon, not above: every current icon this wraps sits at the
+  // very top of a scrolling container (a page header, a modal header), and
+  // a bubble positioned above it got clipped by that container's own
+  // scroll-clipping the moment it poked above row 0.
   bubbleAnchor: {
     position: 'absolute',
-    bottom: '100%',
+    top: '100%',
     left: 0,
     right: 0,
-    marginBottom: 6,
+    marginTop: 6,
     alignItems: 'center',
   },
   bubble: {
