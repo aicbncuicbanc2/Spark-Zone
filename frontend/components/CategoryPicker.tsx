@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { alert } from '../lib/alert';
 import { useCreateCategory } from '../lib/queries';
@@ -58,21 +58,35 @@ export function CategoryPicker({
         {categories?.map((c) => (
           <Pressable
             key={c.id}
-            style={[styles.chip, selectedId === c.id && styles.chipActive]}
+            style={({ hovered }) => [styles.chip, (selectedId === c.id || hovered) && styles.chipActive]}
             onPress={() => onSelect(c.id)}
           >
-            <Text style={[styles.chipText, selectedId === c.id && styles.chipTextActive]}>
-              {c.label_en}
-            </Text>
+            {({ hovered }: { hovered?: boolean }) => (
+              <Text style={[styles.chipText, (selectedId === c.id || hovered) && styles.chipTextActive]}>
+                {c.label_en}
+              </Text>
+            )}
           </Pressable>
         ))}
         {newButtonVariant === 'square' ? (
-          <Pressable style={styles.squareNewButton} onPress={() => setIsCreating((v) => !v)}>
-            <Ionicons name={isCreating ? 'close' : 'add'} size={18} color={colors.navy} />
+          <Pressable
+            style={({ hovered }) => [styles.squareNewButton, hovered && styles.squareNewButtonHovered]}
+            onPress={() => setIsCreating((v) => !v)}
+          >
+            {({ hovered }: { hovered?: boolean }) => (
+              <Ionicons name={isCreating ? 'close' : 'add'} size={18} color={hovered ? colors.white : colors.navy} />
+            )}
           </Pressable>
         ) : (
-          <Pressable style={[styles.chip, styles.newChip]} onPress={() => setIsCreating((v) => !v)}>
-            <Text style={styles.newChipText}>{isCreating ? '× Cancel' : '+ New'}</Text>
+          <Pressable
+            style={({ hovered }) => [styles.chip, styles.newChip, hovered && styles.newChipHovered]}
+            onPress={() => setIsCreating((v) => !v)}
+          >
+            {({ hovered }: { hovered?: boolean }) => (
+              <Text style={[styles.newChipText, hovered && styles.chipTextActive]}>
+                {isCreating ? '× Cancel' : '+ New'}
+              </Text>
+            )}
           </Pressable>
         )}
       </ScrollView>
@@ -127,6 +141,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     marginRight: 8,
     backgroundColor: colors.white,
+    ...(Platform.OS === 'web' ? { transitionProperty: 'background-color', transitionDuration: '150ms' } : null),
   },
   chipActive: {
     backgroundColor: colors.navy,
@@ -144,6 +159,10 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     borderColor: colors.navy,
   },
+  newChipHovered: {
+    backgroundColor: colors.navy,
+    borderStyle: 'solid',
+  },
   squareNewButton: {
     width: 34,
     height: 34,
@@ -153,6 +172,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.white,
+    ...(Platform.OS === 'web' ? { transitionProperty: 'background-color', transitionDuration: '150ms' } : null),
+  },
+  squareNewButtonHovered: {
+    backgroundColor: colors.navy,
   },
   newChipText: {
     fontSize: 13,

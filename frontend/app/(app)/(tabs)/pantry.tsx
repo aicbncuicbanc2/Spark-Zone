@@ -21,6 +21,7 @@ import { CategoryPicker } from '../../../components/CategoryPicker';
 import { ErrorState } from '../../../components/ErrorState';
 import { HeaderLogo } from '../../../components/HeaderLogo';
 import { ItemRow } from '../../../components/ItemRow';
+import { LiquidButton } from '../../../components/LiquidButton';
 import { useAllStatusItems, useCategories, useItems } from '../../../lib/queries';
 import { colors, fontSize, statusColors, urgencyColors } from '../../../lib/theme';
 import type { ItemStatus, Urgency } from '../../../lib/types';
@@ -303,12 +304,18 @@ export default function PantryScreen() {
                 return (
                   <Pressable
                     key={s}
-                    style={[styles.statusChip, { borderColor: c }, isSelected && { backgroundColor: c }]}
+                    style={({ hovered }) => [
+                      styles.statusChip,
+                      { borderColor: c },
+                      (isSelected || hovered) && { backgroundColor: c },
+                    ]}
                     onPress={() => setStatus(s)}
                   >
-                    <Text style={[styles.statusChipText, { color: isSelected ? colors.white : c }]}>
-                      {s[0].toUpperCase() + s.slice(1)}
-                    </Text>
+                    {({ hovered }: { hovered?: boolean }) => (
+                      <Text style={[styles.statusChipText, { color: isSelected || hovered ? colors.white : c }]}>
+                        {s[0].toUpperCase() + s.slice(1)}
+                      </Text>
+                    )}
                   </Pressable>
                 );
               })}
@@ -317,10 +324,12 @@ export default function PantryScreen() {
             <Text style={styles.modalSectionTitle}>Category</Text>
             <View style={styles.categoryRow}>
               <Pressable
-                style={[styles.chip, !category && styles.chipActive]}
+                style={({ hovered }) => [styles.chip, (!category || hovered) && styles.chipActive]}
                 onPress={() => setCategory(undefined)}
               >
-                <Text style={[styles.chipText, !category && styles.chipTextActive]}>All</Text>
+                {({ hovered }: { hovered?: boolean }) => (
+                  <Text style={[styles.chipText, (!category || hovered) && styles.chipTextActive]}>All</Text>
+                )}
               </Pressable>
               <View style={styles.categoryPickerFlex}>
                 <CategoryPicker
@@ -335,30 +344,50 @@ export default function PantryScreen() {
             <Text style={styles.modalSectionTitle}>Location</Text>
             <View style={styles.wrapRow}>
               <Pressable
-                style={[styles.chip, styles.chipRowContent, !location && styles.chipActive]}
+                style={({ hovered }) => [
+                  styles.chip,
+                  styles.chipRowContent,
+                  (!location || hovered) && styles.chipActive,
+                ]}
                 onPress={() => setLocation(undefined)}
               >
-                <Ionicons
-                  name="location-outline"
-                  size={13}
-                  color={!location ? colors.white : colors.textMuted}
-                />
-                <Text style={[styles.chipText, !location && styles.chipTextActive]}>Any location</Text>
+                {({ hovered }: { hovered?: boolean }) => (
+                  <>
+                    <Ionicons
+                      name="location-outline"
+                      size={13}
+                      color={!location || hovered ? colors.white : colors.textMuted}
+                    />
+                    <Text style={[styles.chipText, (!location || hovered) && styles.chipTextActive]}>
+                      Any location
+                    </Text>
+                  </>
+                )}
               </Pressable>
               {locations.map((loc) => (
                 <Pressable
                   key={loc}
-                  style={[styles.chip, location === loc && styles.chipActive]}
+                  style={({ hovered }) => [styles.chip, (location === loc || hovered) && styles.chipActive]}
                   onPress={() => setLocation(loc)}
                 >
-                  <Text style={[styles.chipText, location === loc && styles.chipTextActive]}>{loc}</Text>
+                  {({ hovered }: { hovered?: boolean }) => (
+                    <Text style={[styles.chipText, (location === loc || hovered) && styles.chipTextActive]}>
+                      {loc}
+                    </Text>
+                  )}
                 </Pressable>
               ))}
               <Pressable
-                style={styles.squareNewButton}
+                style={({ hovered }) => [styles.squareNewButton, hovered && styles.squareNewButtonHovered]}
                 onPress={() => setIsAddingLocation((v) => !v)}
               >
-                <Ionicons name={isAddingLocation ? 'close' : 'add'} size={18} color={colors.navy} />
+                {({ hovered }: { hovered?: boolean }) => (
+                  <Ionicons
+                    name={isAddingLocation ? 'close' : 'add'}
+                    size={18}
+                    color={hovered ? colors.white : colors.navy}
+                  />
+                )}
               </Pressable>
             </View>
             {isAddingLocation && (
@@ -385,23 +414,27 @@ export default function PantryScreen() {
             <Text style={styles.modalSectionTitle}>Urgency</Text>
             <View style={styles.wrapRow}>
               <Pressable
-                style={[styles.chip, !urgency && styles.chipActive]}
+                style={({ hovered }) => [styles.chip, (!urgency || hovered) && styles.chipActive]}
                 onPress={() => setUrgency(undefined)}
               >
-                <Text style={[styles.chipText, !urgency && styles.chipTextActive]}>All</Text>
+                {({ hovered }: { hovered?: boolean }) => (
+                  <Text style={[styles.chipText, (!urgency || hovered) && styles.chipTextActive]}>All</Text>
+                )}
               </Pressable>
               {URGENCIES.map((u) => (
                 <Pressable
                   key={u.key}
-                  style={[
+                  style={({ hovered }) => [
                     styles.chip,
-                    urgency === u.key && { backgroundColor: u.color, borderColor: u.color },
+                    (urgency === u.key || hovered) && { backgroundColor: u.color, borderColor: u.color },
                   ]}
                   onPress={() => setUrgency(u.key)}
                 >
-                  <Text style={[styles.chipText, urgency === u.key && styles.chipTextActive]}>
-                    {u.label}
-                  </Text>
+                  {({ hovered }: { hovered?: boolean }) => (
+                    <Text style={[styles.chipText, (urgency === u.key || hovered) && styles.chipTextActive]}>
+                      {u.label}
+                    </Text>
+                  )}
                 </Pressable>
               ))}
             </View>
@@ -411,24 +444,29 @@ export default function PantryScreen() {
               {SORTS.map((s, i) => (
                 <Pressable
                   key={s}
-                  style={[styles.chip, sortIndex === i && styles.chipActive]}
+                  style={({ hovered }) => [styles.chip, (sortIndex === i || hovered) && styles.chipActive]}
                   onPress={() => setSortIndex(i)}
                 >
-                  <Text style={[styles.chipText, sortIndex === i && styles.chipTextActive]}>
-                    {s === 'expiry' ? 'Expiry date' : s === 'name' ? 'Name' : 'Newest'}
-                  </Text>
+                  {({ hovered }: { hovered?: boolean }) => (
+                    <Text style={[styles.chipText, (sortIndex === i || hovered) && styles.chipTextActive]}>
+                      {s === 'expiry' ? 'Expiry date' : s === 'name' ? 'Name' : 'Newest'}
+                    </Text>
+                  )}
                 </Pressable>
               ))}
             </View>
           </ScrollView>
 
           <View style={styles.modalFooter}>
-            <Pressable style={styles.resetButton} onPress={resetFilters}>
+            <Pressable
+              style={({ hovered }) => [styles.resetButton, hovered && styles.resetButtonHovered]}
+              onPress={resetFilters}
+            >
               <Text style={styles.resetButtonText}>Reset filters</Text>
             </Pressable>
-            <Pressable style={styles.doneButton} onPress={() => setFiltersVisible(false)}>
-              <Text style={styles.doneButtonText}>Done</Text>
-            </Pressable>
+            <View style={styles.doneButtonWrap}>
+              <LiquidButton label="Done" onPress={() => setFiltersVisible(false)} />
+            </View>
           </View>
         </Animated.View>
       </Modal>
@@ -646,24 +684,18 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 10,
     paddingVertical: 12,
+    ...(Platform.OS === 'web' ? { transitionProperty: 'background-color', transitionDuration: '150ms' } : null),
+  },
+  resetButtonHovered: {
+    backgroundColor: colors.creamCard,
   },
   resetButtonText: {
     fontSize: 14,
     fontWeight: '600',
     color: colors.textMuted,
   },
-  doneButton: {
+  doneButtonWrap: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.navy,
-    borderRadius: 10,
-    paddingVertical: 12,
-  },
-  doneButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.white,
   },
   statusChip: {
     borderWidth: 1,
@@ -671,6 +703,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 6,
     backgroundColor: colors.white,
+    ...(Platform.OS === 'web' ? { transitionProperty: 'background-color', transitionDuration: '150ms' } : null),
   },
   statusChipText: {
     fontSize: 13,
@@ -691,6 +724,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 6,
     backgroundColor: colors.white,
+    ...(Platform.OS === 'web' ? { transitionProperty: 'background-color', transitionDuration: '150ms' } : null),
   },
   chipRowContent: {
     flexDirection: 'row',
@@ -706,6 +740,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.white,
+    ...(Platform.OS === 'web' ? { transitionProperty: 'background-color', transitionDuration: '150ms' } : null),
+  },
+  squareNewButtonHovered: {
+    backgroundColor: colors.navy,
   },
   createRow: {
     flexDirection: 'row',
