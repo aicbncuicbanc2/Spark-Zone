@@ -235,7 +235,12 @@ export default function DashboardScreen() {
           </View>
         )}
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bucketRow}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.bucketRow}
+          contentContainerStyle={styles.bucketRowContent}
+        >
           {BUCKETS.map(({ key, label, color }) => (
             <Pressable
               key={key}
@@ -371,8 +376,16 @@ const styles = StyleSheet.create({
   },
   bucketRow: {
     flexGrow: 0,
-    marginTop: 16,
+    // 6px less than the visual gap actually wanted - bucketRowContent's
+    // paddingTop below makes up the difference, so the hover lift's
+    // upward translateY (and its shadow) has room inside the scroll
+    // container's own bounds instead of getting clipped by it.
+    marginTop: 10,
+  },
+  bucketRowContent: {
     paddingHorizontal: 16,
+    paddingTop: 6,
+    paddingBottom: 6,
   },
   bucketCard: {
     borderWidth: 1,
