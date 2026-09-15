@@ -364,7 +364,15 @@ Upcoming schedule, so the app can show "we'll remind you on Friday".
   category miss as an error** — always let the user type/confirm the name,
   brand, and category regardless of what comes back.
 - ✅ `GET /v1/categories` — populate pickers. Includes `label_ms` and `label_zh`, plus
-  `default_pao_months` to prefill period-after-opening.
+  `default_pao_months` to prefill period-after-opening. Returns the shared,
+  curated built-ins (medicine, cosmetic, food, …) plus any custom categories
+  the calling user has created — RLS scopes each user to the built-ins and
+  their own, never another user's.
+- ✅ `POST /v1/categories` — create a custom category (`label_en`, optional
+  `icon`). Scoped to the caller: the row is stored with `user_id` set to
+  them, so it never appears for anyone else. `id` is generated server-side
+  (a slug of the label plus a random suffix), since `categories.id` is one
+  global primary-key namespace even though visibility is per-user.
 - ✅ `GET /v1/stats` — the impact screen. `used_in_time` vs `thrown_away` and a
   `save_rate`, plus `by_category` counts and an `ocr` block reporting how often
   the extracted date was accepted without correction.

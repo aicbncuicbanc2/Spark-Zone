@@ -64,8 +64,9 @@ export interface Category {
   default_pao_months: number | null;
   icon: string;
   sort_order: number;
-  /** Mock-only: true for a category the user created on-device. There is no
-   * POST /v1/categories on the real backend yet — see createCategory(). */
+  /** Mock-only: true for a category the user created on-device. The real
+   * backend doesn't send this - a custom category there is just a normal
+   * row scoped to its creator by RLS, see createCategory(). */
   isCustom?: boolean;
 }
 

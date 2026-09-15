@@ -90,11 +90,7 @@ export async function createCategory(input: CreateCategoryInput): Promise<Catego
     await mockDelay();
     return mockStore.createCategory(input);
   }
-  // No POST /v1/categories on the real backend yet — fail clearly instead
-  // of hitting a 404 that would look like a network bug.
-  throw new Error(
-    "Custom categories aren't supported by the backend yet — ask the team to add POST /v1/categories."
-  );
+  return apiRequest<Category>('/v1/categories', { method: 'POST', body: input });
 }
 
 export async function getMe(): Promise<MePreferences> {
