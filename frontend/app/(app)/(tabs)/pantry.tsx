@@ -576,6 +576,7 @@ export default function PantryScreen() {
             <ItemRow
               item={item}
               matchLabel={matchLabels.get(item.id)}
+              highlightQuery={search.trim()}
               onPress={() => router.push(`/item/${item.id}`)}
             />
           )}
