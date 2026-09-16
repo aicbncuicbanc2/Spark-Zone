@@ -402,11 +402,18 @@ Upcoming schedule, so the app can show "we'll remind you on Friday".
   network hiccup), never a 500. Rate-limited per user like the
   Vision-backed endpoints, since Places is a billed API too.
 - ✅ `GET /v1/stores/search` — type-ahead address/store suggestions from a
-  free-text `query` (optional `lat`/`lng` as a soft bias, not a
-  restriction) via Places Autocomplete (New). The same "type and pick from
-  a dropdown" UX as a food-delivery app's address search — the fallback
-  for when GPS is unavailable or too imprecise (notably, most desktop
-  browsers resolve location from IP/Wi-Fi, not real GPS). Returns
+  free-text `query` (optional `lat`/`lng`) via Places Autocomplete (New).
+  The same "type and pick from a dropdown" UX as a food-delivery app's
+  address search — the fallback for when GPS is unavailable or too
+  imprecise (notably, most desktop browsers resolve location from
+  IP/Wi-Fi, not real GPS). When `lat`/`lng` are given, results are sorted
+  nearest-first: Autocomplete has no `rankPreference: DISTANCE` the way
+  Nearby Search does, so this uses `locationBias` (which candidates come
+  back at all) together with `origin` (which makes Places compute a real
+  `distanceMeters` per suggestion) and sorts by that server-side —
+  confirmed live: without this, a common chain name like "Guardian"
+  returned its genuinely local branches but in no particular order, the
+  most nationally prominent one first rather than the nearest. Returns
   `place_id` + `main_text`/`secondary_text` only, not an address or
   coordinates yet — resolve the one the user picks with:
 - ✅ `GET /v1/stores/{place_id}` — resolves one `/search` suggestion into a

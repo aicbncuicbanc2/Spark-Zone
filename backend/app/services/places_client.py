@@ -185,10 +185,15 @@ async def autocomplete_stores(query: str, *, lat: float | None, lng: float | Non
     # the actual Malaysian Guardian pharmacy chain.
     body: dict = {"input": query, "includedRegionCodes": ["my"]}
     if lat is not None and lng is not None:
-        # A soft bias on top of the region restriction - a typed search
-        # should still surface a well-matching place elsewhere in Malaysia
-        # rather than hide it, unlike nearby_stores' hard locationRestriction.
+        # locationBias affects which candidates come back at all (without
+        # it, a common chain name like "Guardian" surfaces its most
+        # nationally prominent branches over genuinely local ones); origin
+        # is separate - it's what makes Places compute a real distanceMeters
+        # per suggestion, confirmed live, which is the only way to actually
+        # sort results nearest-first afterward (Autocomplete has no
+        # rankPreference: DISTANCE option the way Nearby Search does).
         body["locationBias"] = {"circle": {"center": {"latitude": lat, "longitude": lng}, "radius": 20000.0}}
+        body["origin"] = {"latitude": lat, "longitude": lng}
 
     data = await _post(
         _AUTOCOMPLETE_URL,
@@ -196,7 +201,8 @@ async def autocomplete_stores(query: str, *, lat: float | None, lng: float | Non
         field_mask=(
             "suggestions.placePrediction.placeId,"
             "suggestions.placePrediction.text,"
-            "suggestions.placePrediction.structuredFormat"
+            "suggestions.placePrediction.structuredFormat,"
+            "suggestions.placePrediction.distanceMeters"
         ),
     )
     suggestions = []
@@ -210,8 +216,15 @@ async def autocomplete_stores(query: str, *, lat: float | None, lng: float | Non
                 "place_id": prediction.get("placeId", ""),
                 "main_text": (structured.get("mainText") or {}).get("text", ""),
                 "secondary_text": (structured.get("secondaryText") or {}).get("text", ""),
+                # Absent when no lat/lng was given - sorts last rather than
+                # erroring, since "no known distance" isn't "infinitely far"
+                # but there's nothing better to rank it by either.
+                "_distance_meters": prediction.get("distanceMeters", float("inf")),
             }
         )
+    suggestions.sort(key=lambda s: s["_distance_meters"])
+    for suggestion in suggestions:
+        del suggestion["_distance_meters"]
     return suggestions
 
 
