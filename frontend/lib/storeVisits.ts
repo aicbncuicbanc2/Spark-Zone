@@ -2,7 +2,14 @@ import { Platform } from 'react-native';
 
 import type { Store } from './types';
 
-const STORAGE_KEY = 'thyme.storeVisits.v1';
+// Bumped to v2: the walk-around detector used to record every store within
+// a much wider radius than intended (a real bug, since fixed in
+// places_client.py's nearby_stores) - v1 data already sitting in a
+// browser's storage is exactly that over-broad, incorrect set. Changing
+// the key orphans it automatically (reads just see nothing under v2, no
+// migration needed) rather than requiring anyone to manually clear site
+// data or wait up to 24h for it to age out on its own.
+const STORAGE_KEY = 'thyme.storeVisits.v2';
 const EXPIRY_MS = 24 * 60 * 60 * 1000;
 
 export type VisitedStore = Store & { visited_at: number };
