@@ -135,11 +135,18 @@ async def autocomplete_stores(query: str, *, lat: float | None, lng: float | Non
     by name or address, without depending on the device's (sometimes
     wildly approximate, especially on desktop) GPS fix at all.
     """
-    body: dict = {"input": query}
+    # Hard region restriction, not just a soft bias - the app's whole
+    # userbase is Malaysia (see default_timezone), and without this, a
+    # short/common query with no location fix yet (the user hasn't pressed
+    # "Find nearby stores", or denied permission) returns whatever's most
+    # globally prominent - confirmed live: searching "Guardian" with no
+    # coordinates surfaced a Portland arcade and an Abu Dhabi tower before
+    # the actual Malaysian Guardian pharmacy chain.
+    body: dict = {"input": query, "includedRegionCodes": ["my"]}
     if lat is not None and lng is not None:
-        # A soft bias, not a hard restriction - unlike nearby_stores'
-        # locationRestriction, a typed search should still surface a
-        # well-matching place further away rather than hide it.
+        # A soft bias on top of the region restriction - a typed search
+        # should still surface a well-matching place elsewhere in Malaysia
+        # rather than hide it, unlike nearby_stores' hard locationRestriction.
         body["locationBias"] = {"circle": {"center": {"latitude": lat, "longitude": lng}, "radius": 20000.0}}
 
     data = await _post(
