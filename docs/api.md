@@ -388,6 +388,18 @@ Upcoming schedule, so the app can show "we'll remind you on Friday".
   means "not available right now" (no key configured, a network hiccup),
   never a 500. Rate-limited per user like the Vision-backed endpoints,
   since Places is a billed API too.
+- ✅ `GET /v1/stores/search` — type-ahead address/store suggestions from a
+  free-text `query` (optional `lat`/`lng` as a soft bias, not a
+  restriction) via Places Autocomplete (New). The same "type and pick from
+  a dropdown" UX as a food-delivery app's address search — the fallback
+  for when GPS is unavailable or too imprecise (notably, most desktop
+  browsers resolve location from IP/Wi-Fi, not real GPS). Returns
+  `place_id` + `main_text`/`secondary_text` only, not an address or
+  coordinates yet — resolve the one the user picks with:
+- ✅ `GET /v1/stores/{place_id}` — resolves one `/search` suggestion into a
+  full store (name, address, lat/lng, types), via Places Details (New).
+  404s (`STORE_NOT_FOUND`) rather than 500s on a stale/unresolvable id —
+  a normal case the frontend already handles, not a server error.
 
 ---
 

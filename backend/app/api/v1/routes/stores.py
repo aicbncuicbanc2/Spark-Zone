@@ -7,8 +7,14 @@ from __future__ import annotations
 from fastapi import APIRouter, Query
 from pydantic import BaseModel
 
+from app.core.errors import NotFoundError
 from app.deps import CurrentUserDep, PlacesRateLimitDep, UserDbDep
-from app.services.places_client import PlacesUnavailable, nearby_stores
+from app.services.places_client import (
+    PlacesUnavailable,
+    autocomplete_stores,
+    nearby_stores,
+    store_details,
+)
 
 router = APIRouter()
 
@@ -25,6 +31,12 @@ class StoreOut(BaseModel):
     lat: float
     lng: float
     types: list[str]
+
+
+class StoreSuggestionOut(BaseModel):
+    place_id: str
+    main_text: str
+    secondary_text: str
 
 
 @router.get("/nearby", response_model=list[StoreOut], summary="Nearby stores for a category")
@@ -54,3 +66,44 @@ async def get_nearby_stores(
         return []
 
     return [StoreOut(**store) for store in stores]
+
+
+@router.get(
+    "/search",
+    response_model=list[StoreSuggestionOut],
+    summary="Address/store search suggestions (type-ahead)",
+)
+async def search_stores(
+    user: CurrentUserDep,
+    _rate_limit: PlacesRateLimitDep,
+    query: str = Query(..., min_length=1),
+    lat: float | None = Query(None),
+    lng: float | None = Query(None),
+) -> list[StoreSuggestionOut]:
+    """The type-and-pick-a-suggestion half of the manual store search (the
+    other half is GET /v1/stores/{place_id}) - the same UX as a food
+    delivery app's address search, for when GPS is unavailable or too
+    imprecise (notably, most desktop browsers). Empty list degrades
+    quietly, same contract as /nearby.
+    """
+    try:
+        return [
+            StoreSuggestionOut(**s) for s in await autocomplete_stores(query, lat=lat, lng=lng)
+        ]
+    except PlacesUnavailable:
+        return []
+
+
+@router.get("/{place_id}", response_model=StoreOut, summary="Resolve one store search suggestion")
+async def get_store_details(
+    place_id: str, user: CurrentUserDep, _rate_limit: PlacesRateLimitDep
+) -> StoreOut:
+    """Called once the user taps a /search suggestion, to get its real
+    address/coordinates. A miss (bad place_id, Places unavailable) degrades
+    to a 404 rather than a 500 - the frontend already has to handle "this
+    store no longer resolves" as a normal case, same as any stale id."""
+    try:
+        store = await store_details(place_id)
+    except PlacesUnavailable as exc:
+        raise NotFoundError("Could not resolve that store right now.", code="STORE_NOT_FOUND") from exc
+    return StoreOut(**store)

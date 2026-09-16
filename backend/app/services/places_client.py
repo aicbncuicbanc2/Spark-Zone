@@ -16,7 +16,10 @@ logger = logging.getLogger(__name__)
 
 _NEARBY_URL = "https://places.googleapis.com/v1/places:searchNearby"
 _TEXT_URL = "https://places.googleapis.com/v1/places:searchText"
+_AUTOCOMPLETE_URL = "https://places.googleapis.com/v1/places:autocomplete"
+_DETAILS_URL = "https://places.googleapis.com/v1/places/{place_id}"
 _FIELD_MASK = "places.id,places.displayName,places.formattedAddress,places.location,places.types"
+_DETAILS_FIELD_MASK = "id,displayName,formattedAddress,location,types"
 
 # Built-in category id -> Places API (New) "included types" (Table A). Not
 # exhaustive or perfectly precise — a best-effort guess at what kind of shop
@@ -55,21 +58,38 @@ def _parse_places(data: dict) -> list[dict]:
     return stores
 
 
-async def _post(url: str, body: dict) -> dict:
+def _headers(field_mask: str) -> dict:
     settings = get_settings()
     if not settings.places_api_key:
         raise PlacesUnavailable("PLACES_API_KEY is not configured")
-
-    headers = {
+    return {
         "X-Goog-Api-Key": settings.places_api_key,
-        "X-Goog-FieldMask": _FIELD_MASK,
+        "X-Goog-FieldMask": field_mask,
         "Content-Type": "application/json",
     }
+
+
+async def _post(url: str, body: dict, *, field_mask: str = _FIELD_MASK) -> dict:
     try:
         async with httpx.AsyncClient(timeout=8.0) as client:
-            response = await client.post(url, headers=headers, json=body)
+            response = await client.post(url, headers=_headers(field_mask), json=body)
         response.raise_for_status()
         return response.json()
+    except PlacesUnavailable:
+        raise
+    except Exception as exc:  # noqa: BLE001 - any failure here must degrade, not crash
+        logger.warning("places_call_failed", extra={"reason": str(exc)})
+        raise PlacesUnavailable(str(exc)) from exc
+
+
+async def _get(url: str, *, field_mask: str) -> dict:
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            response = await client.get(url, headers=_headers(field_mask))
+        response.raise_for_status()
+        return response.json()
+    except PlacesUnavailable:
+        raise
     except Exception as exc:  # noqa: BLE001 - any failure here must degrade, not crash
         logger.warning("places_call_failed", extra={"reason": str(exc)})
         raise PlacesUnavailable(str(exc)) from exc
@@ -106,3 +126,59 @@ async def nearby_stores(
     }
     data = await _post(_TEXT_URL, body)
     return _parse_places(data)
+
+
+async def autocomplete_stores(query: str, *, lat: float | None, lng: float | None) -> list[dict]:
+    """Address/place suggestions for a free-text query, the same "type and
+    pick from a dropdown" experience as a food-delivery app's address
+    search - lets a user find the exact store they bought something from
+    by name or address, without depending on the device's (sometimes
+    wildly approximate, especially on desktop) GPS fix at all.
+    """
+    body: dict = {"input": query}
+    if lat is not None and lng is not None:
+        # A soft bias, not a hard restriction - unlike nearby_stores'
+        # locationRestriction, a typed search should still surface a
+        # well-matching place further away rather than hide it.
+        body["locationBias"] = {"circle": {"center": {"latitude": lat, "longitude": lng}, "radius": 20000.0}}
+
+    data = await _post(
+        _AUTOCOMPLETE_URL,
+        body,
+        field_mask=(
+            "suggestions.placePrediction.placeId,"
+            "suggestions.placePrediction.text,"
+            "suggestions.placePrediction.structuredFormat"
+        ),
+    )
+    suggestions = []
+    for item in data.get("suggestions", []):
+        prediction = item.get("placePrediction")
+        if not prediction:
+            continue
+        structured = prediction.get("structuredFormat") or {}
+        suggestions.append(
+            {
+                "place_id": prediction.get("placeId", ""),
+                "main_text": (structured.get("mainText") or {}).get("text", ""),
+                "secondary_text": (structured.get("secondaryText") or {}).get("text", ""),
+            }
+        )
+    return suggestions
+
+
+async def store_details(place_id: str) -> dict:
+    """Resolves one autocomplete suggestion's place_id into the same shape
+    nearby_stores/StoreOut uses (name, address, lat, lng, types) - the
+    second step of the type-then-pick flow, called once the user has
+    actually picked a suggestion."""
+    data = await _get(_DETAILS_URL.format(place_id=place_id), field_mask=_DETAILS_FIELD_MASK)
+    location = data.get("location") or {}
+    return {
+        "place_id": data.get("id", ""),
+        "name": (data.get("displayName") or {}).get("text", ""),
+        "address": data.get("formattedAddress", ""),
+        "lat": location.get("latitude", 0.0),
+        "lng": location.get("longitude", 0.0),
+        "types": data.get("types", []),
+    }

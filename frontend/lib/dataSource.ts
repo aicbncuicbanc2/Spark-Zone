@@ -22,6 +22,7 @@ import type {
   ProductIdentifyResponse,
   ScanResponse,
   Store,
+  StoreSuggestion,
   SuggestionsResponse,
 } from './types';
 
@@ -296,4 +297,32 @@ export async function getNearbyStores(query: NearbyStoresQuery): Promise<Store[]
     return mockStore.getNearbyStores();
   }
   return apiRequest<Store[]>('/v1/stores/nearby', { query });
+}
+
+/**
+ * GET /v1/stores/search — type-ahead address/store suggestions, the same
+ * "type and pick from a dropdown" experience as a food-delivery app's
+ * address search. Doesn't need the device's location at all (lat/lng are
+ * an optional soft bias only) — the fallback for when GPS is unavailable
+ * or too imprecise, which desktop browsers commonly are.
+ */
+export async function searchStores(query: string, near?: { lat: number; lng: number }): Promise<StoreSuggestion[]> {
+  if (USE_MOCKS) {
+    await mockDelay();
+    return mockStore.searchStores(query);
+  }
+  return apiRequest<StoreSuggestion[]>('/v1/stores/search', {
+    query: { query, lat: near?.lat, lng: near?.lng },
+  });
+}
+
+/** GET /v1/stores/{place_id} — resolves one searchStores() suggestion into
+ * a full Store (address, lat/lng, types), once the user has actually
+ * picked it. */
+export async function getStoreDetails(placeId: string): Promise<Store> {
+  if (USE_MOCKS) {
+    await mockDelay();
+    return mockStore.getStoreDetails(placeId);
+  }
+  return apiRequest<Store>(`/v1/stores/${placeId}`);
 }

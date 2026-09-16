@@ -21,6 +21,7 @@ import type {
   ProductIdentifyResponse,
   ScanResponse,
   Store,
+  StoreSuggestion,
   SuggestionsResponse,
 } from './types';
 
@@ -88,6 +89,19 @@ export const mockStore = {
         types: ['drugstore'],
       },
     ];
+  },
+
+  searchStores(query: string): StoreSuggestion[] {
+    return mockStore
+      .getNearbyStores()
+      .filter((s) => s.name.toLowerCase().includes(query.trim().toLowerCase()))
+      .map((s) => ({ place_id: s.place_id, main_text: s.name, secondary_text: s.address }));
+  },
+
+  getStoreDetails(placeId: string): Store {
+    const store = mockStore.getNearbyStores().find((s) => s.place_id === placeId);
+    if (!store) throw new Error('Store not found');
+    return store;
   },
 
   createCategory(input: CreateCategoryInput): Category {

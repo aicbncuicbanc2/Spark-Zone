@@ -84,6 +84,14 @@ export interface Store {
   types: string[];
 }
 
+/** One type-ahead result from GET /v1/stores/search - not yet resolved to
+ * an address/lat-lng, see getStoreDetails(). */
+export interface StoreSuggestion {
+  place_id: string;
+  main_text: string;
+  secondary_text: string;
+}
+
 export interface MePreferences {
   id: string;
   display_name: string;
