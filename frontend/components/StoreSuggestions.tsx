@@ -1,8 +1,7 @@
-import * as Location from 'expo-location';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { getNearbyStores, getStoreDetails, searchStores } from '../lib/dataSource';
+import { getStoreDetails, searchStores } from '../lib/dataSource';
 import { storeMatchesCategory } from '../lib/storeCategoryTypes';
 import { getRecentVisits } from '../lib/storeVisits';
 import { colors, fontSize } from '../lib/theme';
@@ -17,21 +16,20 @@ function openInMaps(store: Store) {
 
 /**
  * "Where did you buy this from?" — stores the walk-around tracker (see
- * useStoreVisitTracking) has seen in the last 24h, filtered to ones
- * plausibly selling this category (a pharmacy for medicine, not the wet
- * market also walked past that day); a button for a live GPS-based nearby
- * search; and a type-to-search box (Places Autocomplete) for picking an
- * exact store by name/address, the same UX as a food-delivery app's
- * address search — the fallback for when GPS is unavailable or too
- * imprecise, which desktop browsers commonly are. Purely a
- * tap-through-to-Maps convenience — not persisted against the item, and
- * never a stock check.
+ * useStoreVisitTracking) has actually detected the user being at in the
+ * last 24h, filtered to ones plausibly selling this category (a pharmacy
+ * for medicine, not the wet market also walked past that day) — nothing
+ * shows here if the tracker never detected a real visit, e.g. an item
+ * bought days ago and only being recorded now, while at home. Deliberately
+ * no live "stores near you right now" search: that would suggest stores
+ * near wherever the phone happens to be at add-time, which has nothing to
+ * do with where the item was actually bought. The type-to-search box
+ * below (Places Autocomplete) is the fallback for that case — the same
+ * UX as a food-delivery app's address search. Purely a tap-through-to-Maps
+ * convenience — not persisted against the item, and never a stock check.
  */
 export function StoreSuggestions({ categoryId }: { categoryId?: string }) {
   const [stores, setStores] = useState<Store[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [searched, setSearched] = useState(false);
-  const lastKnownLocation = useRef<{ lat: number; lng: number } | null>(null);
 
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState<StoreSuggestion[]>([]);
@@ -39,9 +37,7 @@ export function StoreSuggestions({ categoryId }: { categoryId?: string }) {
   const [resolvingPlaceId, setResolvingPlaceId] = useState<string | null>(null);
 
   useEffect(() => {
-    const recent = getRecentVisits().filter((v) => storeMatchesCategory(v.types, categoryId));
-    setStores(recent);
-    setSearched(false);
+    setStores(getRecentVisits().filter((v) => storeMatchesCategory(v.types, categoryId)));
   }, [categoryId]);
 
   useEffect(() => {
@@ -53,7 +49,7 @@ export function StoreSuggestions({ categoryId }: { categoryId?: string }) {
     setSuggestionsLoading(true);
     const timer = setTimeout(async () => {
       try {
-        const results = await searchStores(query.trim(), lastKnownLocation.current ?? undefined);
+        const results = await searchStores(query.trim());
         if (!cancelled) setSuggestions(results);
       } finally {
         if (!cancelled) setSuggestionsLoading(false);
@@ -85,30 +81,6 @@ export function StoreSuggestions({ categoryId }: { categoryId?: string }) {
     }
   }
 
-  async function findNearby() {
-    setSearching(true);
-    try {
-      const permission = await Location.getForegroundPermissionsAsync();
-      const granted =
-        permission.status === 'granted'
-          ? permission
-          : await Location.requestForegroundPermissionsAsync();
-      if (granted.status !== 'granted') return;
-
-      const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      lastKnownLocation.current = { lat: position.coords.latitude, lng: position.coords.longitude };
-      const found = await getNearbyStores({
-        lat: position.coords.latitude,
-        lng: position.coords.longitude,
-        category_id: categoryId,
-      });
-      for (const store of found) addStore(store);
-    } finally {
-      setSearching(false);
-      setSearched(true);
-    }
-  }
-
   return (
     <View style={styles.wrap}>
       <Text style={styles.label}>Where did you buy this from?</Text>
@@ -130,7 +102,7 @@ export function StoreSuggestions({ categoryId }: { categoryId?: string }) {
           style={styles.searchInput}
           value={query}
           onChangeText={setQuery}
-          placeholder="Or search by store name or address"
+          placeholder="Search by store name or address"
           placeholderTextColor={colors.textMuted}
         />
         {(suggestionsLoading || suggestions.length > 0) && (
@@ -163,19 +135,6 @@ export function StoreSuggestions({ categoryId }: { categoryId?: string }) {
           </View>
         )}
       </View>
-
-      <Pressable style={styles.findButton} onPress={findNearby} disabled={searching}>
-        {searching ? (
-          <ActivityIndicator color={colors.navy} size="small" />
-        ) : (
-          <Text style={styles.findButtonText}>
-            {stores.length > 0 ? 'Find more nearby' : 'Find nearby stores'}
-          </Text>
-        )}
-      </Pressable>
-      {searched && stores.length === 0 && (
-        <Text style={styles.empty}>No nearby stores found — try again once you're outdoors.</Text>
-      )}
     </View>
   );
 }
@@ -212,7 +171,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   searchWrap: {
-    marginBottom: 8,
+    marginBottom: 4,
   },
   searchInput: {
     borderWidth: 1,
@@ -236,23 +195,5 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-  },
-  findButton: {
-    alignSelf: 'flex-start',
-    borderWidth: 1,
-    borderColor: colors.navy,
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-  },
-  findButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.navy,
-  },
-  empty: {
-    fontSize: 12,
-    color: colors.textMuted,
-    marginTop: 6,
   },
 });
