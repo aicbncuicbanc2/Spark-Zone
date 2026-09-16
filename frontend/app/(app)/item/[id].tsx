@@ -115,6 +115,7 @@ export default function ItemDetailScreen() {
         <Row label="Category" value={category?.label_en ?? item.category_id ?? 'Uncategorised'} />
         <Row label="Quantity" value={`${item.quantity} ${item.unit ?? ''}`.trim()} />
         {item.storage_location && <Row label="Storage" value={item.storage_location} />}
+        {item.purchase_location && <Row label="Bought at" value={item.purchase_location} />}
         <Row label="Date source" value={item.date_source === 'ocr' ? 'Scanned (OCR)' : 'Entered manually'} />
         <Row label="Status" value={item.status} />
       </View>

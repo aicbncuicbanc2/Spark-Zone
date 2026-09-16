@@ -166,6 +166,7 @@ export const mockStore = {
       quantity: input.quantity ?? 1,
       unit: input.unit ?? null,
       storage_location: input.storage_location ?? null,
+      purchase_location: input.purchase_location ?? null,
       notes: input.notes ?? null,
       scan_id: input.scan_id ?? null,
       product_id: input.product_id ?? null,

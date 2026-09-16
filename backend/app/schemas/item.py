@@ -44,6 +44,10 @@ class ItemBase(BaseModel):
     quantity: float = Field(default=1, gt=0)
     unit: str | None = Field(default=None, max_length=30)
     storage_location: str | None = Field(default=None, max_length=100)
+    #: Store name the user picked (from a recent visit or the manual
+    #: search) or typed themselves - a label, not a place_id/lat-lng the
+    #: app would need to look back up.
+    purchase_location: str | None = Field(default=None, max_length=200)
     notes: str | None = Field(default=None, max_length=2000)
 
     @model_validator(mode="after")
@@ -84,6 +88,7 @@ class ItemUpdate(BaseModel):
     quantity: float | None = Field(default=None, gt=0)
     unit: str | None = Field(default=None, max_length=30)
     storage_location: str | None = Field(default=None, max_length=100)
+    purchase_location: str | None = Field(default=None, max_length=200)
     notes: str | None = Field(default=None, max_length=2000)
     status: ItemStatus | None = None
     date_source: DateSource | None = None
@@ -109,6 +114,7 @@ class ItemOut(BaseModel):
     quantity: float
     unit: str | None = None
     storage_location: str | None = None
+    purchase_location: str | None = None
     notes: str | None = None
 
     scan_id: str | None = None

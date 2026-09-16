@@ -71,6 +71,7 @@ export default function AddItemScreen() {
   // value; the field stays a plain editable TextInput either way.
   const [unit, setUnit] = useState(params.unit ?? '');
   const [storageLocation, setStorageLocation] = useState('');
+  const [purchaseLocation, setPurchaseLocation] = useState('');
   const [notes, setNotes] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -96,6 +97,7 @@ export default function AddItemScreen() {
         quantity: Number(quantity) || 1,
         unit: unit.trim() || null,
         storage_location: storageLocation.trim() || null,
+        purchase_location: purchaseLocation.trim() || null,
         notes: notes.trim() || null,
         date_source: scanId && !dateWasEdited ? 'ocr' : 'user',
       },
@@ -150,7 +152,7 @@ export default function AddItemScreen() {
         onSelect={setCategoryId}
       />
 
-      <StoreSuggestions categoryId={categoryId} />
+      <StoreSuggestions categoryId={categoryId} value={purchaseLocation} onChangeText={setPurchaseLocation} />
 
       <Text style={styles.label}>Expiry date * (YYYY-MM-DD)</Text>
       <TextInput

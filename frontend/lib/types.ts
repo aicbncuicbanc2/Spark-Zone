@@ -26,6 +26,7 @@ export interface Item {
   quantity: number;
   unit: string | null;
   storage_location: string | null;
+  purchase_location: string | null;
   notes: string | null;
   scan_id: string | null;
   product_id: string | null;
@@ -196,6 +197,7 @@ export interface CreateItemInput {
   quantity?: number;
   unit?: string | null;
   storage_location?: string | null;
+  purchase_location?: string | null;
   notes?: string | null;
   date_source?: DateSource;
 }

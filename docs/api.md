@@ -93,6 +93,7 @@ Useful for confirming a deploy is actually wired up.
       "quantity": 1,
       "unit": "bottle",
       "storage_location": "Bathroom shelf",
+      "purchase_location": "Guardian Pharmacy Bayan Baru",
       "notes": null,
 
       "scan_id": "uuid or null",
@@ -137,9 +138,14 @@ Create from a scan, from a corrected scan, or fully manually.
   "pao_months": null,
   "quantity": 1,
   "storage_location": "Bathroom cabinet",
+  "purchase_location": "Guardian Pharmacy Bayan Baru",
   "date_source": "user"
 }
 ```
+
+`purchase_location` is a free-text store name — the user's pick from the "Where did you
+buy this from?" suggestions (see `GET /v1/stores/*`), or something they typed
+themselves. Just a label; the app never looks it back up against Places.
 
 Only `name` and `expiry_date` are required. **Send `date_source: "user"` whenever the
 user edited the OCR result** — it is how we measure OCR accuracy for the demo.

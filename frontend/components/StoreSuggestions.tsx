@@ -1,47 +1,56 @@
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { getStoreDetails, searchStores } from '../lib/dataSource';
 import { storeMatchesCategory } from '../lib/storeCategoryTypes';
-import { getRecentVisits } from '../lib/storeVisits';
+import { getRecentVisits, type VisitedStore } from '../lib/storeVisits';
 import { colors, fontSize } from '../lib/theme';
-import type { Store, StoreSuggestion } from '../lib/types';
+import type { StoreSuggestion } from '../lib/types';
 
 const SEARCH_DEBOUNCE_MS = 300;
 
-function openInMaps(store: Store) {
-  const query = encodeURIComponent(`${store.name} ${store.address}`);
-  Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${query}`);
-}
-
 /**
- * "Where did you buy this from?" — stores the walk-around tracker (see
- * useStoreVisitTracking) has actually detected the user being at in the
- * last 24h, filtered to ones plausibly selling this category (a pharmacy
- * for medicine, not the wet market also walked past that day) — nothing
- * shows here if the tracker never detected a real visit, e.g. an item
- * bought days ago and only being recorded now, while at home. Deliberately
- * no live "stores near you right now" search: that would suggest stores
- * near wherever the phone happens to be at add-time, which has nothing to
- * do with where the item was actually bought. The type-to-search box
- * below (Places Autocomplete) is the fallback for that case — the same
- * UX as a food-delivery app's address search. Purely a tap-through-to-Maps
- * convenience — not persisted against the item, and never a stock check.
+ * "Where did you buy this from?" — a real, editable field (like Storage
+ * location), not just a tap-through convenience. Two ways to fill it:
+ * tapping a store the walk-around tracker (see useStoreVisitTracking)
+ * actually detected the user visiting in the last 24h, filtered to ones
+ * plausibly selling this category (a pharmacy for medicine, not the wet
+ * market also walked past that day); or typing, which searches Places
+ * Autocomplete live (the same UX as a food-delivery app's address search)
+ * — picking a suggestion or a recent visit both just fill this field with
+ * that store's name, exactly like typing it by hand. Nothing shows here
+ * if the tracker never detected a real visit, e.g. an item bought days ago
+ * and only being recorded now, while at home.
  */
-export function StoreSuggestions({ categoryId }: { categoryId?: string }) {
-  const [stores, setStores] = useState<Store[]>([]);
-
-  const [query, setQuery] = useState('');
+export function StoreSuggestions({
+  categoryId,
+  value,
+  onChangeText,
+}: {
+  categoryId?: string;
+  value: string;
+  onChangeText: (value: string) => void;
+}) {
+  const [recentVisits, setRecentVisits] = useState<VisitedStore[]>([]);
   const [suggestions, setSuggestions] = useState<StoreSuggestion[]>([]);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [resolvingPlaceId, setResolvingPlaceId] = useState<string | null>(null);
+  // Selecting a recent visit or a suggestion sets `value` programmatically -
+  // without this, that change would immediately re-trigger the search
+  // effect below and pop the dropdown right back open on the name just picked.
+  const justPicked = useRef(false);
 
   useEffect(() => {
-    setStores(getRecentVisits().filter((v) => storeMatchesCategory(v.types, categoryId)));
+    setRecentVisits(getRecentVisits().filter((v) => storeMatchesCategory(v.types, categoryId)));
   }, [categoryId]);
 
   useEffect(() => {
-    if (query.trim().length < 2) {
+    if (justPicked.current) {
+      justPicked.current = false;
+      setSuggestions([]);
+      return;
+    }
+    if (value.trim().length < 2) {
       setSuggestions([]);
       return;
     }
@@ -49,7 +58,7 @@ export function StoreSuggestions({ categoryId }: { categoryId?: string }) {
     setSuggestionsLoading(true);
     const timer = setTimeout(async () => {
       try {
-        const results = await searchStores(query.trim());
+        const results = await searchStores(value.trim());
         if (!cancelled) setSuggestions(results);
       } finally {
         if (!cancelled) setSuggestionsLoading(false);
@@ -59,22 +68,22 @@ export function StoreSuggestions({ categoryId }: { categoryId?: string }) {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [query]);
+  }, [value]);
 
-  function addStore(store: Store) {
-    setStores((current) => (current.some((s) => s.place_id === store.place_id) ? current : [...current, store]));
+  function selectName(name: string) {
+    justPicked.current = true;
+    onChangeText(name);
+    setSuggestions([]);
   }
 
   async function pickSuggestion(suggestion: StoreSuggestion) {
     setResolvingPlaceId(suggestion.place_id);
     try {
       const store = await getStoreDetails(suggestion.place_id);
-      addStore(store);
-      setQuery('');
-      setSuggestions([]);
+      selectName(store.name);
     } catch {
-      // A stale/unresolvable suggestion - leave the search box as-is so
-      // the user can just try a different one, rather than surface an error
+      // A stale/unresolvable suggestion - leave the field as-is so the
+      // user can just try a different one, rather than surface an error
       // for what's ultimately an optional convenience feature.
     } finally {
       setResolvingPlaceId(null);
@@ -84,10 +93,10 @@ export function StoreSuggestions({ categoryId }: { categoryId?: string }) {
   return (
     <View style={styles.wrap}>
       <Text style={styles.label}>Where did you buy this from?</Text>
-      {stores.length > 0 && (
+      {recentVisits.length > 0 && (
         <View style={styles.list}>
-          {stores.map((store) => (
-            <Pressable key={store.place_id} style={styles.row} onPress={() => openInMaps(store)}>
+          {recentVisits.map((store) => (
+            <Pressable key={store.place_id} style={styles.row} onPress={() => selectName(store.name)}>
               <Text style={styles.rowName}>{store.name}</Text>
               <Text style={styles.rowAddress} numberOfLines={1}>
                 {store.address}
@@ -97,44 +106,42 @@ export function StoreSuggestions({ categoryId }: { categoryId?: string }) {
         </View>
       )}
 
-      <View style={styles.searchWrap}>
-        <TextInput
-          style={styles.searchInput}
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Search by store name or address"
-          placeholderTextColor={colors.textMuted}
-        />
-        {(suggestionsLoading || suggestions.length > 0) && (
-          <View style={styles.suggestionList}>
-            {suggestionsLoading && suggestions.length === 0 ? (
-              <View style={styles.suggestionRow}>
-                <ActivityIndicator color={colors.navy} size="small" />
-              </View>
-            ) : (
-              suggestions.map((suggestion) => (
-                <Pressable
-                  key={suggestion.place_id}
-                  style={styles.suggestionRow}
-                  onPress={() => pickSuggestion(suggestion)}
-                  disabled={resolvingPlaceId === suggestion.place_id}
-                >
-                  {resolvingPlaceId === suggestion.place_id ? (
-                    <ActivityIndicator color={colors.navy} size="small" />
-                  ) : (
-                    <>
-                      <Text style={styles.rowName}>{suggestion.main_text}</Text>
-                      <Text style={styles.rowAddress} numberOfLines={1}>
-                        {suggestion.secondary_text}
-                      </Text>
-                    </>
-                  )}
-                </Pressable>
-              ))
-            )}
-          </View>
-        )}
-      </View>
+      <TextInput
+        style={styles.searchInput}
+        value={value}
+        onChangeText={onChangeText}
+        placeholder="e.g. Guardian Pharmacy"
+        placeholderTextColor={colors.textMuted}
+      />
+      {(suggestionsLoading || suggestions.length > 0) && (
+        <View style={styles.suggestionList}>
+          {suggestionsLoading && suggestions.length === 0 ? (
+            <View style={styles.suggestionRow}>
+              <ActivityIndicator color={colors.navy} size="small" />
+            </View>
+          ) : (
+            suggestions.map((suggestion) => (
+              <Pressable
+                key={suggestion.place_id}
+                style={styles.suggestionRow}
+                onPress={() => pickSuggestion(suggestion)}
+                disabled={resolvingPlaceId === suggestion.place_id}
+              >
+                {resolvingPlaceId === suggestion.place_id ? (
+                  <ActivityIndicator color={colors.navy} size="small" />
+                ) : (
+                  <>
+                    <Text style={styles.rowName}>{suggestion.main_text}</Text>
+                    <Text style={styles.rowAddress} numberOfLines={1}>
+                      {suggestion.secondary_text}
+                    </Text>
+                  </>
+                )}
+              </Pressable>
+            ))
+          )}
+        </View>
+      )}
     </View>
   );
 }
@@ -169,9 +176,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textMuted,
     marginTop: 2,
-  },
-  searchWrap: {
-    marginBottom: 4,
   },
   searchInput: {
     borderWidth: 1,
