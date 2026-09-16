@@ -153,6 +153,11 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   row: {
+    // Sized to its own content (like the category pills above), not
+    // stretched to fill the row's full width - the default for a plain
+    // View/Pressable inside a vertical flex column.
+    alignSelf: 'flex-start',
+    maxWidth: '100%',
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 10,
