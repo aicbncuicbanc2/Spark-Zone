@@ -38,7 +38,6 @@ export function StoreSuggestions({
 }) {
   const [recentVisits, setRecentVisits] = useState<VisitedStore[]>([]);
   const [suggestions, setSuggestions] = useState<StoreSuggestion[]>([]);
-  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [resolvingPlaceId, setResolvingPlaceId] = useState<string | null>(null);
   // Selecting a recent visit or a suggestion sets `value` programmatically -
   // without this, that change would immediately re-trigger the search
@@ -60,14 +59,9 @@ export function StoreSuggestions({
       return;
     }
     let cancelled = false;
-    setSuggestionsLoading(true);
     const timer = setTimeout(async () => {
-      try {
-        const results = await searchStores(value.trim(), getLastKnownLocation() ?? undefined);
-        if (!cancelled) setSuggestions(results);
-      } finally {
-        if (!cancelled) setSuggestionsLoading(false);
-      }
+      const results = await searchStores(value.trim(), getLastKnownLocation() ?? undefined);
+      if (!cancelled) setSuggestions(results);
     }, SEARCH_DEBOUNCE_MS);
     return () => {
       cancelled = true;
@@ -118,33 +112,27 @@ export function StoreSuggestions({
         placeholder="e.g. Guardian Pharmacy"
         placeholderTextColor={colors.textMuted}
       />
-      {(suggestionsLoading || suggestions.length > 0) && (
+      {suggestions.length > 0 && (
         <View style={styles.suggestionList}>
-          {suggestionsLoading && suggestions.length === 0 ? (
-            <View style={styles.suggestionRow}>
-              <ActivityIndicator color={colors.navy} size="small" />
-            </View>
-          ) : (
-            suggestions.map((suggestion) => (
-              <Pressable
-                key={suggestion.place_id}
-                style={styles.suggestionRow}
-                onPress={() => pickSuggestion(suggestion)}
-                disabled={resolvingPlaceId === suggestion.place_id}
-              >
-                {resolvingPlaceId === suggestion.place_id ? (
-                  <ActivityIndicator color={colors.navy} size="small" />
-                ) : (
-                  <>
-                    <Text style={styles.rowName}>{suggestion.main_text}</Text>
-                    <Text style={styles.rowAddress} numberOfLines={1}>
-                      {suggestion.secondary_text}
-                    </Text>
-                  </>
-                )}
-              </Pressable>
-            ))
-          )}
+          {suggestions.map((suggestion) => (
+            <Pressable
+              key={suggestion.place_id}
+              style={styles.suggestionRow}
+              onPress={() => pickSuggestion(suggestion)}
+              disabled={resolvingPlaceId === suggestion.place_id}
+            >
+              {resolvingPlaceId === suggestion.place_id ? (
+                <ActivityIndicator color={colors.navy} size="small" />
+              ) : (
+                <>
+                  <Text style={styles.rowName}>{suggestion.main_text}</Text>
+                  <Text style={styles.rowAddress} numberOfLines={1}>
+                    {suggestion.secondary_text}
+                  </Text>
+                </>
+              )}
+            </Pressable>
+          ))}
         </View>
       )}
     </View>
