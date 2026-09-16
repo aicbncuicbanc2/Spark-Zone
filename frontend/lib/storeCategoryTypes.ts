@@ -9,8 +9,8 @@ export const CATEGORY_STORE_TYPES: Record<string, string[]> = {
   skincare: ['pharmacy', 'drugstore'],
   cosmetic: ['drugstore', 'pharmacy'],
   food: ['supermarket', 'grocery_store', 'convenience_store'],
-  aerosol: ['supermarket', 'hardware_store'],
-  household: ['supermarket', 'hardware_store', 'home_goods_store'],
+  aerosol: ['supermarket', 'grocery_store', 'convenience_store'],
+  household: ['supermarket', 'grocery_store', 'convenience_store'],
 };
 
 /**

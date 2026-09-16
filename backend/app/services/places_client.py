@@ -31,8 +31,15 @@ _CATEGORY_STORE_TYPES: dict[str, list[str]] = {
     "skincare": ["pharmacy", "drugstore"],
     "cosmetic": ["drugstore", "pharmacy"],
     "food": ["supermarket", "grocery_store", "convenience_store"],
-    "aerosol": ["supermarket", "hardware_store"],
-    "household": ["supermarket", "hardware_store", "home_goods_store"],
+    # hardware_store/home_goods_store dropped from both of these - confirmed
+    # live against a real item (a detergent, category "household"): those
+    # types surfaced a furniture-and-electrical shop and a hardware supplier,
+    # neither of which sells laundry detergent, insect spray, or air
+    # freshener - the actual common contents of these two categories. Both
+    # are everyday supermarket/minimart items in practice, not hardware-store
+    # ones, even though "household" and "aerosol" sound hardware-adjacent.
+    "aerosol": ["supermarket", "grocery_store", "convenience_store"],
+    "household": ["supermarket", "grocery_store", "convenience_store"],
 }
 
 
