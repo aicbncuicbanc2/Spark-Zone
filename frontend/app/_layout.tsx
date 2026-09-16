@@ -4,6 +4,7 @@ import { Stack } from 'expo-router';
 
 import { AppAlertHost } from '../components/AppAlertHost';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
+import { useStoreVisitTracking } from '../lib/useStoreVisitTracking';
 import '../lib/webFocusReset';
 
 SplashScreen.preventAutoHideAsync();
@@ -23,6 +24,10 @@ export default function RootLayout() {
 
 function RootNavigator() {
   const { session, isLoading } = useAuth();
+  // Only once signed in - the endpoint it polls is authenticated, and
+  // there's no reason to ask for location before the user even has a
+  // pantry to add nearby-store suggestions to.
+  useStoreVisitTracking({ enabled: !!session });
 
   if (!isLoading) {
     SplashScreen.hide();

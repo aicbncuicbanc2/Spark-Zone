@@ -21,6 +21,7 @@ import type {
   PatchPreferencesInput,
   ProductIdentifyResponse,
   ScanResponse,
+  Store,
   SuggestionsResponse,
 } from './types';
 
@@ -273,4 +274,26 @@ export async function identifyProduct(imageUri: string): Promise<ProductIdentify
   }
   const formData = await buildImageFormData(imageUri);
   return apiRequest<ProductIdentifyResponse>('/v1/products/identify-photo', { method: 'POST', formData });
+}
+
+export type NearbyStoresQuery = {
+  lat: number;
+  lng: number;
+  category_id?: string;
+  radius_m?: number;
+};
+
+/**
+ * GET /v1/stores/nearby — real, nearby stores of a plausible type for the
+ * given category (never a stock check). Empty array means "not available
+ * right now" (no Places key configured, a network hiccup) — same
+ * degrade-quietly contract as getItemSuggestions, never an error the
+ * caller has to handle specially.
+ */
+export async function getNearbyStores(query: NearbyStoresQuery): Promise<Store[]> {
+  if (USE_MOCKS) {
+    await mockDelay();
+    return mockStore.getNearbyStores();
+  }
+  return apiRequest<Store[]>('/v1/stores/nearby', { query });
 }

@@ -11,6 +11,7 @@ import {
 
 import { CategoryPicker } from '../../components/CategoryPicker';
 import { LiquidButton } from '../../components/LiquidButton';
+import { StoreSuggestions } from '../../components/StoreSuggestions';
 import { alert } from '../../lib/alert';
 import { useCategories, useCreateItem } from '../../lib/queries';
 import { colors, fontSize } from '../../lib/theme';
@@ -148,6 +149,8 @@ export default function AddItemScreen() {
         selectedId={categoryId}
         onSelect={setCategoryId}
       />
+
+      <StoreSuggestions categoryId={categoryId} />
 
       <Text style={styles.label}>Expiry date * (YYYY-MM-DD)</Text>
       <TextInput

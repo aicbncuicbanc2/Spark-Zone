@@ -70,14 +70,18 @@ export interface Category {
   isCustom?: boolean;
 }
 
-/**
- * Mock-only for now — no POST /v1/categories exists on the real backend.
- * Calling createCategory() with USE_MOCKS=false throws rather than hitting
- * a 404, so the failure is clear instead of looking like a network bug.
- */
 export interface CreateCategoryInput {
   label_en: string;
   icon?: string;
+}
+
+export interface Store {
+  place_id: string;
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
+  types: string[];
 }
 
 export interface MePreferences {

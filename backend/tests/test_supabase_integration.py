@@ -111,8 +111,13 @@ def test_users_cannot_see_each_others_items(token_a: str, token_b: str) -> None:
 
 
 def test_reference_data_is_readable_when_signed_in(token_a: str) -> None:
+    """categories is filtered to user_id is null - the 7 shared built-ins -
+    since custom categories (POST /v1/categories) landed and this same
+    account has created its own on the live project, which the plain
+    unfiltered count would otherwise pick up too."""
     client = user_client(token_a)
-    assert len(client.table("categories").select("id").execute().data) == 7
+    builtins = client.table("categories").select("id").is_("user_id", "null").execute().data
+    assert len(builtins) == 7
     assert len(client.table("disposal_guidance").select("id").execute().data) == 15
 
 

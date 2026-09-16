@@ -83,7 +83,18 @@ async def enforce_vision_rate_limit(
     rate_limit.enforce(f"vision:{current_user.id}")
 
 
+async def enforce_places_rate_limit(
+    current_user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> None:
+    """Guards GET /v1/stores/nearby (a billed Places API call). The
+    frontend polls this every ~15-20s while location-watching for nearby
+    stores, so the default 20/min limit comfortably covers normal use while
+    still stopping a runaway loop."""
+    rate_limit.enforce(f"places:{current_user.id}")
+
+
 CurrentUserDep = Annotated[CurrentUser, Depends(get_current_user)]
 UserDbDep = Annotated[Client, Depends(get_user_db)]
 SettingsDep = Annotated[Settings, Depends(settings_dep)]
 VisionRateLimitDep = Annotated[None, Depends(enforce_vision_rate_limit)]
+PlacesRateLimitDep = Annotated[None, Depends(enforce_places_rate_limit)]

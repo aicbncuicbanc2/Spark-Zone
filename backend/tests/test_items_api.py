@@ -304,8 +304,12 @@ def test_dashboard_buckets_sum_to_total(
 def test_categories_are_returned_sorted(
     client: TestClient, auth_a: dict[str, str]
 ) -> None:
+    """>= 7, not == 7 - since custom categories (POST /v1/categories) landed,
+    this list is the 7 shared built-ins PLUS whatever custom ones auth_a's
+    account has created over time, so an exact count is no longer a stable
+    assertion."""
     rows = client.get("/v1/categories", headers=auth_a).json()
-    assert len(rows) == 7
+    assert len(rows) >= 7
     assert [r["sort_order"] for r in rows] == sorted(r["sort_order"] for r in rows)
     assert any(r["label_ms"] for r in rows), "Malay labels should be present"
 

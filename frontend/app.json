@@ -49,6 +49,12 @@
         {
           "calendarPermission": "Let Thyme add an item's expiry date directly to your calendar."
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Let Thyme find nearby stores for the item you're adding."
+        }
       ]
     ],
     "experiments": {

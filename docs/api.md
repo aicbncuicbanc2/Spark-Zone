@@ -376,6 +376,18 @@ Upcoming schedule, so the app can show "we'll remind you on Friday".
 - ✅ `GET /v1/stats` — the impact screen. `used_in_time` vs `thrown_away` and a
   `save_rate`, plus `by_category` counts and an `ocr` block reporting how often
   the extracted date was accepted without correction.
+- ✅ `GET /v1/stores/nearby` — real, nearby stores of a plausible type for a
+  category (`lat`, `lng`, optional `category_id`, optional `radius_m`), via
+  Google Places API (New). Never a stock check — just "here's a real place
+  of the right kind nearby," same advisory-only spirit as the AI features
+  above. A built-in category maps to a fixed Places type (medicine ->
+  pharmacy/drugstore, food -> supermarket/grocery/convenience, etc., see
+  `services/places_client.py`); a category with no mapping (a custom one)
+  falls back to a free-text Places search on its label instead, so it works
+  for any category without needing the mapping updated by hand. Empty list
+  means "not available right now" (no key configured, a network hiccup),
+  never a 500. Rate-limited per user like the Vision-backed endpoints,
+  since Places is a billed API too.
 
 ---
 

@@ -73,6 +73,11 @@ class Settings(BaseSettings):
     # overhead, versus ~7s and 700+ hidden "thinking" tokens on gemini-3.6-flash.
     gemini_model: str = "gemini-flash-lite-latest"
 
+    # --- Google Places (nearby-store suggestions) ---------------------------
+    # Same "empty key -> feature unavailable, never a crash" pattern as
+    # gemini_api_key above.
+    places_api_key: str = ""
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

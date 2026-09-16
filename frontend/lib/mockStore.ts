@@ -20,6 +20,7 @@ import type {
   PatchPreferencesInput,
   ProductIdentifyResponse,
   ScanResponse,
+  Store,
   SuggestionsResponse,
 } from './types';
 
@@ -64,6 +65,29 @@ export const mockStore = {
 
   getCategories(): Category[] {
     return categories;
+  },
+
+  getNearbyStores(): Store[] {
+    // No real GPS-backed data makes sense in mock mode - just enough to
+    // exercise the UI without a live Places key.
+    return [
+      {
+        place_id: 'mock-guardian',
+        name: 'Guardian Pharmacy',
+        address: '1 Jalan Mock, Kuala Lumpur',
+        lat: 3.139,
+        lng: 101.6869,
+        types: ['pharmacy'],
+      },
+      {
+        place_id: 'mock-watsons',
+        name: 'Watsons',
+        address: '2 Jalan Mock, Kuala Lumpur',
+        lat: 3.14,
+        lng: 101.688,
+        types: ['drugstore'],
+      },
+    ];
   },
 
   createCategory(input: CreateCategoryInput): Category {

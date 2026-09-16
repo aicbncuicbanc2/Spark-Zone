@@ -18,6 +18,7 @@ from app.api.v1.routes import (
     reminders,
     scans,
     stats,
+    stores,
 )
 
 api_router = APIRouter()
@@ -34,5 +35,6 @@ api_router.include_router(devices.router, prefix="/devices", tags=["devices"])
 api_router.include_router(reminders.router, prefix="/reminders", tags=["reminders"])
 api_router.include_router(internal.router, prefix="/internal", tags=["internal"])
 api_router.include_router(ai.router, prefix="/ai", tags=["ai"])
+api_router.include_router(stores.router, prefix="/stores", tags=["stores"])
 
 # --- Still to come -----------------------------------------------------------
