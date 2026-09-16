@@ -196,7 +196,35 @@ export default function PantryScreen() {
     setIsAddingLocation(false);
   }
 
-  const items = useMemo(() => {
+  // When a search only matches because of a field ItemRow doesn't display
+  // (purchase_location, notes, the expiry date itself, or the category
+  // label - only name/brand/storage_location are ever visible on a row),
+  // the item would otherwise show up with nothing on screen explaining
+  // why. Null means either no search is active or the match is already
+  // visible on the row, so no extra line is needed.
+  function matchLabelFor(item: (typeof fetchedItems)[number], q: string): string | null {
+    const visibleMatch = [item.name, item.brand, item.storage_location]
+      .filter(Boolean)
+      .some((field) => field!.toLowerCase().includes(q));
+    if (visibleMatch) return null;
+
+    if (item.purchase_location?.toLowerCase().includes(q)) {
+      return `Bought at ${item.purchase_location}`;
+    }
+    const catLabel = categoryLabel(item.category_id ?? '');
+    if (catLabel && catLabel.toLowerCase().includes(q)) {
+      return `Category: ${catLabel}`;
+    }
+    if (item.expiry_date.toLowerCase().includes(q) || item.effective_expiry_date.toLowerCase().includes(q)) {
+      return `Expires ${item.expiry_date}`;
+    }
+    if (item.notes?.toLowerCase().includes(q)) {
+      return `Note: ${item.notes}`;
+    }
+    return null;
+  }
+
+  const { items, matchLabels } = useMemo(() => {
     let list = fetchedItems;
     if (status === 'active') {
       list = list.filter((item) => item.urgency !== 'expired');
@@ -215,6 +243,7 @@ export default function PantryScreen() {
     if (purchaseLocation) {
       list = list.filter((item) => item.purchase_location === purchaseLocation);
     }
+    const labels = new Map<string, string>();
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       list = list.filter((item) =>
@@ -231,8 +260,12 @@ export default function PantryScreen() {
           .filter(Boolean)
           .some((field) => field!.toLowerCase().includes(q))
       );
+      for (const item of list) {
+        const label = matchLabelFor(item, q);
+        if (label) labels.set(item.id, label);
+      }
     }
-    return list;
+    return { items: list, matchLabels: labels };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchedItems, search, params.expiryDate, status, urgency, location, purchaseLocation, categories]);
 
@@ -540,7 +573,11 @@ export default function PantryScreen() {
           data={items}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <ItemRow item={item} onPress={() => router.push(`/item/${item.id}`)} />
+            <ItemRow
+              item={item}
+              matchLabel={matchLabels.get(item.id)}
+              onPress={() => router.push(`/item/${item.id}`)}
+            />
           )}
           refreshing={isRefetching}
           onRefresh={refetch}

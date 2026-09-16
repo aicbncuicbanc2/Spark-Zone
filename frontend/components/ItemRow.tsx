@@ -11,9 +11,14 @@ type Props = {
    * dashboard "Expired" list) — repeating the same badge on every row there
    * is just noise. The "Xd left/ago" text still shows either way. */
   showBadge?: boolean;
+  /** Why this item is in a search's results, when that reason isn't
+   * already visible above (name/brand/storage_location) - e.g. "Bought at
+   * Guardian Pharmacy" when the match came from purchase_location. Absent
+   * when no search is active or the match is already obvious. */
+  matchLabel?: string;
 };
 
-export function ItemRow({ item, onPress, showBadge = true }: Props) {
+export function ItemRow({ item, onPress, showBadge = true, matchLabel }: Props) {
   return (
     <Pressable style={styles.row} onPress={onPress}>
       <View style={styles.main}>
@@ -23,6 +28,11 @@ export function ItemRow({ item, onPress, showBadge = true }: Props) {
         <Text style={styles.meta} numberOfLines={1}>
           {[item.brand, item.storage_location].filter(Boolean).join(' · ')}
         </Text>
+        {matchLabel && (
+          <Text style={styles.matchLabel} numberOfLines={1}>
+            {matchLabel}
+          </Text>
+        )}
       </View>
       <View style={styles.right}>
         {showBadge && <UrgencyBadge urgency={item.urgency} />}
@@ -55,6 +65,11 @@ const styles = StyleSheet.create({
   meta: {
     fontSize: fontSize.caption,
     color: colors.textMuted,
+  },
+  matchLabel: {
+    fontSize: fontSize.caption,
+    color: colors.navy,
+    fontStyle: 'italic',
   },
   right: {
     alignItems: 'flex-end',
