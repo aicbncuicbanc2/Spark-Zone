@@ -21,6 +21,19 @@ _DETAILS_URL = "https://places.googleapis.com/v1/places/{place_id}"
 _FIELD_MASK = "places.id,places.displayName,places.formattedAddress,places.location,places.types"
 _DETAILS_FIELD_MASK = "id,displayName,formattedAddress,location,types"
 
+# A broad but real set of retail types, for when there's no category at all
+# (the passive walk-around detector's exact case - it doesn't know what the
+# user is about to buy yet, just "is there a real shop right here").
+_ANY_STORE_TYPES: list[str] = [
+    "store",
+    "supermarket",
+    "convenience_store",
+    "grocery_store",
+    "pharmacy",
+    "drugstore",
+    "shopping_mall",
+]
+
 # Built-in category id -> Places API (New) "included types" (Table A). Not
 # exhaustive or perfectly precise — a best-effort guess at what kind of shop
 # carries this kind of item, same as default_pao_months is a best-effort
@@ -111,8 +124,29 @@ async def nearby_stores(
     letting Places itself interpret what kind of shop that label means,
     rather than needing every future custom category added to
     _CATEGORY_STORE_TYPES by hand.
+
+    With no category_id at all - the passive walk-around detector's exact
+    case, called before the user has picked what they're adding - this is a
+    real, hard-restricted Nearby Search against a broad "any real shop" type
+    list, closest match only. It used to fall through to the free-text
+    "shop" search below, whose locationBias is only a *soft* nudge, not a
+    restriction: confirmed live, that returned up to 10 stores spread well
+    beyond the requested radius, each one then recorded as "visited" even
+    though the user had only actually walked near one of them.
     """
-    included_types = _CATEGORY_STORE_TYPES.get(category_id or "")
+    if not category_id:
+        body = {
+            "includedTypes": _ANY_STORE_TYPES,
+            "maxResultCount": 1,
+            "rankPreference": "DISTANCE",
+            "locationRestriction": {
+                "circle": {"center": {"latitude": lat, "longitude": lng}, "radius": radius_m}
+            },
+        }
+        data = await _post(_NEARBY_URL, body)
+        return _parse_places(data)
+
+    included_types = _CATEGORY_STORE_TYPES.get(category_id)
 
     if included_types:
         body = {

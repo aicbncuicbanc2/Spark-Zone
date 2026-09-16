@@ -390,10 +390,17 @@ Upcoming schedule, so the app can show "we'll remind you on Friday".
   pharmacy/drugstore, food -> supermarket/grocery/convenience, etc., see
   `services/places_client.py`); a category with no mapping (a custom one)
   falls back to a free-text Places search on its label instead, so it works
-  for any category without needing the mapping updated by hand. Empty list
-  means "not available right now" (no key configured, a network hiccup),
-  never a 500. Rate-limited per user like the Vision-backed endpoints,
-  since Places is a billed API too.
+  for any category without needing the mapping updated by hand. **No
+  `category_id` at all** (the passive walk-around detector's exact case,
+  called before the user has picked what they're adding) is its own third
+  path: a real, hard-restricted Nearby Search against a broad "any real
+  shop" type list, closest match only (`rankPreference: DISTANCE`,
+  `maxResultCount: 1`) — confirmed live that without this, it fell through
+  to the free-text fallback instead, whose `locationBias` is only a soft
+  nudge, and returned up to 10 stores spread well beyond the requested
+  radius. Empty list means "not available right now" (no key configured, a
+  network hiccup), never a 500. Rate-limited per user like the
+  Vision-backed endpoints, since Places is a billed API too.
 - ✅ `GET /v1/stores/search` — type-ahead address/store suggestions from a
   free-text `query` (optional `lat`/`lng` as a soft bias, not a
   restriction) via Places Autocomplete (New). The same "type and pick from
