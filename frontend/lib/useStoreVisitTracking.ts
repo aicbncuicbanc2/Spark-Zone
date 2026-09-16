@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 
 import { getNearbyStores } from './dataSource';
+import { setLastKnownLocation } from './lastKnownLocation';
 import { recordVisit } from './storeVisits';
 
 const POLL_INTERVAL_MS = 20_000;
@@ -58,6 +59,10 @@ export function useStoreVisitTracking({ enabled }: { enabled: boolean }): void {
 
         const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
         const here = { lat: position.coords.latitude, lng: position.coords.longitude };
+        // Kept fresh on every poll (not just when a store search actually
+        // fires below) - other features (the manual store search) read
+        // this as a "wherever the user actually is" bias.
+        setLastKnownLocation(here);
 
         if (lastChecked.current && distanceMeters(lastChecked.current, here) < MOVE_THRESHOLD_M) {
           return;

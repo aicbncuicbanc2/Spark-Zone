@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { getStoreDetails, searchStores } from '../lib/dataSource';
+import { getLastKnownLocation } from '../lib/lastKnownLocation';
 import { storeMatchesCategory } from '../lib/storeCategoryTypes';
 import { getRecentVisits, type VisitedStore } from '../lib/storeVisits';
 import { colors, fontSize } from '../lib/theme';
@@ -16,8 +17,12 @@ const SEARCH_DEBOUNCE_MS = 300;
  * actually detected the user visiting in the last 24h, filtered to ones
  * plausibly selling this category (a pharmacy for medicine, not the wet
  * market also walked past that day); or typing, which searches Places
- * Autocomplete live (the same UX as a food-delivery app's address search)
- * — picking a suggestion or a recent visit both just fill this field with
+ * Autocomplete live (the same UX as a food-delivery app's address search),
+ * biased toward wherever the tracker last saw the user (not a fresh
+ * location request of its own - just reusing its passively-collected
+ * position, see lib/lastKnownLocation.ts) so a common name like "Guardian"
+ * favors the nearest branches over the most nationally prominent ones.
+ * Picking a suggestion or a recent visit both just fill this field with
  * that store's name, exactly like typing it by hand. Nothing shows here
  * if the tracker never detected a real visit, e.g. an item bought days ago
  * and only being recorded now, while at home.
@@ -58,7 +63,7 @@ export function StoreSuggestions({
     setSuggestionsLoading(true);
     const timer = setTimeout(async () => {
       try {
-        const results = await searchStores(value.trim());
+        const results = await searchStores(value.trim(), getLastKnownLocation() ?? undefined);
         if (!cancelled) setSuggestions(results);
       } finally {
         if (!cancelled) setSuggestionsLoading(false);
