@@ -58,6 +58,7 @@ export default function PantryScreen() {
   const [status, setStatus] = useState<StatusFilter>(params.status ?? 'active');
   const [category, setCategory] = useState<string | undefined>(undefined);
   const [location, setLocation] = useState<string | undefined>(undefined);
+  const [purchaseLocation, setPurchaseLocation] = useState<string | undefined>(undefined);
   const [search, setSearch] = useState('');
   // Seeded from the ?urgency= param Home's bucket row / calendar passes in,
   // so tapping "Critical" there lands here pre-filtered; after that it's
@@ -172,6 +173,20 @@ export default function PantryScreen() {
     return Array.from(set).sort();
   }, [fetchedItems, customLocations]);
 
+  // purchase_location (see StoreSuggestions/"Where did you buy this from?")
+  // is populated the same way storage_location is - a free-text field on
+  // each item, no backend list to manage - so the filter's options are
+  // just whatever distinct values are actually in use. No "add new" chip
+  // here though: unlike storage_location, this isn't something a user
+  // picks a filter value for before any item has ever used it.
+  const purchaseLocations = useMemo(() => {
+    const set = new Set<string>();
+    for (const item of fetchedItems) {
+      if (item.purchase_location) set.add(item.purchase_location);
+    }
+    return Array.from(set).sort();
+  }, [fetchedItems]);
+
   function handleAddLocation() {
     const trimmed = newLocation.trim();
     if (!trimmed) return;
@@ -197,6 +212,9 @@ export default function PantryScreen() {
     if (location) {
       list = list.filter((item) => item.storage_location === location);
     }
+    if (purchaseLocation) {
+      list = list.filter((item) => item.purchase_location === purchaseLocation);
+    }
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       list = list.filter((item) =>
@@ -204,6 +222,7 @@ export default function PantryScreen() {
           item.name,
           item.brand,
           item.storage_location,
+          item.purchase_location,
           item.notes,
           item.expiry_date,
           item.effective_expiry_date,
@@ -215,12 +234,13 @@ export default function PantryScreen() {
     }
     return list;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchedItems, search, params.expiryDate, status, urgency, location, categories]);
+  }, [fetchedItems, search, params.expiryDate, status, urgency, location, purchaseLocation, categories]);
 
   const activeFilterCount =
     (status !== 'active' ? 1 : 0) +
     (category ? 1 : 0) +
     (location ? 1 : 0) +
+    (purchaseLocation ? 1 : 0) +
     (urgency ? 1 : 0) +
     (sort !== 'expiry' ? 1 : 0);
 
@@ -228,6 +248,7 @@ export default function PantryScreen() {
     setStatus('active');
     setCategory(undefined);
     setLocation(undefined);
+    setPurchaseLocation(undefined);
     setUrgency(undefined);
     setSortIndex(0);
   }
@@ -241,7 +262,7 @@ export default function PantryScreen() {
             style={styles.searchInput}
             value={search}
             onChangeText={setSearch}
-            placeholder="Search name, brand, date…"
+            placeholder="Search name, brand, store, date…"
             placeholderTextColor={colors.textMuted}
           />
           <Ionicons name="search" size={18} color={colors.textMuted} />
@@ -414,6 +435,38 @@ export default function PantryScreen() {
                 </Pressable>
               </View>
             )}
+
+            <Text style={styles.modalSectionTitle}>Bought at</Text>
+            <View style={styles.wrapRow}>
+              <Pressable
+                style={({ hovered }) => [styles.chip, (!purchaseLocation || hovered) && styles.chipActive]}
+                onPress={() => setPurchaseLocation(undefined)}
+              >
+                {({ hovered }: { hovered?: boolean }) => (
+                  <Text style={[styles.chipText, (!purchaseLocation || hovered) && styles.chipTextActive]}>
+                    Any store
+                  </Text>
+                )}
+              </Pressable>
+              {purchaseLocations.map((store) => (
+                <Pressable
+                  key={store}
+                  style={({ hovered }) => [
+                    styles.chip,
+                    (purchaseLocation === store || hovered) && styles.chipActive,
+                  ]}
+                  onPress={() => setPurchaseLocation(store)}
+                >
+                  {({ hovered }: { hovered?: boolean }) => (
+                    <Text
+                      style={[styles.chipText, (purchaseLocation === store || hovered) && styles.chipTextActive]}
+                    >
+                      {store}
+                    </Text>
+                  )}
+                </Pressable>
+              ))}
+            </View>
 
             <Text style={styles.modalSectionTitle}>Urgency</Text>
             <View style={styles.wrapRow}>
