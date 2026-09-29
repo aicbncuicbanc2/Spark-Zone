@@ -8,7 +8,9 @@
     "icon": "./assets/brand/logo.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.sparkzone.thyme",
+      "buildNumber": "1"
     },
     "android": {
       "adaptiveIcon": {
@@ -17,7 +19,12 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "permissions": ["READ_CALENDAR", "WRITE_CALENDAR"]
+      "permissions": [
+        "READ_CALENDAR",
+        "WRITE_CALENDAR"
+      ],
+      "package": "com.sparkzone.thyme",
+      "versionCode": 1
     },
     "web": {
       "name": "Thyme",
@@ -55,7 +62,8 @@
         {
           "locationWhenInUsePermission": "Let Thyme find nearby stores for the item you're adding."
         }
-      ]
+      ],
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true
